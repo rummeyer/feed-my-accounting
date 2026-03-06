@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-03-06
+
+### Changed
+
+- vodafone-downloader: "Aktuelle Rechnung" block is now always tried first regardless of month; previously it was skipped if the shown invoice was not for the current month
+- vodafone-downloader: archive fallback now skips the current month's entry to avoid re-downloading an invoice that is still being generated
+
+### Added
+
+- vodafone-downloader: `fallbackToLastMonth` config option (default: `true`) — when `false`, no email is sent if the current month's invoice is not yet available
+- vodafone-downloader: suppressed noisy `unhandled node event` log output from chromedp
+
+---
+
 ## [1.0.0] - 2026-03-06
 
 ### Added
