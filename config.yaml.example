@@ -37,3 +37,4 @@ apple-invoice-pdf:
 vodafone-downloader:
   user: "your-vodafone-email@example.com"
   pass: "your-vodafone-password"
+  fallbackToLastMonth: true      # optional, default: true (send last month's invoice if current not yet available)

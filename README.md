@@ -101,6 +101,7 @@ apple-invoice-pdf:
 vodafone-downloader:
   user: "your-vodafone-email@example.com"
   pass: "your-vodafone-password"
+  fallbackToLastMonth: true      # optional, default: true
 ```
 
 ---
@@ -220,9 +221,10 @@ Logs into the MeinVodafone portal via headless Chrome, downloads Mobilfunk and K
 
 1. Launches headless Chrome with bot-detection evasion (new headless mode, custom user agent, `navigator.webdriver` removed via CDP)
 2. Logs into `meinvodafone.de` and navigates to the invoice page for each contract type (Mobilfunk, Kabel)
-3. Downloads the current month's invoice PDF by intercepting the blob URL created by the browser
-4. Falls back to the first entry in the Rechnungsarchiv if the current month's download fails
-5. Sends all found invoices as attachments in a single email
+3. Downloads the invoice shown in the "Aktuelle Rechnung" block by intercepting the blob URL created by the browser
+4. If that download fails and `fallbackToLastMonth` is true, tries the first entry in the Rechnungsarchiv instead
+5. If the shown invoice is not for the current month and `fallbackToLastMonth` is false, skips and sends no email
+6. Sends all found invoices as attachments in a single email
 
 ### When to run
 
@@ -245,12 +247,13 @@ var contractTypes = map[string]string{
 }
 ```
 
-### vodafone config options
+### vodafone-downloader config options
 
-| Field | Description |
-|-------|-------------|
-| `user` | MeinVodafone login email |
-| `pass` | MeinVodafone password |
+| Field | Description | Default |
+|-------|-------------|---------|
+| `user` | MeinVodafone login email | required |
+| `pass` | MeinVodafone password | required |
+| `fallbackToLastMonth` | If `true`, send last month's invoice when current month is not yet available. If `false`, skip sending entirely until the current month's invoice is ready. | `true` |
 
 ---
 
