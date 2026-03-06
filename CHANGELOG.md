@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `all [M/YYYY]` command to run all modules in sequence (travel-expense, apple-invoice-pdf, vodafone-downloader)
 - Running with no command now defaults to `all` for the current month
 
+### Fixed
+
+- vodafone-downloader: pre-compile regexes at package level instead of recompiling on every call
+- vodafone-downloader: check all `chromedp.Run` errors instead of silently discarding them
+- vodafone-downloader: escape contract type name in JS to prevent format-string injection
+- apple-invoice-pdf: add 10s timeout to HTTP client for image embedding (was using default client with no timeout)
+
 ---
 
 ## [1.1.0] - 2026-03-06

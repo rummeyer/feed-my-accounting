@@ -50,12 +50,12 @@ type VodafoneDownloaderConfig struct {
 // Config is the unified YAML configuration for all modules.
 // smtp, email, and imap are shared; each module has its own section.
 type Config struct {
-	SMTP        email.SMTPConfig  `yaml:"smtp"`
-	Email       email.EmailConfig `yaml:"email"`
-	IMAP               email.IMAPConfig       `yaml:"imap"` // shared IMAP config (used by apple-invoice-pdf)
-	TravelExpense      TravelExpenseConfig      `yaml:"travel-expense"`
-	AppleInvoicePDF    AppleInvoicePDFConfig  `yaml:"apple-invoice-pdf"`
-	VodafoneDownloader VodafoneDownloaderConfig `yaml:"vodafone-downloader"`
+	SMTP               email.SMTPConfig         `yaml:"smtp"`
+	Email              email.EmailConfig         `yaml:"email"`
+	IMAP               email.IMAPConfig          `yaml:"imap"` // used by apple-invoice-pdf
+	TravelExpense      TravelExpenseConfig       `yaml:"travel-expense"`
+	AppleInvoicePDF    AppleInvoicePDFConfig     `yaml:"apple-invoice-pdf"`
+	VodafoneDownloader VodafoneDownloaderConfig  `yaml:"vodafone-downloader"`
 }
 
 // ---------------------------------------------------------------------------

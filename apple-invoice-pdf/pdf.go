@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/chromedp/cdproto/page"
@@ -80,9 +81,13 @@ func cleanHTML(htmlContent string) (string, error) {
 	return html, nil
 }
 
+// imageClient is used for downloading images with a reasonable timeout,
+// avoiding hangs on unresponsive servers.
+var imageClient = &http.Client{Timeout: 10 * time.Second}
+
 // embedImage downloads an image URL and returns it as a base64 data URI.
 func embedImage(imgURL string) (string, error) {
-	resp, err := http.Get(imgURL)
+	resp, err := imageClient.Get(imgURL)
 	if err != nil {
 		return "", err
 	}

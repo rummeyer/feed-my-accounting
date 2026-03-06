@@ -56,6 +56,17 @@ type invoice struct {
 	PDFData   []byte
 }
 
+// Pre-compiled regexes for invoice text parsing.
+var (
+	invoicePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`Rechnung (\p{L}+) (\d{4})`),
+		regexp.MustCompile(`Rechnungsdatum[:\s]+\d+\.\s*(\p{L}+)\s+(\d{4})`),
+	}
+	archiveEntryPattern = regexp.MustCompile(
+		`(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s+\d{2}\.\d{2}\.(\d{4})`,
+	)
+)
+
 // ---------------------------------------------------------------------------
 // Run
 // ---------------------------------------------------------------------------
@@ -187,11 +198,15 @@ const clickFirstArchiveEntry = `(() => {
 
 func downloadInvoice(ctx context.Context, contractType, typeName string, fallbackToLastMonth bool) *invoice {
 	if err := navigateToInvoicePage(ctx, typeName); err != nil {
+		log.Printf("%s: failed to navigate to invoice page: %v", typeName, err)
 		return nil
 	}
 
 	var pageText string
-	chromedp.Run(ctx, chromedp.Text(`body`, &pageText, chromedp.ByQuery))
+	if err := chromedp.Run(ctx, chromedp.Text(`body`, &pageText, chromedp.ByQuery)); err != nil {
+		log.Printf("%s: failed to read page text: %v", typeName, err)
+		return nil
+	}
 
 	now := time.Now()
 	currentMonth := fmt.Sprintf("%02d", now.Month())
@@ -248,15 +263,19 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 		return err
 	}
 
+	// Click the contract type heading. The name is passed as a JS string
+	// argument to avoid format-string injection via typeName.
 	contractName := typeName + "-Vertrag"
-	chromedp.Run(ctx,
-		chromedp.Evaluate(fmt.Sprintf(`
+	if err := chromedp.Run(ctx,
+		chromedp.Evaluate(`((name) => {
 			document.querySelectorAll('h2').forEach(h => {
-				if (h.innerText.includes('%s')) (h.closest('a') || h.parentElement).click();
+				if (h.innerText.includes(name)) (h.closest('a') || h.parentElement).click();
 			});
-		`, contractName), nil),
+		})("`+strings.ReplaceAll(contractName, `"`, `\"`)+`")`, nil),
 		chromedp.Sleep(3*time.Second),
-	)
+	); err != nil {
+		return err
+	}
 
 	if err := chromedp.Run(ctx,
 		chromedp.Evaluate(`
@@ -267,13 +286,16 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 		return err
 	}
 
+	// Poll for invoice page content to finish loading.
 	for i := 0; i < 15; i++ {
 		time.Sleep(time.Second)
 		var hasContent bool
-		chromedp.Run(ctx, chromedp.Evaluate(`
+		if err := chromedp.Run(ctx, chromedp.Evaluate(`
 			document.body.innerText.includes('Aktuelle Rechnung') ||
 			document.body.innerText.includes('Deine Rechnungen')
-		`, &hasContent))
+		`, &hasContent)); err != nil {
+			return err
+		}
 		if hasContent {
 			return nil
 		}
@@ -282,7 +304,8 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 }
 
 func capturePDF(ctx context.Context, clickJS string) ([]byte, error) {
-	chromedp.Run(ctx, chromedp.Evaluate(`
+	// Intercept PDF blob URLs so we can capture the raw data.
+	if err := chromedp.Run(ctx, chromedp.Evaluate(`
 		window._capturedPDFs = [];
 		if (!window._origCreateObjectURL) window._origCreateObjectURL = URL.createObjectURL;
 		URL.createObjectURL = function(blob) {
@@ -293,13 +316,19 @@ func capturePDF(ctx context.Context, clickJS string) ([]byte, error) {
 			}
 			return window._origCreateObjectURL.call(URL, blob);
 		};
-	`, nil))
+	`, nil)); err != nil {
+		return nil, fmt.Errorf("injecting PDF capture hook: %w", err)
+	}
 
-	chromedp.Run(ctx, chromedp.Evaluate(clickJS, nil))
+	if err := chromedp.Run(ctx, chromedp.Evaluate(clickJS, nil)); err != nil {
+		return nil, fmt.Errorf("clicking download button: %w", err)
+	}
 	time.Sleep(5 * time.Second)
 
 	var captured []string
-	chromedp.Run(ctx, chromedp.Evaluate(`window._capturedPDFs || []`, &captured))
+	if err := chromedp.Run(ctx, chromedp.Evaluate(`window._capturedPDFs || []`, &captured)); err != nil {
+		return nil, fmt.Errorf("reading captured PDFs: %w", err)
+	}
 
 	if len(captured) == 0 {
 		return nil, fmt.Errorf("no PDF captured")
@@ -319,9 +348,7 @@ func parseArchiveFirstEntry(text, skipMonth, skipYear string) *invoice {
 	}
 	archiveText := text[idx:]
 
-	allMonths := "Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember"
-	pattern := regexp.MustCompile(`(` + allMonths + `)\s+\d{2}\.\d{2}\.(\d{4})`)
-	for _, matches := range pattern.FindAllStringSubmatch(archiveText, -1) {
+	for _, matches := range archiveEntryPattern.FindAllStringSubmatch(archiveText, -1) {
 		if len(matches) < 3 {
 			continue
 		}
@@ -340,12 +367,8 @@ func parseArchiveFirstEntry(text, skipMonth, skipYear string) *invoice {
 }
 
 func parseInvoiceInfo(text string) *invoice {
-	patterns := []string{
-		`Rechnung (\p{L}+) (\d{4})`,
-		`Rechnungsdatum[:\s]+\d+\.\s*(\p{L}+)\s+(\d{4})`,
-	}
-	for _, pattern := range patterns {
-		if matches := regexp.MustCompile(pattern).FindStringSubmatch(text); len(matches) >= 3 {
+	for _, re := range invoicePatterns {
+		if matches := re.FindStringSubmatch(text); len(matches) >= 3 {
 			if month, ok := months[matches[1]]; ok {
 				return &invoice{Month: month, Year: matches[2], MonthName: matches[1]}
 			}
