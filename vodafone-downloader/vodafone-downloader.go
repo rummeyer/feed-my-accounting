@@ -115,13 +115,7 @@ func createBrowserContext() (context.Context, context.CancelFunc) {
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
 	ctx, ctxCancel := chromedp.NewContext(allocCtx,
 		chromedp.WithErrorf(log.Printf),
-		chromedp.WithLogf(func(format string, args ...interface{}) {
-			msg := fmt.Sprintf(format, args...)
-			if strings.HasPrefix(msg, "unhandled node event") {
-				return
-			}
-			log.Printf(format, args...)
-		}),
+		chromedp.WithLogf(log.Printf),
 	)
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 

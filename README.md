@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 An accounting orchestrator that automates the generation and delivery of monthly documents to sevDesk. Combines three tools into one:
@@ -25,7 +25,14 @@ go build -o feed-my-accounting .
 ## Usage
 
 ```bash
-feed-my-accounting [--config path] <command> [args...]
+feed-my-accounting [--config path] [command] [args...]
+
+# Run all modules for the current month (default when no command is given)
+feed-my-accounting
+feed-my-accounting all
+
+# Run all modules for a specific month
+feed-my-accounting all 3/2026
 
 # Travel expense report for current month
 feed-my-accounting travel-expense
@@ -41,7 +48,7 @@ feed-my-accounting apple-invoice-pdf
 feed-my-accounting vodafone-downloader
 
 # Custom config file
-feed-my-accounting --config /path/to/config.yaml travel-expense 3/2026
+feed-my-accounting --config /path/to/config.yaml all 3/2026
 
 # Show version
 feed-my-accounting --version

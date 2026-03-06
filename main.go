@@ -4,10 +4,11 @@
 //
 // Usage:
 //
-//	feed-my-accounting [--config path] <command> [args...]
+//	feed-my-accounting [--config path] [command] [args...]
 //
 // Commands:
 //
+//	all [M/YYYY]              Run all modules (default when no command given)
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
 //	apple-invoice-pdf         Fetch Apple invoice emails and send as PDFs
 //	vodafone-downloader       Download Vodafone invoices and send via email
@@ -26,7 +27,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-downloader"
 )
 
-const version = "1.0.0"
+const version = "1.2.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -50,66 +51,52 @@ func main() {
 		}
 	}
 
-	if len(args) == 0 {
-		printUsage()
-		os.Exit(1)
-	}
-
 	cfg, err := loadConfig("config.yaml", configPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		os.Exit(1)
 	}
 
-	subcommand := args[0]
-	remaining := args[1:]
+	var subcommand string
+	var remaining []string
+	if len(args) == 0 {
+		subcommand = "all"
+	} else {
+		subcommand = args[0]
+		remaining = args[1:]
+	}
 
 	switch subcommand {
+	case "all":
+		year, month := parseMonthArg(remaining)
+		if err := runTravelExpense(cfg, year, month); err != nil {
+			fmt.Fprintf(os.Stderr, "travel-expense error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := runAppleInvoicePDF(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "apple error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := runVodafoneDownloader(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "vodafone error: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "travel-expense":
 		year, month := parseMonthArg(remaining)
-		customers := make([]travelexpense.Customer, len(cfg.TravelExpense.Customers))
-		for i, c := range cfg.TravelExpense.Customers {
-			customers[i] = travelexpense.Customer{
-				ID: c.ID, Name: c.Name, From: c.From, To: c.To,
-				Reason: c.Reason, Distance: c.Distance, Province: c.Province,
-			}
-		}
-		if err := travelexpense.Run(travelexpense.Config{
-			SMTP:             cfg.SMTP,
-			Email:            cfg.Email,
-			Mitarbeiter:      cfg.TravelExpense.Mitarbeiter,
-			Customers:        customers,
-			ChristmasWeekOff: cfg.TravelExpense.ChristmasWeekOff,
-		}, year, month); err != nil {
+		if err := runTravelExpense(cfg, year, month); err != nil {
 			fmt.Fprintf(os.Stderr, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "apple-invoice-pdf":
-		if err := apple.Run(apple.Config{
-			SMTP:  cfg.SMTP,
-			Email: cfg.Email,
-			IMAP:  cfg.IMAP,
-			User:  cfg.AppleInvoicePDF.User,
-			Pass:  cfg.AppleInvoicePDF.Pass,
-			Filter: apple.FilterConfig{
-				Count:   cfg.AppleInvoicePDF.Filter.Count,
-				Subject: cfg.AppleInvoicePDF.Filter.Subject,
-				From:    cfg.AppleInvoicePDF.Filter.From,
-			},
-		}); err != nil {
+		if err := runAppleInvoicePDF(cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "apple error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "vodafone-downloader":
-		if err := vodafone.Run(vodafone.Config{
-			SMTP:                cfg.SMTP,
-			Email:               cfg.Email,
-			User:                cfg.VodafoneDownloader.User,
-			Pass:                cfg.VodafoneDownloader.Pass,
-			FallbackToLastMonth: *cfg.VodafoneDownloader.FallbackToLastMonth,
-		}); err != nil {
+		if err := runVodafoneDownloader(cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "vodafone error: %v\n", err)
 			os.Exit(1)
 		}
@@ -119,6 +106,48 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+func runTravelExpense(cfg *Config, year int, month time.Month) error {
+	customers := make([]travelexpense.Customer, len(cfg.TravelExpense.Customers))
+	for i, c := range cfg.TravelExpense.Customers {
+		customers[i] = travelexpense.Customer{
+			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
+			Reason: c.Reason, Distance: c.Distance, Province: c.Province,
+		}
+	}
+	return travelexpense.Run(travelexpense.Config{
+		SMTP:             cfg.SMTP,
+		Email:            cfg.Email,
+		Mitarbeiter:      cfg.TravelExpense.Mitarbeiter,
+		Customers:        customers,
+		ChristmasWeekOff: cfg.TravelExpense.ChristmasWeekOff,
+	}, year, month)
+}
+
+func runAppleInvoicePDF(cfg *Config) error {
+	return apple.Run(apple.Config{
+		SMTP:  cfg.SMTP,
+		Email: cfg.Email,
+		IMAP:  cfg.IMAP,
+		User:  cfg.AppleInvoicePDF.User,
+		Pass:  cfg.AppleInvoicePDF.Pass,
+		Filter: apple.FilterConfig{
+			Count:   cfg.AppleInvoicePDF.Filter.Count,
+			Subject: cfg.AppleInvoicePDF.Filter.Subject,
+			From:    cfg.AppleInvoicePDF.Filter.From,
+		},
+	})
+}
+
+func runVodafoneDownloader(cfg *Config) error {
+	return vodafone.Run(vodafone.Config{
+		SMTP:                cfg.SMTP,
+		Email:               cfg.Email,
+		User:                cfg.VodafoneDownloader.User,
+		Pass:                cfg.VodafoneDownloader.Pass,
+		FallbackToLastMonth: *cfg.VodafoneDownloader.FallbackToLastMonth,
+	})
 }
 
 func parseMonthArg(args []string) (int, time.Month) {
@@ -138,9 +167,10 @@ func printUsage() {
 	fmt.Print(`feed-my-accounting - accounting orchestrator
 
 Usage:
-  feed-my-accounting [--config path] <command> [args...]
+  feed-my-accounting [--config path] [command] [args...]
 
 Commands:
+  all [M/YYYY]              Run all modules (default when no command given)
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
   apple-invoice-pdf         Fetch Apple invoice emails and send as PDFs
   vodafone-downloader       Download Vodafone invoices and send via email
