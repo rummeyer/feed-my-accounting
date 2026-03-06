@@ -1,0 +1,235 @@
+// Package email provides shared SMTP sending and IMAP fetching utilities.
+package email
+
+import (
+	"crypto/tls"
+	"fmt"
+	"io"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/client"
+	"github.com/emersion/go-message/mail"
+	"github.com/go-gomail/gomail"
+)
+
+// ---------------------------------------------------------------------------
+// Config types (yaml-tagged so they can be embedded directly in YAML configs)
+// ---------------------------------------------------------------------------
+
+type SMTPConfig struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+	User string `yaml:"user"`
+	Pass string `yaml:"pass"`
+}
+
+type EmailConfig struct {
+	From string `yaml:"from"`
+	To   string `yaml:"to"`
+	CC   string `yaml:"cc"`
+}
+
+type IMAPConfig struct {
+	Host string `yaml:"host"`
+	Port int    `yaml:"port"`
+}
+
+// ---------------------------------------------------------------------------
+// SMTP sending
+// ---------------------------------------------------------------------------
+
+// Attachment is an in-memory file to be attached to an email.
+type Attachment struct {
+	Filename string
+	Data     []byte
+}
+
+// Send sends an email with the given attachments via SMTP.
+func Send(smtp SMTPConfig, email EmailConfig, subject string, attachments ...Attachment) error {
+	msg := gomail.NewMessage()
+	msg.SetHeader("From", email.From)
+	msg.SetHeader("To", email.To)
+	if email.CC != "" {
+		msg.SetHeader("Cc", email.CC)
+	}
+	msg.SetHeader("Subject", subject)
+	msg.SetBody("text/html", "Dokumente anbei.<br>")
+
+	for _, a := range attachments {
+		data := a.Data
+		msg.Attach(a.Filename, gomail.SetCopyFunc(func(w io.Writer) error {
+			_, err := w.Write(data)
+			return err
+		}))
+	}
+
+	dialer := gomail.NewDialer(smtp.Host, smtp.Port, smtp.User, smtp.Pass)
+	return dialer.DialAndSend(msg)
+}
+
+// ---------------------------------------------------------------------------
+// IMAP fetching
+// ---------------------------------------------------------------------------
+
+// IMAPFilter defines which emails to fetch from the inbox.
+type IMAPFilter struct {
+	Count      int    // how many recent messages to scan (0 = all)
+	Subject    string // exact subject match
+	FromDomain string // sender hostname must contain this string
+}
+
+// Message holds an email's subject, date, and HTML body.
+type Message struct {
+	Subject  string
+	Date     time.Time
+	HTMLBody string
+}
+
+// FetchHTMLEmails connects to the IMAP server, scans the inbox for emails matching
+// filter that were received in the current month, and returns their HTML bodies.
+// Uses a two-pass approach: lightweight envelope fetch first, full body fetch only for matches.
+func FetchHTMLEmails(cfg IMAPConfig, user, pass string, filter IMAPFilter) ([]Message, error) {
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	c, err := client.DialTLS(addr, &tls.Config{ServerName: cfg.Host})
+	if err != nil {
+		return nil, fmt.Errorf("connecting to IMAP server: %w", err)
+	}
+	defer c.Logout()
+
+	if err := c.Login(user, pass); err != nil {
+		return nil, fmt.Errorf("IMAP login: %w", err)
+	}
+	log.Println("Logged in to IMAP server")
+
+	mbox, err := c.Select("INBOX", true)
+	if err != nil {
+		return nil, fmt.Errorf("selecting INBOX: %w", err)
+	}
+	log.Printf("INBOX has %d messages", mbox.Messages)
+	if mbox.Messages == 0 {
+		return nil, nil
+	}
+
+	from := uint32(1)
+	if filter.Count > 0 {
+		count := uint32(filter.Count)
+		if mbox.Messages > count {
+			from = mbox.Messages - count + 1
+		}
+	}
+	seqSet := new(imap.SeqSet)
+	seqSet.AddRange(from, mbox.Messages)
+
+	matchUIDs := fetchMatchingUIDs(c, seqSet, filter)
+	if len(matchUIDs) == 0 {
+		return nil, nil
+	}
+	log.Printf("Found %d matching email(s), fetching bodies...", len(matchUIDs))
+	return fetchBodies(c, matchUIDs)
+}
+
+func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter) []uint32 {
+	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}
+	messages := make(chan *imap.Message, 10)
+	done := make(chan error, 1)
+	go func() { done <- c.Fetch(seqSet, items, messages) }()
+
+	now := time.Now()
+	var uids []uint32
+	for msg := range messages {
+		if msg.Envelope == nil {
+			continue
+		}
+		env := msg.Envelope
+		// Only current month
+		if env.Date.Year() != now.Year() || env.Date.Month() != now.Month() {
+			continue
+		}
+		if filter.Subject != "" && env.Subject != filter.Subject {
+			continue
+		}
+		if filter.FromDomain != "" {
+			matched := false
+			for _, addr := range env.From {
+				if strings.Contains(strings.ToLower(addr.HostName), strings.ToLower(filter.FromDomain)) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+		log.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
+		uids = append(uids, msg.Uid)
+	}
+	if err := <-done; err != nil {
+		log.Printf("WARNING: fetching envelopes: %v", err)
+	}
+	return uids
+}
+
+func fetchBodies(c *client.Client, uids []uint32) ([]Message, error) {
+	uidSet := new(imap.SeqSet)
+	for _, uid := range uids {
+		uidSet.AddNum(uid)
+	}
+
+	section := &imap.BodySectionName{Peek: true}
+	items := []imap.FetchItem{section.FetchItem(), imap.FetchEnvelope}
+	messages := make(chan *imap.Message, len(uids))
+	done := make(chan error, 1)
+	go func() { done <- c.UidFetch(uidSet, items, messages) }()
+
+	var results []Message
+	for msg := range messages {
+		r := msg.GetBody(section)
+		if r == nil {
+			log.Printf("WARNING: no body for UID %d", msg.Uid)
+			continue
+		}
+		htmlBody, err := extractHTMLBody(r)
+		if err != nil {
+			log.Printf("WARNING: extracting HTML from UID %d: %v", msg.Uid, err)
+			continue
+		}
+		results = append(results, Message{
+			Subject:  msg.Envelope.Subject,
+			Date:     msg.Envelope.Date,
+			HTMLBody: htmlBody,
+		})
+	}
+	if err := <-done; err != nil {
+		return nil, fmt.Errorf("fetching bodies: %w", err)
+	}
+	return results, nil
+}
+
+func extractHTMLBody(r io.Reader) (string, error) {
+	mr, err := mail.CreateReader(r)
+	if err != nil {
+		return "", fmt.Errorf("creating mail reader: %w", err)
+	}
+	for {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("reading mail part: %w", err)
+		}
+		if h, ok := p.Header.(*mail.InlineHeader); ok {
+			if ct, _, _ := h.ContentType(); ct == "text/html" {
+				body, err := io.ReadAll(p.Body)
+				if err != nil {
+					return "", fmt.Errorf("reading HTML body: %w", err)
+				}
+				return string(body), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no text/html part found")
+}

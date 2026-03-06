@@ -1,0 +1,39 @@
+smtp:
+  host: "smtp.example.com"
+  port: 587
+  user: "user@example.com"
+  pass: "smtp-password"
+
+imap:
+  host: "imap.example.com"
+  port: 993
+
+email:
+  from: "user@example.com"       # optional, falls back to smtp.user
+  to: "recipient@example.com"
+  cc: "autobox@sevdesk.email"    # optional
+
+
+travel-expense:
+  mitarbeiter: Max Mustermann
+  christmasWeekOff: true         # optional, default: true (exclude Dec 24, 27-31)
+  customers:
+    - id: "1"
+      name: Acme GmbH
+      from: "Stuttgart, Heimatbüro"
+      to: "München, Acme GmbH"
+      reason: Projektarbeit
+      distance: 42               # one-way distance in km
+      province: BW               # German state abbreviation for holiday calendar
+
+apple-invoice-pdf:
+  user: "user@example.com"       # optional, falls back to smtp.user
+  pass: "app-specific-password"  # optional, falls back to smtp.pass
+  filter:
+    count: 10                    # how many recent emails to scan
+    subject: "Deine Rechnung von Apple"
+    from: "apple.com"
+
+vodafone-downloader:
+  user: "your-vodafone-email@example.com"
+  pass: "your-vodafone-password"
