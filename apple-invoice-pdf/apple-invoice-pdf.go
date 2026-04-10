@@ -25,26 +25,8 @@ type FilterConfig struct {
 }
 
 type Config struct {
-	SMTP   email.SMTPConfig
-	Email  email.EmailConfig
-	IMAP   email.IMAPConfig
-	User   string // IMAP user; falls back to SMTP.User if empty
-	Pass   string // IMAP pass; falls back to SMTP.Pass if empty
+	Mail   email.MailConfig
 	Filter FilterConfig
-}
-
-func (c *Config) imapUser() string {
-	if c.User != "" {
-		return c.User
-	}
-	return c.SMTP.User
-}
-
-func (c *Config) imapPass() string {
-	if c.Pass != "" {
-		return c.Pass
-	}
-	return c.SMTP.Pass
 }
 
 // ---------------------------------------------------------------------------
@@ -59,7 +41,7 @@ func Run(cfg Config) error {
 		FromDomain: cfg.Filter.From,
 	}
 
-	messages, err := email.FetchHTMLEmails(cfg.IMAP, cfg.imapUser(), cfg.imapPass(), filter)
+	messages, err := email.FetchHTMLEmails(cfg.Mail, filter)
 	if err != nil {
 		return fmt.Errorf("fetching invoices: %w", err)
 	}
@@ -105,7 +87,7 @@ func Run(cfg Config) error {
 	}
 
 	log.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
-	return email.Send(cfg.SMTP, cfg.Email, "Deine PDF-Rechnungen von Apple", attachments...)
+	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Apple", attachments...)
 }
 
 // ---------------------------------------------------------------------------

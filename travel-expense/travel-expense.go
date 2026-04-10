@@ -30,8 +30,7 @@ type Customer struct {
 }
 
 type Config struct {
-	SMTP             email.SMTPConfig
-	Email            email.EmailConfig
+	Mail             email.MailConfig
 	Mitarbeiter      string
 	Customers        []Customer
 	ChristmasWeekOff *bool
@@ -56,8 +55,8 @@ var provinceHolidays = map[string][]*cal.Holiday{
 
 func newBusinessCalendar(province string) *cal.BusinessCalendar {
 	c := cal.NewBusinessCalendar()
-	c.Name = "Rummeyer Consulting GmbH"
-	c.Description = "Default company calendar"
+	c.Name = "Company"
+	c.Description = "Business calendar"
 	holidays, ok := provinceHolidays[province]
 	if !ok {
 		holidays = de.HolidaysBW
@@ -166,7 +165,7 @@ func Run(cfg Config, year int, month time.Month) error {
 
 	log.Printf("Sending email with 2 travel expense PDF attachment(s)...")
 	subject := fmt.Sprintf("Deine Reisekostenabrechnung %02d/%d", month, year)
-	return email.Send(cfg.SMTP, cfg.Email, subject,
+	return email.Send(cfg.Mail, subject,
 		email.Attachment{Filename: kmFilename, Data: kmData},
 		email.Attachment{Filename: verpFilename, Data: verpData},
 	)

@@ -1,20 +1,21 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-An accounting orchestrator that automates the generation and delivery of monthly documents to sevDesk. Combines three tools into one:
+An accounting orchestrator that automates the generation and delivery of monthly documents to sevDesk. Combines four tools into one:
 
 - **travel-expense** — generates monthly travel expense PDFs (Kilometergelderstattung + Verpflegungsmehraufwand) and sends them via email
 - **apple-invoice-pdf** — fetches Apple invoice emails from IMAP, converts HTML to PDF via headless Chrome, and forwards as attachments
 - **vodafone-downloader** — logs into MeinVodafone via headless Chrome, downloads Mobilfunk and Kabel invoices, and sends them via email
+- **harvest-invoice** — fetches Harvest time report emails, downloads the PDF, and creates a draft invoice in sevDesk via browser automation
 
-All three modules share a single `config.yaml` with common SMTP, email, and IMAP settings.
+All modules share a single `config.yaml` with a common `mail` block for SMTP/IMAP credentials and addresses.
 
 ## Requirements
 
 - Go 1.25+
-- Google Chrome or Chromium (required by `apple-invoice-pdf` and `vodafone-downloader`)
+- Google Chrome or Chromium (required by `apple-invoice-pdf`, `vodafone-downloader`, and `harvest-invoice`)
 
 ## Installation
 
@@ -47,6 +48,9 @@ feed-my-accounting apple-invoice-pdf
 # Vodafone invoices → email
 feed-my-accounting vodafone-downloader
 
+# Harvest report → sevDesk draft invoice
+feed-my-accounting harvest-invoice
+
 # Custom config file
 feed-my-accounting --config /path/to/config.yaml all 3/2026
 
@@ -70,18 +74,14 @@ The config file is searched in the following order:
 ### Full config reference
 
 ```yaml
-smtp:
-  host: "smtp.example.com"
-  port: 587
+mail:
+  smtpHost: "smtp.example.com"
+  smtpPort: 587
+  imapHost: "imap.example.com"
+  imapPort: 993
   user: "user@example.com"
-  pass: "smtp-password"
-
-imap:
-  host: "imap.example.com"
-  port: 993
-
-email:
-  from: "user@example.com"       # optional, falls back to smtp.user
+  pass: "your-password"
+  from: "user@example.com"       # optional, falls back to user
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
@@ -98,8 +98,6 @@ travel-expense:
       province: BW
 
 apple-invoice-pdf:
-  user: "user@example.com"       # optional, falls back to smtp.user
-  pass: "app-specific-password"  # optional, falls back to smtp.pass
   filter:
     count: 10
     subject: "Deine Rechnung von Apple"
@@ -109,6 +107,21 @@ vodafone-downloader:
   user: "your-vodafone-email@example.com"
   pass: "your-vodafone-password"
   fallbackToLastMonth: true      # optional, default: true
+
+harvest-invoice:
+  filter:
+    count: 20
+    subject: "We've exported your detailed time report"
+    from: "harvestapp.com"
+  harvest:
+    user: "harvest-login@example.com"
+    pass: "your-harvest-password"
+  sevdesk:
+    user: "sevdesk-login@example.com"
+    pass: "your-sevdesk-password"
+    productName: "Acme Produkt"    # search term for product field
+    productNum: "0102"             # article number to select from dropdown
+    referenceNum: "REF-123"        # Kundenreferenz für E-Rechnung
 ```
 
 ---
@@ -210,8 +223,6 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `user` | IMAP username | falls back to `smtp.user` |
-| `pass` | IMAP password | falls back to `smtp.pass` |
 | `filter.count` | Number of recent emails to scan (0 = all) | `0` |
 | `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 | `filter.from` | Sender domain to match | `apple.com` |
@@ -264,10 +275,56 @@ var contractTypes = map[string]string{
 
 ---
 
+## Module: harvest-invoice
+
+Fetches Harvest monthly time report emails from IMAP, downloads the PDF export via headless Chrome, extracts the total hours, and creates a draft invoice (Entwurf) in sevDesk via browser automation.
+
+### How it works
+
+1. Connects to the IMAP server and scans recent emails matching the Harvest export subject/sender
+2. Parses the export email HTML to extract the download URL, date range, and client name
+3. Logs into Harvest via headless Chrome and downloads the PDF report
+4. Extracts the total hours from the PDF
+5. Logs into sevDesk and creates a new E-Rechnung draft with:
+   - **Rechnungsdatum** set to the end of the report period
+   - **Leistungszeitraum** set to the full report period (e.g. 01.04.2026 - 30.04.2026)
+   - **Referenznummer** and **Kundenreferenz** from config
+   - **Product** selected via typeahead search (search term + article number)
+   - **Menge** set to the total hours from the PDF
+6. Saves the invoice as draft — it is never sent to the customer
+
+IMAP credentials are always taken from the top-level `smtp.user` / `smtp.pass`.
+
+### harvest-invoice config options
+
+| Field | Description |
+|-------|-------------|
+| `filter.count` | Number of recent emails to scan |
+| `filter.subject` | Subject line to match |
+| `filter.from` | Sender domain to match |
+| `harvest.user` | Harvest login email |
+| `harvest.pass` | Harvest login password |
+| `sevdesk.user` | sevDesk login email |
+| `sevdesk.pass` | sevDesk login password |
+| `sevdesk.productName` | Search term typed into the product field (e.g. "Acme Produkt") |
+| `sevdesk.productNum` | Article number to select from the typeahead dropdown (e.g. "0102") |
+| `sevdesk.referenceNum` | Kundenreferenz for E-Rechnung |
+
+### Notes
+
+- The PDF report is downloaded but **not** attached to the sevDesk invoice — attach it manually if needed
+- Chrome runs in headless mode with German locale (`de-DE`)
+- Both Harvest login and sevDesk automation share the same browser session
+- Date fields are set via the native date picker components (uib-datepicker and daterangepicker) to ensure Angular model consistency
+
+---
+
 ## Project structure
 
 ```
 feed-my-accounting/
+├── browser/
+│   └── browser.go                # shared headless Chrome context
 ├── email/
 │   └── email.go                  # shared SMTP sending + IMAP fetching
 ├── travel-expense/
@@ -279,6 +336,10 @@ feed-my-accounting/
 │   └── pdf.go                     # HTML→PDF conversion, HTML cleanup
 ├── vodafone-downloader/
 │   └── vodafone-downloader.go     # Config, browser automation, Run()
+├── harvest-invoice/
+│   ├── harvest.go                 # Config, Run(), PDF download via Chrome
+│   ├── parser.go                  # email HTML parsing, PDF hours extraction
+│   └── sevdesk.go                 # sevDesk browser automation (login, form, save)
 ├── main.go                        # CLI entry point and config mapping
 ├── config.go                      # unified YAML config structs
 ├── config.yaml.example

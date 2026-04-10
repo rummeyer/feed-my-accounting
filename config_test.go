@@ -10,17 +10,13 @@ func TestLoadConfig_ValidFull(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	os.WriteFile(path, []byte(`
-smtp:
-  host: smtp.example.com
-  port: 587
+mail:
+  smtpHost: smtp.example.com
+  smtpPort: 587
+  imapHost: imap.example.com
+  imapPort: 993
   user: user@example.com
   pass: secret
-
-imap:
-  host: imap.example.com
-  port: 993
-
-email:
   from: user@example.com
   to: boss@example.com
   cc: cc@example.com
@@ -51,20 +47,23 @@ vodafone-downloader:
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
-	if cfg.SMTP.Host != "smtp.example.com" {
-		t.Errorf("SMTP.Host = %q, want smtp.example.com", cfg.SMTP.Host)
+	if cfg.Mail.SMTPHost != "smtp.example.com" {
+		t.Errorf("Mail.SMTPHost = %q, want smtp.example.com", cfg.Mail.SMTPHost)
 	}
-	if cfg.SMTP.Port != 587 {
-		t.Errorf("SMTP.Port = %d, want 587", cfg.SMTP.Port)
+	if cfg.Mail.SMTPPort != 587 {
+		t.Errorf("Mail.SMTPPort = %d, want 587", cfg.Mail.SMTPPort)
 	}
-	if cfg.IMAP.Host != "imap.example.com" {
-		t.Errorf("IMAP.Host = %q, want imap.example.com", cfg.IMAP.Host)
+	if cfg.Mail.IMAPHost != "imap.example.com" {
+		t.Errorf("Mail.IMAPHost = %q, want imap.example.com", cfg.Mail.IMAPHost)
 	}
-	if cfg.Email.From != "user@example.com" {
-		t.Errorf("Email.From = %q, want user@example.com", cfg.Email.From)
+	if cfg.Mail.IMAPPort != 993 {
+		t.Errorf("Mail.IMAPPort = %d, want 993", cfg.Mail.IMAPPort)
 	}
-	if cfg.Email.CC != "cc@example.com" {
-		t.Errorf("Email.CC = %q, want cc@example.com", cfg.Email.CC)
+	if cfg.Mail.From != "user@example.com" {
+		t.Errorf("Mail.From = %q, want user@example.com", cfg.Mail.From)
+	}
+	if cfg.Mail.CC != "cc@example.com" {
+		t.Errorf("Mail.CC = %q, want cc@example.com", cfg.Mail.CC)
 	}
 	if cfg.TravelExpense.Mitarbeiter != "Max Mustermann" {
 		t.Errorf("TravelExpense.Mitarbeiter = %q, want Max Mustermann", cfg.TravelExpense.Mitarbeiter)
@@ -104,25 +103,24 @@ func TestLoadConfig_DefaultEmailFrom(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	os.WriteFile(path, []byte(`
-smtp:
+mail:
   user: smtp@example.com
-email:
   to: recipient@example.com
 `), 0644)
 	cfg, err := loadConfig("config.yaml", path)
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
-	if cfg.Email.From != "smtp@example.com" {
-		t.Errorf("Email.From default = %q, want smtp@example.com", cfg.Email.From)
+	if cfg.Mail.From != "smtp@example.com" {
+		t.Errorf("Mail.From default = %q, want smtp@example.com", cfg.Mail.From)
 	}
 }
 
 func TestLoadConfig_DefaultAppleFilter(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
-	os.WriteFile(path, []byte(`smtp:
-  host: smtp.example.com
+	os.WriteFile(path, []byte(`mail:
+  smtpHost: smtp.example.com
 `), 0644)
 	cfg, err := loadConfig("config.yaml", path)
 	if err != nil {
@@ -140,16 +138,16 @@ func TestLoadConfig_ExplicitPathTakesPrecedence(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "myconfig.yaml")
 	os.WriteFile(path, []byte(`
-smtp:
-  host: explicit.example.com
-  port: 465
+mail:
+  smtpHost: explicit.example.com
+  smtpPort: 465
 `), 0644)
 	cfg, err := loadConfig("config.yaml", path)
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
-	if cfg.SMTP.Host != "explicit.example.com" {
-		t.Errorf("SMTP.Host = %q, want explicit.example.com", cfg.SMTP.Host)
+	if cfg.Mail.SMTPHost != "explicit.example.com" {
+		t.Errorf("Mail.SMTPHost = %q, want explicit.example.com", cfg.Mail.SMTPHost)
 	}
 }
 

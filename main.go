@@ -23,11 +23,12 @@ import (
 	"time"
 
 	apple "feed-my-accounting/apple-invoice-pdf"
+	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
 	vodafone "feed-my-accounting/vodafone-downloader"
 )
 
-const version = "1.2.0"
+const version = "1.3.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -81,6 +82,10 @@ func main() {
 			fmt.Fprintf(os.Stderr, "vodafone error: %v\n", err)
 			os.Exit(1)
 		}
+		if err := runHarvestInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "harvest-invoice error: %v\n", err)
+			os.Exit(1)
+		}
 
 	case "travel-expense":
 		year, month := parseMonthArg(remaining)
@@ -101,6 +106,12 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "harvest-invoice":
+		if err := runHarvestInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "harvest-invoice error: %v\n", err)
+			os.Exit(1)
+		}
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %q\n\n", subcommand)
 		printUsage()
@@ -117,8 +128,7 @@ func runTravelExpense(cfg *Config, year int, month time.Month) error {
 		}
 	}
 	return travelexpense.Run(travelexpense.Config{
-		SMTP:             cfg.SMTP,
-		Email:            cfg.Email,
+		Mail:             cfg.Mail,
 		Mitarbeiter:      cfg.TravelExpense.Mitarbeiter,
 		Customers:        customers,
 		ChristmasWeekOff: cfg.TravelExpense.ChristmasWeekOff,
@@ -127,11 +137,7 @@ func runTravelExpense(cfg *Config, year int, month time.Month) error {
 
 func runAppleInvoicePDF(cfg *Config) error {
 	return apple.Run(apple.Config{
-		SMTP:  cfg.SMTP,
-		Email: cfg.Email,
-		IMAP:  cfg.IMAP,
-		User:  cfg.AppleInvoicePDF.User,
-		Pass:  cfg.AppleInvoicePDF.Pass,
+		Mail: cfg.Mail,
 		Filter: apple.FilterConfig{
 			Count:   cfg.AppleInvoicePDF.Filter.Count,
 			Subject: cfg.AppleInvoicePDF.Filter.Subject,
@@ -142,11 +148,32 @@ func runAppleInvoicePDF(cfg *Config) error {
 
 func runVodafoneDownloader(cfg *Config) error {
 	return vodafone.Run(vodafone.Config{
-		SMTP:                cfg.SMTP,
-		Email:               cfg.Email,
+		Mail:                cfg.Mail,
 		User:                cfg.VodafoneDownloader.User,
 		Pass:                cfg.VodafoneDownloader.Pass,
 		FallbackToLastMonth: *cfg.VodafoneDownloader.FallbackToLastMonth,
+	})
+}
+
+func runHarvestInvoice(cfg *Config) error {
+	return harvest.Run(harvest.Config{
+		Mail: cfg.Mail,
+		Harvest: harvest.HarvestLogin{
+			User: cfg.HarvestInvoice.Harvest.User,
+			Pass: cfg.HarvestInvoice.Harvest.Pass,
+		},
+		SevDesk: harvest.SevDeskConfig{
+			User:         cfg.HarvestInvoice.SevDesk.User,
+			Pass:         cfg.HarvestInvoice.SevDesk.Pass,
+			ProductName:  cfg.HarvestInvoice.SevDesk.ProductName,
+			ProductNum:   cfg.HarvestInvoice.SevDesk.ProductNum,
+			ReferenceNum: cfg.HarvestInvoice.SevDesk.ReferenceNum,
+		},
+		Filter: harvest.FilterConfig{
+			Count:   cfg.HarvestInvoice.Filter.Count,
+			Subject: cfg.HarvestInvoice.Filter.Subject,
+			From:    cfg.HarvestInvoice.Filter.From,
+		},
 	})
 }
 
@@ -174,6 +201,7 @@ Commands:
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
   apple-invoice-pdf         Fetch Apple invoice emails and send as PDFs
   vodafone-downloader       Download Vodafone invoices and send via email
+  harvest-invoice           Create sevDesk invoice from Harvest monthly report
 
 Flags:
   --config path             Path to config.yaml (default: auto-detect)

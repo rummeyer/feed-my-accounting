@@ -16,25 +16,21 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Config types (yaml-tagged so they can be embedded directly in YAML configs)
+// Config
 // ---------------------------------------------------------------------------
 
-type SMTPConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
-	User string `yaml:"user"`
-	Pass string `yaml:"pass"`
-}
-
-type EmailConfig struct {
-	From string `yaml:"from"`
-	To   string `yaml:"to"`
-	CC   string `yaml:"cc"`
-}
-
-type IMAPConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
+// MailConfig holds all mail-related settings: SMTP/IMAP servers, credentials,
+// and envelope addresses. Mapped to the top-level "mail" YAML block.
+type MailConfig struct {
+	SMTPHost string `yaml:"smtpHost"`
+	SMTPPort int    `yaml:"smtpPort"`
+	IMAPHost string `yaml:"imapHost"`
+	IMAPPort int    `yaml:"imapPort"`
+	User     string `yaml:"user"`
+	Pass     string `yaml:"pass"`
+	From     string `yaml:"from"`
+	To       string `yaml:"to"`
+	CC       string `yaml:"cc"`
 }
 
 // ---------------------------------------------------------------------------
@@ -48,12 +44,12 @@ type Attachment struct {
 }
 
 // Send sends an email with the given attachments via SMTP.
-func Send(smtp SMTPConfig, email EmailConfig, subject string, attachments ...Attachment) error {
+func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 	msg := gomail.NewMessage()
-	msg.SetHeader("From", email.From)
-	msg.SetHeader("To", email.To)
-	if email.CC != "" {
-		msg.SetHeader("Cc", email.CC)
+	msg.SetHeader("From", cfg.From)
+	msg.SetHeader("To", cfg.To)
+	if cfg.CC != "" {
+		msg.SetHeader("Cc", cfg.CC)
 	}
 	msg.SetHeader("Subject", subject)
 	msg.SetBody("text/html", "Dokumente anbei.<br>")
@@ -66,7 +62,7 @@ func Send(smtp SMTPConfig, email EmailConfig, subject string, attachments ...Att
 		}))
 	}
 
-	dialer := gomail.NewDialer(smtp.Host, smtp.Port, smtp.User, smtp.Pass)
+	dialer := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.User, cfg.Pass)
 	return dialer.DialAndSend(msg)
 }
 
@@ -91,15 +87,15 @@ type Message struct {
 // FetchHTMLEmails connects to the IMAP server, scans the inbox for emails matching
 // filter that were received in the current month, and returns their HTML bodies.
 // Uses a two-pass approach: lightweight envelope fetch first, full body fetch only for matches.
-func FetchHTMLEmails(cfg IMAPConfig, user, pass string, filter IMAPFilter) ([]Message, error) {
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	c, err := client.DialTLS(addr, &tls.Config{ServerName: cfg.Host})
+func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
+	addr := fmt.Sprintf("%s:%d", cfg.IMAPHost, cfg.IMAPPort)
+	c, err := client.DialTLS(addr, &tls.Config{ServerName: cfg.IMAPHost})
 	if err != nil {
 		return nil, fmt.Errorf("connecting to IMAP server: %w", err)
 	}
 	defer c.Logout()
 
-	if err := c.Login(user, pass); err != nil {
+	if err := c.Login(cfg.User, cfg.Pass); err != nil {
 		return nil, fmt.Errorf("IMAP login: %w", err)
 	}
 	log.Println("Logged in to IMAP server")

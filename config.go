@@ -32,8 +32,6 @@ type TravelExpenseConfig struct {
 }
 
 type AppleInvoicePDFConfig struct {
-	User   string `yaml:"user"` // optional IMAP auth override, falls back to smtp.user
-	Pass   string `yaml:"pass"` // optional IMAP auth override, falls back to smtp.pass
 	Filter struct {
 		Count   int    `yaml:"count"`
 		Subject string `yaml:"subject"`
@@ -47,15 +45,34 @@ type VodafoneDownloaderConfig struct {
 	FallbackToLastMonth *bool  `yaml:"fallbackToLastMonth,omitempty"` // default: true
 }
 
+type HarvestInvoiceConfig struct {
+	Filter struct {
+		Count   int    `yaml:"count"`
+		Subject string `yaml:"subject"`
+		From    string `yaml:"from"`
+	} `yaml:"filter"`
+	Harvest struct {
+		User string `yaml:"user"` // Harvest login email
+		Pass string `yaml:"pass"` // Harvest login password
+	} `yaml:"harvest"`
+	SevDesk struct {
+		User         string `yaml:"user"`
+		Pass         string `yaml:"pass"`
+		ProductName  string `yaml:"productName"`  // search term for product (e.g. "Acme Produkt")
+		ProductNum   string `yaml:"productNum"`   // article number to select from dropdown (e.g. "0102")
+		ReferenceNum string `yaml:"referenceNum"` // Kundenreferenz für E-Rechnung
+	} `yaml:"sevdesk"`
+}
+
 // Config is the unified YAML configuration for all modules.
-// smtp, email, and imap are shared; each module has its own section.
+// The "mail" block holds shared SMTP/IMAP credentials and addresses;
+// each module has its own section for module-specific settings.
 type Config struct {
-	SMTP               email.SMTPConfig         `yaml:"smtp"`
-	Email              email.EmailConfig         `yaml:"email"`
-	IMAP               email.IMAPConfig          `yaml:"imap"` // used by apple-invoice-pdf
-	TravelExpense      TravelExpenseConfig       `yaml:"travel-expense"`
-	AppleInvoicePDF    AppleInvoicePDFConfig     `yaml:"apple-invoice-pdf"`
-	VodafoneDownloader VodafoneDownloaderConfig  `yaml:"vodafone-downloader"`
+	Mail               email.MailConfig         `yaml:"mail"`
+	TravelExpense      TravelExpenseConfig      `yaml:"travel-expense"`
+	AppleInvoicePDF    AppleInvoicePDFConfig    `yaml:"apple-invoice-pdf"`
+	VodafoneDownloader VodafoneDownloaderConfig `yaml:"vodafone-downloader"`
+	HarvestInvoice     HarvestInvoiceConfig     `yaml:"harvest-invoice"`
 }
 
 // ---------------------------------------------------------------------------
@@ -104,8 +121,8 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	}
 
 	// Apply defaults
-	if cfg.Email.From == "" {
-		cfg.Email.From = cfg.SMTP.User
+	if cfg.Mail.From == "" {
+		cfg.Mail.From = cfg.Mail.User
 	}
 	if cfg.AppleInvoicePDF.Filter.Subject == "" {
 		cfg.AppleInvoicePDF.Filter.Subject = "Deine Rechnung von Apple"
@@ -116,6 +133,15 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.VodafoneDownloader.FallbackToLastMonth == nil {
 		t := true
 		cfg.VodafoneDownloader.FallbackToLastMonth = &t
+	}
+	if cfg.HarvestInvoice.Filter.Count == 0 {
+		cfg.HarvestInvoice.Filter.Count = 20
+	}
+	if cfg.HarvestInvoice.Filter.Subject == "" {
+		cfg.HarvestInvoice.Filter.Subject = "We've exported your detailed time report"
+	}
+	if cfg.HarvestInvoice.Filter.From == "" {
+		cfg.HarvestInvoice.Filter.From = "harvestapp.com"
 	}
 
 	return &cfg, nil

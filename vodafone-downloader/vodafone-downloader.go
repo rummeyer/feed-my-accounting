@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
 
 	"github.com/chromedp/cdproto/page"
@@ -22,8 +23,7 @@ import (
 // ---------------------------------------------------------------------------
 
 type Config struct {
-	SMTP                email.SMTPConfig
-	Email               email.EmailConfig
+	Mail                email.MailConfig
 	User                string // Vodafone portal username
 	Pass                string // Vodafone portal password
 	FallbackToLastMonth bool   // if false, skip sending when current month invoice not yet available
@@ -73,7 +73,7 @@ var (
 
 // Run downloads Vodafone invoices and sends them via email.
 func Run(cfg Config) error {
-	ctx, cancel := createBrowserContext()
+	ctx, cancel := browser.NewContext()
 	defer cancel()
 
 	log.Println("Logging in to Vodafone...")
@@ -106,36 +106,12 @@ func Run(cfg Config) error {
 	}
 
 	log.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
-	return email.Send(cfg.SMTP, cfg.Email, "Deine PDF-Rechnungen von Vodafone", attachments...)
+	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Vodafone", attachments...)
 }
 
 // ---------------------------------------------------------------------------
 // Browser
 // ---------------------------------------------------------------------------
-
-func createBrowserContext() (context.Context, context.CancelFunc) {
-	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("headless", "new"),
-		chromedp.Flag("disable-gpu", true),
-		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("disable-blink-features", "AutomationControlled"),
-		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
-	)
-
-	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), opts...)
-	ctx, ctxCancel := chromedp.NewContext(allocCtx,
-		chromedp.WithErrorf(log.Printf),
-		chromedp.WithLogf(log.Printf),
-	)
-	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
-
-	return ctx, func() {
-		timeoutCancel()
-		ctxCancel()
-		allocCancel()
-	}
-}
 
 func login(ctx context.Context, user, pass string) error {
 	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
