@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/emersion/go-message/mail"
 	"github.com/go-gomail/gomail"
 )
+
+var logger = log.New(os.Stderr, "[imap] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config
@@ -26,8 +29,8 @@ type MailConfig struct {
 	SMTPPort int    `yaml:"smtpPort"`
 	IMAPHost string `yaml:"imapHost"`
 	IMAPPort int    `yaml:"imapPort"`
-	User     string `yaml:"user"`
-	Pass     string `yaml:"pass"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 	From     string `yaml:"from"`
 	To       string `yaml:"to"`
 	CC       string `yaml:"cc"`
@@ -62,7 +65,7 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 		}))
 	}
 
-	dialer := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.User, cfg.Pass)
+	dialer := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.Username, cfg.Password)
 	return dialer.DialAndSend(msg)
 }
 
@@ -72,9 +75,10 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 
 // IMAPFilter defines which emails to fetch from the inbox.
 type IMAPFilter struct {
-	Count      int    // how many recent messages to scan (0 = all)
-	Subject    string // exact subject match
-	FromDomain string // sender hostname must contain this string
+	Count            int    // how many recent messages to scan (0 = all)
+	Subject          string // exact subject match
+	FromDomain       string // sender hostname must contain this string
+	CurrentMonthOnly bool   // only return emails received in the current month
 }
 
 // Message holds an email's subject, date, and HTML body.
@@ -85,7 +89,7 @@ type Message struct {
 }
 
 // FetchHTMLEmails connects to the IMAP server, scans the inbox for emails matching
-// filter that were received in the current month, and returns their HTML bodies.
+// the filter, and returns their HTML bodies.
 // Uses a two-pass approach: lightweight envelope fetch first, full body fetch only for matches.
 func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.IMAPHost, cfg.IMAPPort)
@@ -95,16 +99,15 @@ func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	}
 	defer c.Logout()
 
-	if err := c.Login(cfg.User, cfg.Pass); err != nil {
+	if err := c.Login(cfg.Username, cfg.Password); err != nil {
 		return nil, fmt.Errorf("IMAP login: %w", err)
 	}
-	log.Println("Logged in to IMAP server")
+	logger.Println("Logged in to IMAP server")
 
 	mbox, err := c.Select("INBOX", true)
 	if err != nil {
 		return nil, fmt.Errorf("selecting INBOX: %w", err)
 	}
-	log.Printf("INBOX has %d messages", mbox.Messages)
 	if mbox.Messages == 0 {
 		return nil, nil
 	}
@@ -123,7 +126,7 @@ func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	if len(matchUIDs) == 0 {
 		return nil, nil
 	}
-	log.Printf("Found %d matching email(s), fetching bodies...", len(matchUIDs))
+	logger.Printf("Found %d matching email(s), fetching bodies...", len(matchUIDs))
 	return fetchBodies(c, matchUIDs)
 }
 
@@ -140,8 +143,7 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 			continue
 		}
 		env := msg.Envelope
-		// Only current month
-		if env.Date.Year() != now.Year() || env.Date.Month() != now.Month() {
+		if filter.CurrentMonthOnly && (env.Date.Year() != now.Year() || env.Date.Month() != now.Month()) {
 			continue
 		}
 		if filter.Subject != "" && env.Subject != filter.Subject {
@@ -159,11 +161,11 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 				continue
 			}
 		}
-		log.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
+		logger.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
 		uids = append(uids, msg.Uid)
 	}
 	if err := <-done; err != nil {
-		log.Printf("WARNING: fetching envelopes: %v", err)
+		logger.Printf("WARNING: fetching envelopes: %v", err)
 	}
 	return uids
 }
@@ -184,12 +186,12 @@ func fetchBodies(c *client.Client, uids []uint32) ([]Message, error) {
 	for msg := range messages {
 		r := msg.GetBody(section)
 		if r == nil {
-			log.Printf("WARNING: no body for UID %d", msg.Uid)
+			logger.Printf("WARNING: no body for UID %d", msg.Uid)
 			continue
 		}
 		htmlBody, err := extractHTMLBody(r)
 		if err != nil {
-			log.Printf("WARNING: extracting HTML from UID %d: %v", msg.Uid, err)
+			logger.Printf("WARNING: extracting HTML from UID %d: %v", msg.Uid, err)
 			continue
 		}
 		results = append(results, Message{

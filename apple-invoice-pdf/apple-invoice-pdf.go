@@ -5,6 +5,7 @@ package apple
 import (
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 
@@ -12,6 +13,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+var logger = log.New(os.Stderr, "[apple] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config
@@ -36,9 +39,10 @@ type Config struct {
 // Run fetches Apple invoice emails, converts them to PDFs, and sends them via email.
 func Run(cfg Config) error {
 	filter := email.IMAPFilter{
-		Count:      cfg.Filter.Count,
-		Subject:    cfg.Filter.Subject,
-		FromDomain: cfg.Filter.From,
+		Count:            cfg.Filter.Count,
+		Subject:          cfg.Filter.Subject,
+		FromDomain:       cfg.Filter.From,
+		CurrentMonthOnly: true,
 	}
 
 	messages, err := email.FetchHTMLEmails(cfg.Mail, filter)
@@ -46,26 +50,26 @@ func Run(cfg Config) error {
 		return fmt.Errorf("fetching invoices: %w", err)
 	}
 	if len(messages) == 0 {
-		log.Println("No Apple invoices to process")
+		logger.Println("No Apple invoices to process")
 		return nil
 	}
 
-	log.Printf("Processing %d Apple invoice(s)...", len(messages))
+	logger.Printf("Processing %d Apple invoice(s)...", len(messages))
 	var attachments []email.Attachment
 	for i, msg := range messages {
-		log.Printf("[%d/%d] Converting %q to PDF...", i+1, len(messages), msg.Subject)
+		logger.Printf("[%d/%d] Converting %q to PDF...", i+1, len(messages), msg.Subject)
 
 		cleaned, err := cleanHTML(msg.HTMLBody)
 		if err != nil {
-			log.Printf("ERROR cleaning HTML: %v", err)
+			logger.Printf("ERROR cleaning HTML: %v", err)
 			continue
 		}
 		pdf, err := convertHTMLToPDF(cleaned)
 		if err != nil {
-			log.Printf("ERROR converting to PDF: %v", err)
+			logger.Printf("ERROR converting to PDF: %v", err)
 			continue
 		}
-		log.Printf("[%d/%d] PDF generated (%d bytes)", i+1, len(messages), len(pdf))
+		logger.Printf("[%d/%d] PDF generated (%d bytes)", i+1, len(messages), len(pdf))
 
 		orderNum := extractOrderNumber(msg.HTMLBody)
 		var filename string
@@ -82,11 +86,11 @@ func Run(cfg Config) error {
 	}
 
 	if len(attachments) == 0 {
-		log.Println("No Apple PDFs generated")
+		logger.Println("No Apple PDFs generated")
 		return nil
 	}
 
-	log.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
+	logger.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
 	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Apple", attachments...)
 }
 

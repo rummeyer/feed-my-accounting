@@ -113,18 +113,18 @@ func TestDocumentID(t *testing.T) {
 // doc.go — document content builders
 // ---------------------------------------------------------------------------
 
-func TestBuildCustomerHeader(t *testing.T) {
-	c := Customer{
+func TestBuildClientHeader(t *testing.T) {
+	c := Client{
 		ID:     "1",
 		Name:   "Acme Corp",
 		From:   "Stuttgart",
 		To:     "München",
 		Reason: "Projektarbeit",
 	}
-	got := buildCustomerHeader(c)
+	got := buildClientHeader(c)
 	for _, want := range []string{"1) Acme Corp", "Von:    Stuttgart", "Nach:   München", "Grund:  Projektarbeit", lineSingle} {
 		if !strings.Contains(got, want) {
-			t.Errorf("buildCustomerHeader missing %q in:\n%s", want, got)
+			t.Errorf("buildClientHeader missing %q in:\n%s", want, got)
 		}
 	}
 }
@@ -276,11 +276,11 @@ func TestNewBusinessCalendar(t *testing.T) {
 	}
 }
 
-func TestGetCustomerCalendars(t *testing.T) {
-	customers := []Customer{{Province: "BW"}, {Province: "BY"}, {Province: "BE"}}
-	calendars := getCustomerCalendars(customers)
-	if len(calendars) != len(customers) {
-		t.Fatalf("getCustomerCalendars returned %d calendars, want %d", len(calendars), len(customers))
+func TestGetClientCalendars(t *testing.T) {
+	clients := []Client{{Province: "BW"}, {Province: "BY"}, {Province: "BE"}}
+	calendars := getClientCalendars(clients)
+	if len(calendars) != len(clients) {
+		t.Fatalf("getClientCalendars returned %d calendars, want %d", len(calendars), len(clients))
 	}
 	for i, c := range calendars {
 		if c == nil {

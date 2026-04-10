@@ -120,17 +120,17 @@ func main() {
 }
 
 func runTravelExpense(cfg *Config, year int, month time.Month) error {
-	customers := make([]travelexpense.Customer, len(cfg.TravelExpense.Customers))
-	for i, c := range cfg.TravelExpense.Customers {
-		customers[i] = travelexpense.Customer{
+	clients := make([]travelexpense.Client, len(cfg.TravelExpense.Clients))
+	for i, c := range cfg.TravelExpense.Clients {
+		clients[i] = travelexpense.Client{
 			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
 			Reason: c.Reason, Distance: c.Distance, Province: c.Province,
 		}
 	}
 	return travelexpense.Run(travelexpense.Config{
 		Mail:             cfg.Mail,
-		Mitarbeiter:      cfg.TravelExpense.Mitarbeiter,
-		Customers:        customers,
+		Employee:         cfg.TravelExpense.Employee,
+		Clients:          clients,
 		ChristmasWeekOff: cfg.TravelExpense.ChristmasWeekOff,
 	}, year, month)
 }
@@ -149,8 +149,8 @@ func runAppleInvoicePDF(cfg *Config) error {
 func runVodafoneDownloader(cfg *Config) error {
 	return vodafone.Run(vodafone.Config{
 		Mail:                cfg.Mail,
-		User:                cfg.VodafoneDownloader.User,
-		Pass:                cfg.VodafoneDownloader.Pass,
+		Username:            cfg.VodafoneDownloader.Username,
+		Password:            cfg.VodafoneDownloader.Password,
 		FallbackToLastMonth: *cfg.VodafoneDownloader.FallbackToLastMonth,
 	})
 }
@@ -161,12 +161,13 @@ func runHarvestInvoice(cfg *Config) error {
 		CurrentMonthOnly: *cfg.HarvestInvoice.CurrentMonthOnly,
 		SkipExisting:     *cfg.HarvestInvoice.SkipExisting,
 		Harvest: harvest.HarvestLogin{
-			User: cfg.HarvestInvoice.Harvest.User,
-			Pass: cfg.HarvestInvoice.Harvest.Pass,
+			Username: cfg.HarvestInvoice.Harvest.Username,
+			Password: cfg.HarvestInvoice.Harvest.Password,
 		},
 		SevDesk: harvest.SevDeskConfig{
-			User:         cfg.HarvestInvoice.SevDesk.User,
-			Pass:         cfg.HarvestInvoice.SevDesk.Pass,
+			Username:     cfg.HarvestInvoice.SevDesk.Username,
+			Password:     cfg.HarvestInvoice.SevDesk.Password,
+			ClientName:   cfg.HarvestInvoice.SevDesk.ClientName,
 			ProductName:  cfg.HarvestInvoice.SevDesk.ProductName,
 			ProductNum:   cfg.HarvestInvoice.SevDesk.ProductNum,
 			ReferenceNum: cfg.HarvestInvoice.SevDesk.ReferenceNum,

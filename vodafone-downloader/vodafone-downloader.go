@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -18,14 +19,16 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
+var logger = log.New(os.Stderr, "[vodafone] ", log.LstdFlags)
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
 type Config struct {
 	Mail                email.MailConfig
-	User                string // Vodafone portal username
-	Pass                string // Vodafone portal password
+	Username            string // Vodafone portal username
+	Password            string // Vodafone portal password
 	FallbackToLastMonth bool   // if false, skip sending when current month invoice not yet available
 }
 
@@ -76,25 +79,25 @@ func Run(cfg Config) error {
 	ctx, cancel := browser.NewContext()
 	defer cancel()
 
-	log.Println("Logging in to Vodafone...")
-	if err := login(ctx, cfg.User, cfg.Pass); err != nil {
+	logger.Println("Logging in to Vodafone...")
+	if err := login(ctx, cfg.Username, cfg.Password); err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
 
 	now := time.Now()
 	targetMonth := fmt.Sprintf("%s %d", monthNames[now.Month()], now.Year())
-	log.Printf("Looking for Vodafone invoices: %s", targetMonth)
+	logger.Printf("Looking for Vodafone invoices: %s", targetMonth)
 
 	var results []invoice
 	for contractType, typeName := range contractTypes {
-		log.Printf("Searching %s...", typeName)
+		logger.Printf("Searching %s...", typeName)
 		if inv := downloadInvoice(ctx, contractType, typeName, cfg.FallbackToLastMonth); inv != nil {
 			results = append(results, *inv)
 		}
 	}
 
 	if len(results) == 0 {
-		log.Println("No Vodafone invoices found")
+		logger.Println("No Vodafone invoices found")
 		return nil
 	}
 
@@ -105,7 +108,7 @@ func Run(cfg Config) error {
 		}
 	}
 
-	log.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
+	logger.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
 	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Vodafone", attachments...)
 }
 
@@ -123,14 +126,14 @@ func login(ctx context.Context, user, pass string) error {
 		return fmt.Errorf("injecting script: %w", err)
 	}
 
-	log.Println("Navigating to Vodafone login page...")
+	logger.Println("Navigating to Vodafone login page...")
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate("https://www.vodafone.de/meinvodafone/account/login"),
 	); err != nil {
 		return fmt.Errorf("navigating to login page: %w", err)
 	}
 
-	log.Println("Waiting for login form...")
+	logger.Println("Waiting for login form...")
 	if err := chromedp.Run(ctx,
 		chromedp.WaitVisible(`#username-text`, chromedp.ByID),
 	); err != nil {
@@ -140,7 +143,7 @@ func login(ctx context.Context, user, pass string) error {
 	chromedp.Run(ctx, chromedp.Click(`#dip-consent-summary-reject-all`, chromedp.ByID))
 	time.Sleep(time.Second)
 
-	log.Println("Submitting credentials...")
+	logger.Println("Submitting credentials...")
 	return chromedp.Run(ctx,
 		chromedp.SendKeys(`#username-text`, user, chromedp.ByID),
 		chromedp.SendKeys(`#passwordField-input`, pass, chromedp.ByID),
@@ -174,13 +177,13 @@ const clickFirstArchiveEntry = `(() => {
 
 func downloadInvoice(ctx context.Context, contractType, typeName string, fallbackToLastMonth bool) *invoice {
 	if err := navigateToInvoicePage(ctx, typeName); err != nil {
-		log.Printf("%s: failed to navigate to invoice page: %v", typeName, err)
+		logger.Printf("%s: failed to navigate to invoice page: %v", typeName, err)
 		return nil
 	}
 
 	var pageText string
 	if err := chromedp.Run(ctx, chromedp.Text(`body`, &pageText, chromedp.ByQuery)); err != nil {
-		log.Printf("%s: failed to read page text: %v", typeName, err)
+		logger.Printf("%s: failed to read page text: %v", typeName, err)
 		return nil
 	}
 
@@ -192,7 +195,7 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 	if info != nil {
 		isCurrentMonth := info.Month == currentMonth && info.Year == currentYear
 		if isCurrentMonth || fallbackToLastMonth {
-			log.Printf("Downloading %s %s %s...", typeName, info.MonthName, info.Year)
+			logger.Printf("Downloading %s %s %s...", typeName, info.MonthName, info.Year)
 			pdfData, err := capturePDF(ctx, clickCurrentInvoice)
 			if err == nil {
 				info.Type = typeName
@@ -200,28 +203,28 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 				info.PDFData = pdfData
 				return info
 			}
-			log.Printf("%s current invoice download failed, trying archive...", typeName)
+			logger.Printf("%s current invoice download failed, trying archive...", typeName)
 		} else {
-			log.Printf("%s: no invoice for %s %s yet, skipping", typeName, monthNames[now.Month()], currentYear)
+			logger.Printf("%s: no invoice for %s %s yet, skipping", typeName, monthNames[now.Month()], currentYear)
 			return nil
 		}
 	}
 
 	if !fallbackToLastMonth {
-		log.Printf("%s: no current month invoice found, skipping", typeName)
+		logger.Printf("%s: no current month invoice found, skipping", typeName)
 		return nil
 	}
 
 	archiveInfo := parseArchiveFirstEntry(pageText, currentMonth, currentYear)
 	if archiveInfo == nil {
-		log.Printf("%s: no archive entry found", typeName)
+		logger.Printf("%s: no archive entry found", typeName)
 		return nil
 	}
 
-	log.Printf("Downloading %s %s %s from archive...", typeName, archiveInfo.MonthName, archiveInfo.Year)
+	logger.Printf("Downloading %s %s %s from archive...", typeName, archiveInfo.MonthName, archiveInfo.Year)
 	pdfData, err := capturePDF(ctx, clickFirstArchiveEntry)
 	if err != nil {
-		log.Printf("%s archive download failed!", typeName)
+		logger.Printf("%s archive download failed!", typeName)
 		return nil
 	}
 

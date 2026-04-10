@@ -7,6 +7,7 @@ package travelexpense
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"feed-my-accounting/email"
@@ -15,11 +16,13 @@ import (
 	"github.com/rickar/cal/v2/de"
 )
 
+var logger = log.New(os.Stderr, "[travel] ", log.LstdFlags)
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 
-type Customer struct {
+type Client struct {
 	ID       string
 	Name     string
 	From     string
@@ -31,8 +34,8 @@ type Customer struct {
 
 type Config struct {
 	Mail             email.MailConfig
-	Mitarbeiter      string
-	Customers        []Customer
+	Employee      string
+	Clients        []Client
 	ChristmasWeekOff *bool
 }
 
@@ -65,9 +68,9 @@ func newBusinessCalendar(province string) *cal.BusinessCalendar {
 	return c
 }
 
-func getCustomerCalendars(customers []Customer) []*cal.BusinessCalendar {
-	calendars := make([]*cal.BusinessCalendar, len(customers))
-	for i, c := range customers {
+func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
+	calendars := make([]*cal.BusinessCalendar, len(clients))
+	for i, c := range clients {
 		calendars[i] = newBusinessCalendar(c.Province)
 	}
 	return calendars
@@ -96,52 +99,52 @@ func daysInMonth(year int, month time.Month) int {
 
 // Run generates travel expense PDFs for the given month and sends them via email.
 func Run(cfg Config, year int, month time.Month) error {
-	if len(cfg.Customers) == 0 {
-		return fmt.Errorf("no customers configured")
+	if len(cfg.Clients) == 0 {
+		return fmt.Errorf("no clients configured")
 	}
 
-	log.Printf("Generating travel expense PDFs for %02d/%d...", month, year)
+	logger.Printf("Generating travel expense PDFs for %02d/%d...", month, year)
 
-	calendars := getCustomerCalendars(cfg.Customers)
+	calendars := getClientCalendars(cfg.Clients)
 	numDays := daysInMonth(year, month)
-	customerDays := make(map[int][]string, len(cfg.Customers))
-	customerIdx := 0
+	clientDays := make(map[int][]string, len(cfg.Clients))
+	clientIdx := 0
 	var firstDateString, lastDateString string
 	totalWorkdays := 0
 
 	for day := 1; day <= numDays; day++ {
 		date := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
-		if isWorkday(calendars[customerIdx], date, cfg.christmasWeekOffEnabled()) {
+		if isWorkday(calendars[clientIdx], date, cfg.christmasWeekOffEnabled()) {
 			dateString := formatDate(year, month, day)
-			customerDays[customerIdx] = append(customerDays[customerIdx], dateString)
+			clientDays[clientIdx] = append(clientDays[clientIdx], dateString)
 			if firstDateString == "" {
 				firstDateString = dateString
 			}
 			lastDateString = dateString
 			totalWorkdays++
-			customerIdx = (customerIdx + 1) % len(cfg.Customers)
+			clientIdx = (clientIdx + 1) % len(cfg.Clients)
 		}
 	}
 
-	log.Printf("Calculated %d workday(s) for %02d/%d", totalWorkdays, month, year)
+	logger.Printf("Calculated %d workday(s) for %02d/%d", totalWorkdays, month, year)
 
-	kmBlocks := make([]string, 0, totalWorkdays+len(cfg.Customers))
-	verpBlocks := make([]string, 0, totalWorkdays+len(cfg.Customers))
+	kmBlocks := make([]string, 0, totalWorkdays+len(cfg.Clients))
+	verpBlocks := make([]string, 0, totalWorkdays+len(cfg.Clients))
 	var totalKmCost float64
 
-	for i, customer := range cfg.Customers {
-		days := customerDays[i]
+	for i, client := range cfg.Clients {
+		days := clientDays[i]
 		if len(days) == 0 {
 			continue
 		}
-		log.Printf("Customer %q: %d day(s)", customer.Name, len(days))
-		kmBlocks = append(kmBlocks, buildCustomerHeader(customer))
-		verpBlocks = append(verpBlocks, buildCustomerHeader(customer))
+		logger.Printf("Client %q: %d day(s)", client.Name, len(days))
+		kmBlocks = append(kmBlocks, buildClientHeader(client))
+		verpBlocks = append(verpBlocks, buildClientHeader(client))
 		for _, dateString := range days {
-			kmBlocks = append(kmBlocks, buildKilometerEntry(dateString, customer.Distance))
+			kmBlocks = append(kmBlocks, buildKilometerEntry(dateString, client.Distance))
 			verpBlocks = append(verpBlocks, buildMealAllowanceEntry(dateString))
 		}
-		totalKmCost += float64(len(days)) * float64(customer.Distance) * kmRatePerKm
+		totalKmCost += float64(len(days)) * float64(client.Distance) * kmRatePerKm
 	}
 
 	kmHeader := buildDocumentHeader(year, month, lastDateString, firstDateString, lastDateString, "Kilometergelderstattung")
@@ -152,18 +155,18 @@ func Run(cfg Config, year int, month time.Month) error {
 	kmFilename := fmt.Sprintf("%02d_%d_Reisekosten_Kilometergelderstattung.pdf", month, year)
 	verpFilename := fmt.Sprintf("%02d_%d_Reisekosten_Verpflegungsmehraufwand.pdf", month, year)
 
-	log.Printf("Generating Kilometergelderstattung PDF...")
-	kmData, err := createPDF(cfg.Mitarbeiter, kmHeader, kmBlocks, kmFooter)
+	logger.Printf("Generating Kilometergelderstattung PDF...")
+	kmData, err := createPDF(cfg.Employee, kmHeader, kmBlocks, kmFooter)
 	if err != nil {
 		return fmt.Errorf("generating km PDF: %w", err)
 	}
-	log.Printf("Generating Verpflegungsmehraufwand PDF...")
-	verpData, err := createPDF(cfg.Mitarbeiter, verpHeader, verpBlocks, verpFooter)
+	logger.Printf("Generating Verpflegungsmehraufwand PDF...")
+	verpData, err := createPDF(cfg.Employee, verpHeader, verpBlocks, verpFooter)
 	if err != nil {
 		return fmt.Errorf("generating verp PDF: %w", err)
 	}
 
-	log.Printf("Sending email with 2 travel expense PDF attachment(s)...")
+	logger.Printf("Sending email with 2 travel expense PDF attachment(s)...")
 	subject := fmt.Sprintf("Deine Reisekostenabrechnung %02d/%d", month, year)
 	return email.Send(cfg.Mail, subject,
 		email.Attachment{Filename: kmFilename, Data: kmData},

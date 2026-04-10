@@ -21,9 +21,8 @@ type ReportData struct {
 	PeriodFrom  time.Time // first day of reported period
 	PeriodTo    time.Time // last day of reported period
 	ExportURL   string    // download link from the email
-	ClientName  string    // client mentioned in the email
-	ProjectName string    // project mentioned in the email
-	PDFData     []byte    // raw PDF bytes for attaching to invoice
+	ClientName string // client mentioned in the email
+	PDFData    []byte // raw PDF bytes for attaching to invoice
 }
 
 // date pattern dd.mm.yyyy
@@ -87,9 +86,6 @@ func ParseEmail(html string) (*ReportData, error) {
 		t := strings.TrimSpace(s.Text())
 		if strings.HasPrefix(t, "to ") && !strings.HasPrefix(t, "to the project") && !strings.HasPrefix(t, "to any") {
 			data.ClientName = strings.TrimPrefix(t, "to ")
-		}
-		if strings.HasPrefix(t, "to the project ") {
-			data.ProjectName = strings.TrimPrefix(t, "to the project ")
 		}
 	})
 

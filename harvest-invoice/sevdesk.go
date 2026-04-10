@@ -15,7 +15,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -24,8 +23,9 @@ import (
 
 // SevDeskConfig holds sevDesk login and invoice defaults.
 type SevDeskConfig struct {
-	User         string `yaml:"user"`
-	Pass         string `yaml:"pass"`
+	Username     string `yaml:"username"`
+	Password     string `yaml:"password"`
+	ClientName   string `yaml:"clientName"`   // fixed client name (overrides name extracted from email)
 	ProductName  string `yaml:"productName"`  // search term for product field (e.g. "Acme Produkt")
 	ProductNum   string `yaml:"productNum"`   // article number to select from dropdown (e.g. "0102")
 	ReferenceNum string `yaml:"referenceNum"` // Kundenreferenz für E-Rechnung
@@ -120,7 +120,7 @@ func navigateToInvoiceList(ctx context.Context) error {
 		return 'not found';
 	})()`, &result))
 	if result != "ok" {
-		log.Printf("WARNING: Rechnungen menu item not found")
+		logger.Printf("WARNING: Rechnungen menu item not found")
 	}
 	time.Sleep(8 * time.Second)
 	return nil
@@ -138,18 +138,18 @@ func waitForSelector(ctx context.Context, sel string, timeout time.Duration) err
 // ---------------------------------------------------------------------------
 
 // checkInvoiceExists logs into sevDesk, navigates to the Rechnungen list,
-// and checks whether any invoice already exists for the given customer with
+// and checks whether any invoice already exists for the given client with
 // a Rechnungsdatum within the Leistungszeitraum (from–to).
 //
-// This is a heuristic: since there's at most one invoice per customer per
-// month, matching customer + date-in-range is sufficient. The check covers
+// This is a heuristic: since there's at most one invoice per client per
+// month, matching client name + date-in-range is sufficient. The check covers
 // all statuses (Entwurf, Offen, Bezahlt, etc.).
-func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, customerName string, from, to time.Time) (bool, error) {
-	if err := sevdeskLogin(ctx, cfg.User, cfg.Pass); err != nil {
+func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, clientName string, from, to time.Time) (bool, error) {
+	if err := sevdeskLogin(ctx, cfg.Username, cfg.Password); err != nil {
 		return false, fmt.Errorf("sevDesk login: %w", err)
 	}
 
-	log.Println("Navigating to Rechnungen...")
+	logger.Println("Navigating to Rechnungen...")
 	if err := navigateToInvoiceList(ctx); err != nil {
 		return false, fmt.Errorf("navigating to invoices: %w", err)
 	}
@@ -158,25 +158,25 @@ func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, customerName str
 	if err != nil {
 		return false, err
 	}
-	log.Printf("Found %d invoices in list", len(rows))
+	logger.Printf("Found %d invoices in list", len(rows))
 
 	fromDay := truncateToDay(from)
 	toDay := truncateToDay(to)
 
 	for _, row := range rows {
-		if !strings.Contains(row.Text, customerName) {
+		if !strings.Contains(row.Text, clientName) {
 			continue
 		}
 		datum := parseDatum(row.Datum)
 		if datum.IsZero() || datum.Before(fromDay) || datum.After(toDay) {
 			continue
 		}
-		log.Printf("Found existing invoice: %s (%s, Datum %s)",
-			customerName, row.Status, row.Datum)
+		logger.Printf("Found existing invoice: %s (%s, Datum %s)",
+			clientName, row.Status, row.Datum)
 		return true, nil
 	}
 
-	log.Println("No matching invoice found in list")
+	logger.Println("No matching invoice found in list")
 	return false, nil
 }
 
@@ -184,7 +184,7 @@ func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, customerName str
 type invoiceRow struct {
 	Status string // e.g. "Entwurf", "Offen", "Bezahlt"
 	Datum  string // e.g. "10.04.26" or "27.02.26"
-	Text   string // full row text for customer name matching
+	Text   string // full row text for client name matching
 }
 
 // readInvoiceList extracts all invoice rows from the currently displayed
@@ -232,58 +232,58 @@ func readInvoiceList(ctx context.Context) ([]invoiceRow, error) {
 // ---------------------------------------------------------------------------
 
 // createInvoice logs into sevDesk and creates a draft invoice via the web UI.
-// It fills in all fields (customer, dates, product, quantity, references) and
+// It fills in all fields (client, dates, product, quantity, references) and
 // saves as "Entwurf" (draft). It never sends the invoice.
 //
 // If alreadyLoggedIn is true, the login step is skipped (the duplicate check
 // already established a session in the same browser context).
 func createInvoice(ctx context.Context, cfg SevDeskConfig, data *ReportData, alreadyLoggedIn bool) error {
 	if !alreadyLoggedIn {
-		log.Println("Logging in to sevDesk...")
-		if err := sevdeskLogin(ctx, cfg.User, cfg.Pass); err != nil {
+		logger.Println("Logging in to sevDesk...")
+		if err := sevdeskLogin(ctx, cfg.Username, cfg.Password); err != nil {
 			return fmt.Errorf("sevDesk login: %w", err)
 		}
 	}
 
-	log.Println("Opening invoice form...")
+	logger.Println("Opening invoice form...")
 	if err := openInvoiceForm(ctx); err != nil {
 		return fmt.Errorf("opening invoice form: %w", err)
 	}
 
-	log.Println("Selecting customer...")
-	if err := selectCustomer(ctx, data.ClientName); err != nil {
-		return fmt.Errorf("selecting customer: %w", err)
+	logger.Println("Selecting client...")
+	if err := selectClient(ctx, data.ClientName); err != nil {
+		return fmt.Errorf("selecting client: %w", err)
 	}
 
-	// sevDesk shows a "Daten übernehmen" dialog after selecting a customer.
-	log.Println("Dismissing data transfer dialog...")
+	// sevDesk shows a "Daten übernehmen" dialog after selecting a client.
+	logger.Println("Dismissing data transfer dialog...")
 	dismissDataDialog(ctx)
 
 	// Rechnungsdatum is pre-filled with today's date — no action needed.
 
-	log.Println("Setting service period...")
+	logger.Println("Setting service period...")
 	if err := setServicePeriod(ctx, data.PeriodFrom, data.PeriodTo); err != nil {
 		return fmt.Errorf("setting service period: %w", err)
 	}
 
 	if cfg.ReferenceNum != "" {
-		log.Println("Setting reference number...")
+		logger.Println("Setting reference number...")
 		setReferenceNumber(ctx, cfg.ReferenceNum)
-		log.Println("Setting customer reference...")
-		setCustomerReference(ctx, cfg.ReferenceNum)
+		logger.Println("Setting client reference...")
+		setClientReference(ctx, cfg.ReferenceNum)
 	}
 
-	log.Println("Adding position...")
+	logger.Println("Adding position...")
 	if err := addPosition(ctx, cfg.ProductName, cfg.ProductNum, data.TotalHours); err != nil {
 		return fmt.Errorf("adding position: %w", err)
 	}
 
-	log.Println("Saving invoice as draft...")
+	logger.Println("Saving invoice as draft...")
 	if err := saveInvoice(ctx); err != nil {
 		return fmt.Errorf("saving invoice: %w", err)
 	}
 
-	log.Println("sevDesk invoice draft created successfully")
+	logger.Println("sevDesk invoice draft created successfully")
 	return nil
 }
 
@@ -306,12 +306,12 @@ func openInvoiceForm(ctx context.Context) error {
 // Invoice form field setters
 // ---------------------------------------------------------------------------
 
-// selectCustomer types the customer name and clicks the matching dropdown entry.
-func selectCustomer(ctx context.Context, customerName string) error {
+// selectClient types the client name and clicks the matching dropdown entry.
+func selectClient(ctx context.Context, clientName string) error {
 	if err := chromedp.Run(ctx,
 		chromedp.Click(`input[placeholder="Person oder Organisation"]`, chromedp.ByQuery),
 		chromedp.Sleep(300*time.Millisecond),
-		chromedp.SendKeys(`input[placeholder="Person oder Organisation"]`, customerName, chromedp.ByQuery),
+		chromedp.SendKeys(`input[placeholder="Person oder Organisation"]`, clientName, chromedp.ByQuery),
 		chromedp.Sleep(2*time.Second),
 	); err != nil {
 		return err
@@ -327,13 +327,13 @@ func selectCustomer(ctx context.Context, customerName string) error {
 		}
 		return 'not found';
 	})()`, &result))
-	log.Printf("Customer: %s", result)
+	logger.Printf("Customer: %s", result)
 	time.Sleep(3 * time.Second)
 	return nil
 }
 
 // dismissDataDialog clicks "Abbrechen" on the "Daten übernehmen" dialog
-// that appears after selecting a customer.
+// that appears after selecting a client.
 func dismissDataDialog(ctx context.Context) {
 	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
 		const btn = [...document.querySelectorAll('button')].find(b => b.innerText.trim() === 'Abbrechen');
@@ -356,7 +356,7 @@ func setServicePeriod(ctx context.Context, from, to time.Time) error {
 		if (zeitraum) { zeitraum.click(); return 'clicked'; }
 		return 'not found';
 	})()`, &clickResult))
-	log.Printf("Zeitraum switch: %s", clickResult)
+	logger.Printf("Zeitraum switch: %s", clickResult)
 	time.Sleep(2 * time.Second)
 
 	if clickResult == "not found" {
@@ -380,7 +380,7 @@ func setServicePeriod(ctx context.Context, from, to time.Time) error {
 		}
 		return 'no daterangepicker found';
 	})()`, fromStr, toStr), &result))
-	log.Printf("Leistungszeitraum: %s", result)
+	logger.Printf("Leistungszeitraum: %s", result)
 	time.Sleep(time.Second)
 
 	// Close the picker overlay
@@ -399,9 +399,9 @@ func setReferenceNumber(ctx context.Context, refNum string) {
 	)
 }
 
-// setCustomerReference fills the Kundenreferenz/Auftragsnummer field
-// (required for E-Rechnung). Uses execCommand to trigger Angular model update.
-func setCustomerReference(ctx context.Context, refNum string) {
+// setClientReference fills the Kundenreferenz/Auftragsnummer field
+// (required for E-Rechnung/XRechnung). Uses execCommand to trigger Angular model update.
+func setClientReference(ctx context.Context, refNum string) {
 	var result string
 	chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintf(`(() => {
 		const ref = [...document.querySelectorAll('input')].find(inp =>
@@ -418,7 +418,7 @@ func setCustomerReference(ctx context.Context, refNum string) {
 		}
 		return 'field not found';
 	})()`, strings.ReplaceAll(refNum, `"`, `\"`)), &result))
-	log.Printf("Kundenreferenz: %s", result)
+	logger.Printf("Kundenreferenz: %s", result)
 }
 
 // addPosition searches for a product, selects it from the typeahead dropdown,
@@ -452,7 +452,7 @@ func addPosition(ctx context.Context, searchTerm, articleNum string, hours float
 	})()`, escapedNum), &result)); err != nil {
 		return err
 	}
-	log.Printf("Product: %s", result)
+	logger.Printf("Product: %s", result)
 	time.Sleep(3 * time.Second)
 
 	// Verify price loaded
@@ -461,7 +461,7 @@ func addPosition(ctx context.Context, searchTerm, articleNum string, hours float
 		const p = document.querySelector('input[ng-model="position.priceNet"]');
 		return p ? 'priceNet=' + p.value : 'not found';
 	})()`, &priceCheck))
-	log.Printf("Price: %s", priceCheck)
+	logger.Printf("Price: %s", priceCheck)
 
 	// Set quantity via execCommand to trigger Angular model update
 	hoursStr := strings.ReplaceAll(fmt.Sprintf("%.2f", hours), ".", ",")
@@ -482,7 +482,7 @@ func addPosition(ctx context.Context, searchTerm, articleNum string, hours float
 	})()`, hoursStr), &mengeResult)); err != nil {
 		return err
 	}
-	log.Printf("Menge: %s", mengeResult)
+	logger.Printf("Menge: %s", mengeResult)
 	time.Sleep(time.Second)
 	return nil
 }
@@ -504,7 +504,7 @@ func saveInvoice(ctx context.Context) error {
 	})()`, &result)); err != nil {
 		return err
 	}
-	log.Printf("Save: %s", result)
+	logger.Printf("Save: %s", result)
 	time.Sleep(10 * time.Second)
 	return nil
 }

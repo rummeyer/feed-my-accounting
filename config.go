@@ -14,8 +14,8 @@ import (
 // Config structs (YAML-facing)
 // ---------------------------------------------------------------------------
 
-// Customer represents a client with trip details used by the reisekosten module.
-type Customer struct {
+// Client represents a client with trip details used by the travel-expense module.
+type Client struct {
 	ID       string `yaml:"id"`
 	Name     string `yaml:"name"`
 	From     string `yaml:"from"`
@@ -26,9 +26,9 @@ type Customer struct {
 }
 
 type TravelExpenseConfig struct {
-	Mitarbeiter      string     `yaml:"mitarbeiter"`
-	Customers        []Customer `yaml:"customers"`
-	ChristmasWeekOff *bool      `yaml:"christmasWeekOff,omitempty"` // default: true
+	Employee         string   `yaml:"employee"`
+	Clients          []Client `yaml:"clients"`
+	ChristmasWeekOff *bool    `yaml:"christmasWeekOff,omitempty"` // default: true
 }
 
 type AppleInvoicePDFConfig struct {
@@ -40,8 +40,8 @@ type AppleInvoicePDFConfig struct {
 }
 
 type VodafoneDownloaderConfig struct {
-	User                string `yaml:"user"`
-	Pass                string `yaml:"pass"`
+	Username            string `yaml:"username"`
+	Password            string `yaml:"password"`
 	FallbackToLastMonth *bool  `yaml:"fallbackToLastMonth,omitempty"` // default: true
 }
 
@@ -54,12 +54,13 @@ type HarvestInvoiceConfig struct {
 		From    string `yaml:"from"`
 	} `yaml:"filter"`
 	Harvest struct {
-		User string `yaml:"user"` // Harvest login email
-		Pass string `yaml:"pass"` // Harvest login password
+		Username string `yaml:"username"` // Harvest login email
+		Password string `yaml:"password"` // Harvest login password
 	} `yaml:"harvest"`
 	SevDesk struct {
-		User         string `yaml:"user"`
-		Pass         string `yaml:"pass"`
+		Username     string `yaml:"username"`
+		Password     string `yaml:"password"`
+		ClientName   string `yaml:"clientName"`   // fixed client name (overrides name from email)
 		ProductName  string `yaml:"productName"`  // search term for product (e.g. "Acme Produkt")
 		ProductNum   string `yaml:"productNum"`   // article number to select from dropdown (e.g. "0102")
 		ReferenceNum string `yaml:"referenceNum"` // Kundenreferenz für E-Rechnung
@@ -124,7 +125,10 @@ func loadConfig(filename, configPath string) (*Config, error) {
 
 	// Apply defaults
 	if cfg.Mail.From == "" {
-		cfg.Mail.From = cfg.Mail.User
+		cfg.Mail.From = cfg.Mail.Username
+	}
+	if cfg.AppleInvoicePDF.Filter.Count == 0 {
+		cfg.AppleInvoicePDF.Filter.Count = 10
 	}
 	if cfg.AppleInvoicePDF.Filter.Subject == "" {
 		cfg.AppleInvoicePDF.Filter.Subject = "Deine Rechnung von Apple"
@@ -145,7 +149,7 @@ func loadConfig(filename, configPath string) (*Config, error) {
 		cfg.HarvestInvoice.SkipExisting = &t
 	}
 	if cfg.HarvestInvoice.Filter.Count == 0 {
-		cfg.HarvestInvoice.Filter.Count = 20
+		cfg.HarvestInvoice.Filter.Count = 10
 	}
 	if cfg.HarvestInvoice.Filter.Subject == "" {
 		cfg.HarvestInvoice.Filter.Subject = "We've exported your detailed time report"

@@ -15,15 +15,15 @@ mail:
   smtpPort: 587
   imapHost: imap.example.com
   imapPort: 993
-  user: user@example.com
-  pass: secret
+  username: user@example.com
+  password: secret
   from: user@example.com
   to: boss@example.com
   cc: cc@example.com
 
 travel-expense:
-  mitarbeiter: Max Mustermann
-  customers:
+  employee: Max Mustermann
+  clients:
     - id: "1"
       name: Acme GmbH
       from: Stuttgart
@@ -39,8 +39,8 @@ apple-invoice-pdf:
     from: "apple.com"
 
 vodafone-downloader:
-  user: vodafone@example.com
-  pass: vodapass
+  username: vodafone@example.com
+  password: vodapass
 `), 0644)
 
 	cfg, err := loadConfig("config.yaml", path)
@@ -65,20 +65,20 @@ vodafone-downloader:
 	if cfg.Mail.CC != "cc@example.com" {
 		t.Errorf("Mail.CC = %q, want cc@example.com", cfg.Mail.CC)
 	}
-	if cfg.TravelExpense.Mitarbeiter != "Max Mustermann" {
-		t.Errorf("TravelExpense.Mitarbeiter = %q, want Max Mustermann", cfg.TravelExpense.Mitarbeiter)
+	if cfg.TravelExpense.Employee != "Max Mustermann" {
+		t.Errorf("TravelExpense.Employee = %q, want Max Mustermann", cfg.TravelExpense.Employee)
 	}
-	if len(cfg.TravelExpense.Customers) != 1 {
-		t.Fatalf("TravelExpense.Customers len = %d, want 1", len(cfg.TravelExpense.Customers))
+	if len(cfg.TravelExpense.Clients) != 1 {
+		t.Fatalf("TravelExpense.Clients len = %d, want 1", len(cfg.TravelExpense.Clients))
 	}
-	if cfg.TravelExpense.Customers[0].Distance != 42 {
-		t.Errorf("Customer.Distance = %d, want 42", cfg.TravelExpense.Customers[0].Distance)
+	if cfg.TravelExpense.Clients[0].Distance != 42 {
+		t.Errorf("Client.Distance = %d, want 42", cfg.TravelExpense.Clients[0].Distance)
 	}
 	if cfg.AppleInvoicePDF.Filter.Count != 50 {
 		t.Errorf("AppleInvoicePDF.Filter.Count = %d, want 50", cfg.AppleInvoicePDF.Filter.Count)
 	}
-	if cfg.VodafoneDownloader.User != "vodafone@example.com" {
-		t.Errorf("VodafoneDownloader.User = %q, want vodafone@example.com", cfg.VodafoneDownloader.User)
+	if cfg.VodafoneDownloader.Username != "vodafone@example.com" {
+		t.Errorf("VodafoneDownloader.Username = %q, want vodafone@example.com", cfg.VodafoneDownloader.Username)
 	}
 }
 
@@ -104,7 +104,7 @@ func TestLoadConfig_DefaultEmailFrom(t *testing.T) {
 	path := filepath.Join(dir, "config.yaml")
 	os.WriteFile(path, []byte(`
 mail:
-  user: smtp@example.com
+  username: smtp@example.com
   to: recipient@example.com
 `), 0644)
 	cfg, err := loadConfig("config.yaml", path)
@@ -156,7 +156,7 @@ func TestLoadConfig_ChristmasWeekOffDefault(t *testing.T) {
 	path := filepath.Join(dir, "config.yaml")
 	os.WriteFile(path, []byte(`
 travel-expense:
-  mitarbeiter: Test
+  employee: Test
 `), 0644)
 	cfg, err := loadConfig("config.yaml", path)
 	if err != nil {

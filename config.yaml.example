@@ -3,17 +3,17 @@ mail:
   smtpPort: 587
   imapHost: "imap.example.com"
   imapPort: 993
-  user: "user@example.com"
-  pass: "your-password"
-  from: "user@example.com"       # optional, falls back to user
+  username: "user@example.com"
+  password: "your-password"
+  from: "user@example.com"       # optional, falls back to username
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
 
 travel-expense:
-  mitarbeiter: Max Mustermann
+  employee: Max Mustermann
   christmasWeekOff: true         # optional, default: true (exclude Dec 24, 27-31)
-  customers:
+  clients:
     - id: "1"
       name: Acme GmbH
       from: "Stuttgart, Heimatbüro"
@@ -29,23 +29,24 @@ apple-invoice-pdf:
     from: "apple.com"
 
 vodafone-downloader:
-  user: "your-vodafone-email@example.com"
-  pass: "your-vodafone-password"
+  username: "your-vodafone-email@example.com"
+  password: "your-vodafone-password"
   fallbackToLastMonth: true      # optional, default: true (send last month's invoice if current not yet available)
 
 harvest-invoice:
   currentMonthOnly: true           # optional, default: true (skip reports not in current month)
   skipExisting: true               # optional, default: true (skip if sevDesk already has invoice for same period)
   filter:
-    count: 20                    # how many recent emails to scan
+    count: 10                    # how many recent emails to scan
     subject: "We've exported your detailed time report"
     from: "harvestapp.com"       # sender domain filter
   harvest:
-    user: "harvest-login@example.com"
-    pass: "your-harvest-password"
+    username: "harvest-login@example.com"
+    password: "your-harvest-password"
   sevdesk:
-    user: "sevdesk-login@example.com"
-    pass: "your-sevdesk-password"
+    username: "sevdesk-login@example.com"
+    password: "your-sevdesk-password"
+    clientName: "Acme GmbH"              # optional, overrides client name from Harvest email
     productName: "Acme Produkt"          # search term typed into product field
     productNum: "0102"                   # article number to select from dropdown
     referenceNum: "REF-123"              # Kundenreferenz für E-Rechnung

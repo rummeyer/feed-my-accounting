@@ -11,7 +11,7 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
 
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
-| **travel-expense** | Config (customers, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
+| **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
 | **apple-invoice-pdf** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **vodafone-downloader** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **harvest-invoice** | IMAP inbox + Harvest | Downloads time report PDF, extracts hours, creates draft invoice in sevDesk | Direct browser automation |
@@ -126,16 +126,16 @@ mail:
   smtpPort: 587
   imapHost: "imap.example.com"
   imapPort: 993
-  user: "user@example.com"
-  pass: "your-password"
-  from: "user@example.com"       # optional, falls back to user
+  username: "user@example.com"
+  password: "your-password"
+  from: "user@example.com"       # optional, falls back to username
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
 travel-expense:
-  mitarbeiter: Max Mustermann
+  employee: Max Mustermann
   christmasWeekOff: true         # optional, default: true
-  customers:
+  clients:
     - id: "1"
       name: Acme GmbH
       from: "Stuttgart, Heimatbüro (Your Company GmbH)"
@@ -151,23 +151,24 @@ apple-invoice-pdf:
     from: "apple.com"
 
 vodafone-downloader:
-  user: "your-vodafone-email@example.com"
-  pass: "your-vodafone-password"
+  username: "your-vodafone-email@example.com"
+  password: "your-vodafone-password"
   fallbackToLastMonth: true      # optional, default: true
 
 harvest-invoice:
   currentMonthOnly: true           # optional, default: true
   skipExisting: true               # optional, default: true
   filter:
-    count: 20
+    count: 10
     subject: "We've exported your detailed time report"
     from: "harvestapp.com"
   harvest:
-    user: "harvest-login@example.com"
-    pass: "your-harvest-password"
+    username: "harvest-login@example.com"
+    password: "your-harvest-password"
   sevdesk:
-    user: "sevdesk-login@example.com"
-    pass: "your-sevdesk-password"
+    username: "sevdesk-login@example.com"
+    password: "your-sevdesk-password"
+    clientName: "Acme GmbH"        # optional, overrides client name from Harvest email
     productName: "Acme Produkt"    # search term for product field
     productNum: "0102"             # article number to select from dropdown
     referenceNum: "REF-123"        # Kundenreferenz für E-Rechnung
@@ -185,7 +186,7 @@ Generates two PDF documents per month for German business travel expense reporti
 ### How it works
 
 1. Calculates workdays for the month (excluding weekends, German public holidays, and optionally the Christmas/New Year week)
-2. Distributes workdays equally among configured customers using round-robin assignment
+2. Distributes workdays equally among configured clients using round-robin assignment
 3. Generates formatted PDF documents with smart page breaks (blocks never split across pages)
 4. Sends both PDFs via email as in-memory attachments (no files written to disk)
 
@@ -194,11 +195,11 @@ Generates two PDF documents per month for German business travel expense reporti
 - `MM_YYYY_Reisekosten_Kilometergelderstattung.pdf`
 - `MM_YYYY_Reisekosten_Verpflegungsmehraufwand.pdf`
 
-PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are formatted for sevDesk OCR recognition. The `mitarbeiter` name is rendered prominently at the top as the Lieferant.
+PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are formatted for sevDesk OCR recognition. The `employee` name is rendered prominently at the top as the Lieferant.
 
-### Customers
+### Clients
 
-Each customer represents a client/destination:
+Each client represents a destination:
 
 | Field | Description |
 |-------|-------------|
@@ -210,7 +211,7 @@ Each customer represents a client/destination:
 | `distance` | One-way distance in kilometres |
 | `province` | German state code for holiday calculation (see below) |
 
-When multiple customers are configured, workdays are distributed round-robin. With 20 workdays and 2 customers each gets 10 days. Mileage is calculated per customer based on their distance.
+When multiple clients are configured, workdays are distributed round-robin. With 20 workdays and 2 clients each gets 10 days. Mileage is calculated per client based on their distance.
 
 ### Province codes (Bundesland)
 
@@ -238,7 +239,7 @@ Defaults to `BW` if omitted or invalid.
 ### Excluded dates
 
 - Weekends (Saturday, Sunday)
-- German public holidays for the customer's province
+- German public holidays for the client's province
 - Christmas/New Year week off when `christmasWeekOff: true` (the default):
   - December 24
   - December 27–31
@@ -249,9 +250,9 @@ Defaults to `BW` if omitted or invalid.
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `mitarbeiter` | Employee name shown as Lieferant in PDF header for sevDesk OCR | — |
+| `employee` | Employee name shown as Lieferant in PDF header for sevDesk OCR | — |
 | `christmasWeekOff` | Exclude Dec 24 and Dec 27–31 | `true` |
-| `customers` | List of customer/trip configurations | required |
+| `clients` | List of client/trip configurations | required |
 
 ---
 
@@ -261,7 +262,7 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 ### How it works
 
-1. Connects to the IMAP server and scans the last N emails (or all if `count` is 0)
+1. Connects to the IMAP server and scans the last N recent emails
 2. Filters by subject, sender domain, and current month
 3. Extracts the HTML body and converts each to an A4 PDF via headless Chrome
 4. Embeds external images as base64 data URIs for reliable rendering
@@ -272,11 +273,11 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `filter.count` | Number of recent emails to scan (0 = all) | `0` |
+| `filter.count` | Number of recent emails to scan | `10` |
 | `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 | `filter.from` | Sender domain to match | `apple.com` |
 
-The IMAP host and port are configured under the top-level `imap:` key.
+The IMAP host and port are configured under the top-level `mail:` section.
 
 ---
 
@@ -318,8 +319,8 @@ var contractTypes = map[string]string{
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `user` | MeinVodafone login email | required |
-| `pass` | MeinVodafone password | required |
+| `username` | MeinVodafone login email | required |
+| `password` | MeinVodafone password | required |
 | `fallbackToLastMonth` | If `true`, send last month's invoice when current month is not yet available. If `false`, skip sending entirely until the current month's invoice is ready. | `true` |
 
 ---
@@ -333,7 +334,7 @@ Fetches Harvest monthly time report emails from IMAP, downloads the PDF export v
 1. Connects to the IMAP server and scans recent emails matching the Harvest export subject/sender
 2. Parses the export email HTML to extract the download URL, date range, and client name
 3. **Guard: `currentMonthOnly`** — skips the report if the period is not the current month
-4. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same customer has a Rechnungsdatum within the Leistungszeitraum; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
+4. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the Leistungszeitraum; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
 5. Logs into Harvest via headless Chrome and downloads the PDF report
 6. Extracts the total hours from the PDF
 7. Logs into sevDesk and creates a new E-Rechnung draft with:
@@ -342,23 +343,33 @@ Fetches Harvest monthly time report emails from IMAP, downloads the PDF export v
    - **Referenznummer** and **Kundenreferenz** from config
    - **Product** selected via typeahead search (search term + article number)
    - **Menge** set to the total hours from the PDF
-8. Saves the invoice as draft — it is never sent to the customer
+8. Saves the invoice as draft — it is never sent to the client
 
-IMAP credentials are taken from the top-level `mail.user` / `mail.pass`. The `skipExisting` guard uses the same headless Chrome browser to log into sevDesk and inspect the Rechnungen list — no API token needed.
+IMAP credentials are taken from the top-level `mail.username` / `mail.password`. The `skipExisting` guard uses the same headless Chrome browser to log into sevDesk and inspect the Rechnungen list — no API token needed.
+
+### Harvest report setup
+
+The Harvest time report **must be filtered to a single client** in Harvest's report settings. The client name in the export email is extracted from the `"to <ClientName>"` line and used to:
+
+- Select the client in the sevDesk invoice form
+- Match against existing invoices for duplicate detection
+
+The client name in Harvest must match the client name in sevDesk (e.g. both `"Acme GmbH"`). If names differ, set `sevdesk.clientName` in the config to use a fixed name instead of the one extracted from the email.
 
 ### harvest-invoice config options
 
 | Field | Description | Default |
 |-------|-------------|---------|
 | `currentMonthOnly` | Only process reports where the period matches the current month | `true` |
-| `skipExisting` | Check sevDesk for an existing invoice with the same customer and period before creating | `true` |
-| `filter.count` | Number of recent emails to scan | `20` |
+| `skipExisting` | Check sevDesk for an existing invoice with the same client and period before creating | `true` |
+| `filter.count` | Number of recent emails to scan | `10` |
 | `filter.subject` | Subject line to match | `We've exported your detailed time report` |
 | `filter.from` | Sender domain to match | `harvestapp.com` |
-| `harvest.user` | Harvest login email | required |
-| `harvest.pass` | Harvest login password | required |
-| `sevdesk.user` | sevDesk login email | required |
-| `sevdesk.pass` | sevDesk login password | required |
+| `harvest.username` | Harvest login email | required |
+| `harvest.password` | Harvest login password | required |
+| `sevdesk.username` | sevDesk login email | required |
+| `sevdesk.password` | sevDesk login password | required |
+| `sevdesk.clientName` | Fixed client name for sevDesk (overrides name from Harvest email) | — |
 | `sevdesk.productName` | Search term typed into the product field (e.g. "Acme Produkt") | required |
 | `sevdesk.productNum` | Article number to select from the typeahead dropdown (e.g. "0102") | required |
 | `sevdesk.referenceNum` | Kundenreferenz for E-Rechnung | — |
@@ -369,7 +380,7 @@ harvest-invoice is designed to be run repeatedly (e.g. via daily cron) without c
 
 - **`currentMonthOnly`** (default: `true`) — If the most recent Harvest export email covers a past month, it is silently skipped. This prevents old emails from being re-processed when polling the inbox via cron. Disable this (`false`) if you want to process exports for any month.
 
-- **`skipExisting`** (default: `true`) — Before downloading the PDF or opening the invoice form, the module logs into sevDesk via headless Chrome, navigates to the Rechnungen list, and checks if any invoice for the same customer has a Rechnungsdatum within the report's Leistungszeitraum. This covers all statuses (Entwurf, Offen, Bezahlt). If a match is found, the run is skipped. This means cron can safely run every day: the first successful run creates the invoice, and all subsequent runs are no-ops.
+- **`skipExisting`** (default: `true`) — Before downloading the PDF or opening the invoice form, the module logs into sevDesk via headless Chrome, navigates to the Rechnungen list, and checks if any invoice for the same client has a Rechnungsdatum within the report's Leistungszeitraum. This covers all statuses (Entwurf, Offen, Bezahlt). If a match is found, the run is skipped. This means cron can safely run every day: the first successful run creates the invoice, and all subsequent runs are no-ops.
 
 Both checks are lightweight and exit early. No Harvest PDF download or sevDesk form automation happens when either guard triggers.
 

@@ -73,7 +73,7 @@ func buildDocumentHeader(year int, month time.Month, dateString, periodStart, pe
 	return b.String()
 }
 
-func buildCustomerHeader(c Customer) string {
+func buildClientHeader(c Client) string {
 	var b strings.Builder
 
 	b.WriteString(lineSingle + "\n")

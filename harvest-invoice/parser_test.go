@@ -31,9 +31,6 @@ func TestParseEmail_FullExport(t *testing.T) {
 	if data.ClientName != "Acme GmbH" {
 		t.Errorf("ClientName = %q, want Acme GmbH", data.ClientName)
 	}
-	if data.ProjectName != "Website Redesign" {
-		t.Errorf("ProjectName = %q, want Website Redesign", data.ProjectName)
-	}
 }
 
 func TestParseEmail_SchemaOrgFallback(t *testing.T) {
