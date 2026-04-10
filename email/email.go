@@ -76,8 +76,8 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 // IMAPFilter defines which emails to fetch from the inbox.
 type IMAPFilter struct {
 	Count            int    // how many recent messages to scan (0 = all)
-	Subject          string // exact subject match
 	FromDomain       string // sender hostname must contain this string
+	Subject          string // exact subject match
 	CurrentMonthOnly bool   // only return emails received in the current month
 }
 
@@ -143,12 +143,6 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 			continue
 		}
 		env := msg.Envelope
-		if filter.CurrentMonthOnly && (env.Date.Year() != now.Year() || env.Date.Month() != now.Month()) {
-			continue
-		}
-		if filter.Subject != "" && env.Subject != filter.Subject {
-			continue
-		}
 		if filter.FromDomain != "" {
 			matched := false
 			for _, addr := range env.From {
@@ -160,6 +154,12 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 			if !matched {
 				continue
 			}
+		}
+		if filter.CurrentMonthOnly && (env.Date.Year() != now.Year() || env.Date.Month() != now.Month()) {
+			continue
+		}
+		if filter.Subject != "" && env.Subject != filter.Subject {
+			continue
 		}
 		logger.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
 		uids = append(uids, msg.Uid)

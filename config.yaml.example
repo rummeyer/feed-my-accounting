@@ -25,8 +25,8 @@ travel-expense:
 apple-invoice-pdf:
   filter:
     count: 10                    # how many recent emails to scan
-    subject: "Deine Rechnung von Apple"
     from: "apple.com"
+    subject: "Deine Rechnung von Apple"
 
 vodafone-downloader:
   username: "your-vodafone-email@example.com"
@@ -38,8 +38,8 @@ harvest-invoice:
   skipExisting: true               # optional, default: true (skip if sevDesk already has invoice for same period)
   filter:
     count: 10                    # how many recent emails to scan
-    subject: "We've exported your detailed time report"
     from: "harvestapp.com"       # sender domain filter
+    subject: "We\u2019ve exported your detailed time report"
   harvest:
     username: "harvest-login@example.com"
     password: "your-harvest-password"

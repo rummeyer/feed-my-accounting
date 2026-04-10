@@ -34,8 +34,8 @@ type TravelExpenseConfig struct {
 type AppleInvoicePDFConfig struct {
 	Filter struct {
 		Count   int    `yaml:"count"`
-		Subject string `yaml:"subject"`
 		From    string `yaml:"from"` // sender domain filter
+		Subject string `yaml:"subject"`
 	} `yaml:"filter"`
 }
 
@@ -48,10 +48,10 @@ type VodafoneDownloaderConfig struct {
 type HarvestInvoiceConfig struct {
 	CurrentMonthOnly *bool `yaml:"currentMonthOnly,omitempty"` // default: true
 	SkipExisting     *bool `yaml:"skipExisting,omitempty"`     // default: true
-	Filter           struct {
+	Filter struct {
 		Count   int    `yaml:"count"`
-		Subject string `yaml:"subject"`
 		From    string `yaml:"from"`
+		Subject string `yaml:"subject"`
 	} `yaml:"filter"`
 	Harvest struct {
 		Username string `yaml:"username"` // Harvest login email
@@ -130,11 +130,11 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.AppleInvoicePDF.Filter.Count == 0 {
 		cfg.AppleInvoicePDF.Filter.Count = 10
 	}
-	if cfg.AppleInvoicePDF.Filter.Subject == "" {
-		cfg.AppleInvoicePDF.Filter.Subject = "Deine Rechnung von Apple"
-	}
 	if cfg.AppleInvoicePDF.Filter.From == "" {
 		cfg.AppleInvoicePDF.Filter.From = "apple.com"
+	}
+	if cfg.AppleInvoicePDF.Filter.Subject == "" {
+		cfg.AppleInvoicePDF.Filter.Subject = "Deine Rechnung von Apple"
 	}
 	if cfg.VodafoneDownloader.FallbackToLastMonth == nil {
 		t := true
@@ -151,11 +151,11 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.HarvestInvoice.Filter.Count == 0 {
 		cfg.HarvestInvoice.Filter.Count = 10
 	}
-	if cfg.HarvestInvoice.Filter.Subject == "" {
-		cfg.HarvestInvoice.Filter.Subject = "We've exported your detailed time report"
-	}
 	if cfg.HarvestInvoice.Filter.From == "" {
 		cfg.HarvestInvoice.Filter.From = "harvestapp.com"
+	}
+	if cfg.HarvestInvoice.Filter.Subject == "" {
+		cfg.HarvestInvoice.Filter.Subject = "We\u2019ve exported your detailed time report"
 	}
 
 	return &cfg, nil

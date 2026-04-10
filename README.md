@@ -147,8 +147,8 @@ travel-expense:
 apple-invoice-pdf:
   filter:
     count: 10
-    subject: "Deine Rechnung von Apple"
     from: "apple.com"
+    subject: "Deine Rechnung von Apple"
 
 vodafone-downloader:
   username: "your-vodafone-email@example.com"
@@ -160,8 +160,8 @@ harvest-invoice:
   skipExisting: true               # optional, default: true
   filter:
     count: 10
-    subject: "We've exported your detailed time report"
     from: "harvestapp.com"
+    subject: "We\u2019ve exported your detailed time report"
   harvest:
     username: "harvest-login@example.com"
     password: "your-harvest-password"
@@ -274,8 +274,8 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 | Field | Description | Default |
 |-------|-------------|---------|
 | `filter.count` | Number of recent emails to scan | `10` |
-| `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 | `filter.from` | Sender domain to match | `apple.com` |
+| `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 
 The IMAP host and port are configured under the top-level `mail:` section.
 
@@ -363,8 +363,8 @@ The client name in Harvest must match the client name in sevDesk (e.g. both `"Ac
 | `currentMonthOnly` | Only process reports where the period matches the current month | `true` |
 | `skipExisting` | Check sevDesk for an existing invoice with the same client and period before creating | `true` |
 | `filter.count` | Number of recent emails to scan | `10` |
-| `filter.subject` | Subject line to match | `We've exported your detailed time report` |
 | `filter.from` | Sender domain to match | `harvestapp.com` |
+| `filter.subject` | Subject line to match | `We\u2019ve exported your detailed time report` |
 | `harvest.username` | Harvest login email | required |
 | `harvest.password` | Harvest login password | required |
 | `sevdesk.username` | sevDesk login email | required |

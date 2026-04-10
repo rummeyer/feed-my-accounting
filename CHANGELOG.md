@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default `filter.count` is now `10` for both apple-invoice-pdf and harvest-invoice
 - harvest-invoice now passes `Subject` to the IMAP filter (was ignored before)
 - Renamed `customer` → `client` throughout harvest-invoice and travel-expense code
+- IMAP filter now checks `FromDomain` before `Subject` for faster elimination of non-matching emails
+
+### Fixed
+
+- Harvest email subject uses Unicode right single quotation mark (`'` U+2019) — default and config now use `\u2019` to match correctly
 
 ### Removed
 
