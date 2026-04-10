@@ -3,12 +3,59 @@
 [![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-An accounting orchestrator that automates the generation and delivery of monthly documents to sevDesk. Combines four tools into one:
+A single command that closes your books for the month.
 
-- **travel-expense** — generates monthly travel expense PDFs (Kilometergelderstattung + Verpflegungsmehraufwand) and sends them via email
-- **apple-invoice-pdf** — fetches Apple invoice emails from IMAP, converts HTML to PDF via headless Chrome, and forwards as attachments
-- **vodafone-downloader** — logs into MeinVodafone via headless Chrome, downloads Mobilfunk and Kabel invoices, and sends them via email
-- **harvest-invoice** — fetches Harvest time report emails, downloads the PDF, and creates a draft invoice in sevDesk via browser automation
+Every month, freelancers and small businesses juggle the same ritual: collect invoices from Apple and Vodafone, generate travel expense reports, turn Harvest timesheets into outgoing invoices, and feed everything into the accounting system. **feed-my-accounting** automates all of it — from source to [sevDesk](https://sevdesk.de).
+
+It connects four data sources to your sevDesk account, each handled by a dedicated module:
+
+| Module | Source | What it does | Delivery |
+|--------|--------|-------------|----------|
+| **travel-expense** | Config (customers, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
+| **apple-invoice-pdf** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
+| **vodafone-downloader** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
+| **harvest-invoice** | IMAP inbox + Harvest | Downloads time report PDF, extracts hours, creates draft invoice in sevDesk | Direct browser automation |
+
+### How it all fits together
+
+```
+                        feed-my-accounting
+                       ────────────────────
+                                │
+           ┌────────────────────┼────────────────────┐
+           │                    │                    │
+  ┌────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+  │ travel-expense │  │ apple-invoice-  │  │ vodafone-       │
+  │                │  │ pdf             │  │ downloader      │
+  │ Config →       │  │ IMAP → Chrome → │  │ Chrome →        │
+  │ generate PDFs  │  │ HTML to PDF     │  │ download PDFs   │
+  └───────┬────────┘  └────────┬────────┘  └────────┬────────┘
+          │                    │                    │
+          └────────────────────┼────────────────────┘
+                               │
+                        Email + SMTP
+                               │
+                               ▼
+                  ┌───────────────────────┐
+                  │  sevDesk Autobox      │
+                  │  autobox@sevdesk.email│
+                  │                       │
+                  │  Auto-imports PDFs    │
+                  │  via OCR parsing      │
+                  └───────────────────────┘
+
+  ┌─────────────────┐              ┌─────────────────┐
+  │ harvest-invoice │    Chrome    │ sevDesk Web UI  │
+  │                 │  ─────────►  │                 │
+  │ IMAP → Harvest  │              │ Creates draft   │
+  │ PDF → extract   │              │ E-Rechnung with │
+  │ total hours     │              │ hours + period  │
+  └─────────────────┘              └─────────────────┘
+```
+
+Three modules collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fourth module (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
+
+Run once a month with a single command — or schedule it with cron — and your accounting is fed.
 
 All modules share a single `config.yaml` with a common `mail` block for SMTP/IMAP credentials and addresses.
 
