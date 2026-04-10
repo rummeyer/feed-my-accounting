@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-04-10
+
+### Added
+
+- `sevdesk.clientName` config option to override the client name extracted from Harvest email
+- `[module]` log prefix for all modules (`[harvest]`, `[vodafone]`, `[apple]`, `[travel]`, `[imap]`)
+- `CurrentMonthOnly` flag on IMAP filter — apple-invoice-pdf uses it, harvest-invoice has its own period-based guard
+
+### Changed
+
+- **Breaking:** renamed YAML keys: `user`/`pass` → `username`/`password`, `mitarbeiter` → `employee`, `customers` → `clients`
+- Default `filter.count` is now `10` for both apple-invoice-pdf and harvest-invoice
+- harvest-invoice now passes `Subject` to the IMAP filter (was ignored before)
+- Renamed `customer` → `client` throughout harvest-invoice and travel-expense code
+
+### Removed
+
+- Unused `ProjectName` field from harvest-invoice `ReportData`
+
+---
+
 ## [1.3.0] - 2026-04-10
 
 ### Added
@@ -13,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared `browser` package for headless Chrome context creation (used by vodafone-downloader and harvest-invoice)
 - Unified mail config: all modules now share `imap` and `smtp` sections with camelCase YAML keys
 - `currentMonthOnly` guard: skip Harvest reports that are not for the current month (default: `true`)
-- `skipExisting` guard: navigates to the sevDesk Rechnungen list and checks for duplicate invoices by matching customer name and Rechnungsdatum within the Leistungszeitraum — covers all statuses (Entwurf, Offen, Bezahlt) (default: `true`)
+- `skipExisting` guard: navigates to the sevDesk Rechnungen list and checks for duplicate invoices by matching client name and Rechnungsdatum within the Leistungszeitraum — covers all statuses (Entwurf, Offen, Bezahlt) (default: `true`)
 - Unit tests for date parsing, day truncation, and duplicate match logic
 
 ### Changed
