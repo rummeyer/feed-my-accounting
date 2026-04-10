@@ -77,18 +77,8 @@ func createInvoice(ctx context.Context, cfg SevDeskConfig, data *ReportData) err
 	}
 
 	log.Println("Saving invoice as draft...")
-	invoiceID, err := saveInvoice(ctx)
-	if err != nil {
+	if err := saveInvoice(ctx); err != nil {
 		return fmt.Errorf("saving invoice: %w", err)
-	}
-
-	// Re-open the saved invoice to force sevDesk to re-render with correct
-	// date formatting (first render after save shows ISO format as a bug).
-	if invoiceID != "" {
-		log.Println("Re-opening invoice to fix rendering...")
-		if err := reopenInvoice(ctx, invoiceID); err != nil {
-			log.Printf("Warning: could not re-open invoice: %v", err)
-		}
 	}
 
 	log.Println("sevDesk invoice draft created successfully")
@@ -356,29 +346,8 @@ func addPosition(ctx context.Context, searchTerm, articleNum string, hours float
 
 // saveInvoice clicks the toolbar save button (floppy disk icon) to save the
 // invoice as a draft. The save button is the second tooltip-wrapped button in
-// the toolbar (after the preview/eye button). Returns the invoice ID.
-func saveInvoice(ctx context.Context) (string, error) {
-	// Install XHR interceptor to capture the invoice ID from the save response
-	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
-		window.__savedInvoiceId = '';
-		const origSend = XMLHttpRequest.prototype.send;
-		XMLHttpRequest.prototype.send = function(body) {
-			const origOnLoad = this.onload;
-			this.onload = function() {
-				try {
-					if (this.responseURL && this.responseURL.includes('saveInvoice')) {
-						const data = JSON.parse(this.responseText);
-						if (data && data.objects && data.objects.invoice) {
-							window.__savedInvoiceId = String(data.objects.invoice.id);
-						}
-					}
-				} catch(e) {}
-				if (origOnLoad) origOnLoad.apply(this, arguments);
-			};
-			return origSend.apply(this, arguments);
-		};
-	})()`, nil))
-
+// the toolbar (after the preview/eye button).
+func saveInvoice(ctx context.Context) error {
 	chromedp.Run(ctx, chromedp.Evaluate(`window.scrollTo(0, 0)`, nil))
 	time.Sleep(time.Second)
 
@@ -392,34 +361,11 @@ func saveInvoice(ctx context.Context) (string, error) {
 		}
 		return 'not found (tooltip btns: ' + tooltipBtns.length + ')';
 	})()`, &result)); err != nil {
-		return "", err
+		return err
 	}
 	log.Printf("Save: %s", result)
 	time.Sleep(10 * time.Second)
 
-	var invoiceID string
-	chromedp.Run(ctx, chromedp.Evaluate(`window.__savedInvoiceId || ''`, &invoiceID))
-	log.Printf("Saved invoice ID: %s", invoiceID)
-
-	return invoiceID, nil
-}
-
-// reopenInvoice navigates away from the invoice, then back to it by ID.
-// This forces sevDesk to re-render with correct date formatting (workaround
-// for a sevDesk bug where Leistungszeitraum shows ISO format on first save).
-func reopenInvoice(ctx context.Context, invoiceID string) error {
-	invoiceURL := "https://my.sevdesk.de/fi/edit/type/RE/id/" + invoiceID
-
-	// Navigate away (dashboard), then back to the invoice
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate("https://my.sevdesk.de/"),
-		chromedp.Sleep(3*time.Second),
-		chromedp.Navigate(invoiceURL),
-		chromedp.Sleep(5*time.Second),
-	); err != nil {
-		return err
-	}
-	log.Printf("Re-opened invoice: %s", invoiceURL)
 	return nil
 }
 
