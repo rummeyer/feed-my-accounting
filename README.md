@@ -156,6 +156,8 @@ vodafone-downloader:
   fallbackToLastMonth: true      # optional, default: true
 
 harvest-invoice:
+  currentMonthOnly: true           # optional, default: true
+  skipExisting: true               # optional, default: true
   filter:
     count: 20
     subject: "We've exported your detailed time report"

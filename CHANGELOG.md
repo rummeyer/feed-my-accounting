@@ -20,10 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - README rewritten with narrative intro, architecture diagram, and per-module documentation
 
-### Removed
-
-- Invoice reopen workaround (`Bearbeiten` button click) — no longer needed after sevDesk UI update
-
 ---
 
 ## [1.2.0] - 2026-03-06
