@@ -34,6 +34,8 @@ vodafone-downloader:
   fallbackToLastMonth: true      # optional, default: true (send last month's invoice if current not yet available)
 
 harvest-invoice:
+  currentMonthOnly: true           # optional, default: true (skip reports not in current month)
+  skipExisting: true               # optional, default: true (skip if sevDesk already has invoice for same period)
   filter:
     count: 20                    # how many recent emails to scan
     subject: "We've exported your detailed time report"

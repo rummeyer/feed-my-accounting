@@ -17,10 +17,12 @@ import (
 
 // Config holds all configuration for the harvest-invoice module.
 type Config struct {
-	Mail    email.MailConfig
-	Harvest HarvestLogin  `yaml:"harvest"`
-	SevDesk SevDeskConfig `yaml:"sevdesk"`
-	Filter  FilterConfig  `yaml:"filter"`
+	Mail             email.MailConfig
+	CurrentMonthOnly bool
+	SkipExisting     bool
+	Harvest          HarvestLogin  `yaml:"harvest"`
+	SevDesk          SevDeskConfig `yaml:"sevdesk"`
+	Filter           FilterConfig  `yaml:"filter"`
 }
 
 // HarvestLogin holds credentials for the Harvest web login.
@@ -77,9 +79,36 @@ func Run(cfg Config) error {
 		log.Printf("Client: %s", report.ClientName)
 	}
 
-	// Download PDF via browser (requires Harvest login)
+	// Guard: only process reports for the current month
+	if cfg.CurrentMonthOnly {
+		now := time.Now()
+		if report.PeriodFrom.Year() != now.Year() || report.PeriodFrom.Month() != now.Month() {
+			log.Printf("Skipping: report period %s is not current month (%s)",
+				report.PeriodFrom.Format("01/2006"), now.Format("01/2006"))
+			return nil
+		}
+	}
+
+	// Create browser context (shared for sevDesk check, Harvest download, and invoice creation)
 	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
 	defer cancel()
+
+	// Guard: check if sevDesk already has an invoice for this customer+period
+	sevdeskLoggedIn := false
+	if cfg.SkipExisting {
+		log.Println("Checking sevDesk for existing invoice...")
+		exists, err := checkInvoiceExists(ctx, cfg.SevDesk, report.ClientName, report.PeriodFrom, report.PeriodTo)
+		if err != nil {
+			log.Printf("WARNING: duplicate check failed: %v (continuing anyway)", err)
+		} else if exists {
+			log.Printf("Skipping: sevDesk already has an invoice for %s (%s – %s)",
+				report.ClientName,
+				report.PeriodFrom.Format("02.01.2006"),
+				report.PeriodTo.Format("02.01.2006"))
+			return nil
+		}
+		sevdeskLoggedIn = true
+	}
 
 	log.Println("Logging into Harvest to download report PDF...")
 	pdfData, err := downloadExportPDF(ctx, cfg.Harvest, report.ExportURL)
@@ -99,7 +128,7 @@ func Run(cfg Config) error {
 
 	// Create sevDesk invoice via browser (reuse the same browser context)
 	log.Println("Creating sevDesk invoice...")
-	if err := createInvoice(ctx, cfg.SevDesk, report); err != nil {
+	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
 		return fmt.Errorf("creating sevDesk invoice: %w", err)
 	}
 

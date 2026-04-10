@@ -46,7 +46,9 @@ type VodafoneDownloaderConfig struct {
 }
 
 type HarvestInvoiceConfig struct {
-	Filter struct {
+	CurrentMonthOnly *bool `yaml:"currentMonthOnly,omitempty"` // default: true
+	SkipExisting     *bool `yaml:"skipExisting,omitempty"`     // default: true
+	Filter           struct {
 		Count   int    `yaml:"count"`
 		Subject string `yaml:"subject"`
 		From    string `yaml:"from"`
@@ -133,6 +135,14 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.VodafoneDownloader.FallbackToLastMonth == nil {
 		t := true
 		cfg.VodafoneDownloader.FallbackToLastMonth = &t
+	}
+	if cfg.HarvestInvoice.CurrentMonthOnly == nil {
+		t := true
+		cfg.HarvestInvoice.CurrentMonthOnly = &t
+	}
+	if cfg.HarvestInvoice.SkipExisting == nil {
+		t := true
+		cfg.HarvestInvoice.SkipExisting = &t
 	}
 	if cfg.HarvestInvoice.Filter.Count == 0 {
 		cfg.HarvestInvoice.Filter.Count = 20

@@ -157,7 +157,9 @@ func runVodafoneDownloader(cfg *Config) error {
 
 func runHarvestInvoice(cfg *Config) error {
 	return harvest.Run(harvest.Config{
-		Mail: cfg.Mail,
+		Mail:             cfg.Mail,
+		CurrentMonthOnly: *cfg.HarvestInvoice.CurrentMonthOnly,
+		SkipExisting:     *cfg.HarvestInvoice.SkipExisting,
 		Harvest: harvest.HarvestLogin{
 			User: cfg.HarvestInvoice.Harvest.User,
 			Pass: cfg.HarvestInvoice.Harvest.Pass,

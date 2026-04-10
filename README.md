@@ -330,32 +330,46 @@ Fetches Harvest monthly time report emails from IMAP, downloads the PDF export v
 
 1. Connects to the IMAP server and scans recent emails matching the Harvest export subject/sender
 2. Parses the export email HTML to extract the download URL, date range, and client name
-3. Logs into Harvest via headless Chrome and downloads the PDF report
-4. Extracts the total hours from the PDF
-5. Logs into sevDesk and creates a new E-Rechnung draft with:
-   - **Rechnungsdatum** set to the end of the report period
+3. **Guard: `currentMonthOnly`** — skips the report if the period is not the current month
+4. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same customer has a Rechnungsdatum within the Leistungszeitraum; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
+5. Logs into Harvest via headless Chrome and downloads the PDF report
+6. Extracts the total hours from the PDF
+7. Logs into sevDesk and creates a new E-Rechnung draft with:
+   - **Rechnungsdatum** pre-filled as today's date by sevDesk
    - **Leistungszeitraum** set to the full report period (e.g. 01.04.2026 - 30.04.2026)
    - **Referenznummer** and **Kundenreferenz** from config
    - **Product** selected via typeahead search (search term + article number)
    - **Menge** set to the total hours from the PDF
-6. Saves the invoice as draft — it is never sent to the customer
+8. Saves the invoice as draft — it is never sent to the customer
 
-IMAP credentials are always taken from the top-level `smtp.user` / `smtp.pass`.
+IMAP credentials are taken from the top-level `mail.user` / `mail.pass`. The `skipExisting` guard uses the same headless Chrome browser to log into sevDesk and inspect the Rechnungen list — no API token needed.
 
 ### harvest-invoice config options
 
-| Field | Description |
-|-------|-------------|
-| `filter.count` | Number of recent emails to scan |
-| `filter.subject` | Subject line to match |
-| `filter.from` | Sender domain to match |
-| `harvest.user` | Harvest login email |
-| `harvest.pass` | Harvest login password |
-| `sevdesk.user` | sevDesk login email |
-| `sevdesk.pass` | sevDesk login password |
-| `sevdesk.productName` | Search term typed into the product field (e.g. "Acme Produkt") |
-| `sevdesk.productNum` | Article number to select from the typeahead dropdown (e.g. "0102") |
-| `sevdesk.referenceNum` | Kundenreferenz for E-Rechnung |
+| Field | Description | Default |
+|-------|-------------|---------|
+| `currentMonthOnly` | Only process reports where the period matches the current month | `true` |
+| `skipExisting` | Check sevDesk for an existing invoice with the same customer and period before creating | `true` |
+| `filter.count` | Number of recent emails to scan | `20` |
+| `filter.subject` | Subject line to match | `We've exported your detailed time report` |
+| `filter.from` | Sender domain to match | `harvestapp.com` |
+| `harvest.user` | Harvest login email | required |
+| `harvest.pass` | Harvest login password | required |
+| `sevdesk.user` | sevDesk login email | required |
+| `sevdesk.pass` | sevDesk login password | required |
+| `sevdesk.productName` | Search term typed into the product field (e.g. "Acme Produkt") | required |
+| `sevdesk.productNum` | Article number to select from the typeahead dropdown (e.g. "0102") | required |
+| `sevdesk.referenceNum` | Kundenreferenz for E-Rechnung | — |
+
+### Safe for cron: duplicate prevention
+
+harvest-invoice is designed to be run repeatedly (e.g. via daily cron) without creating duplicate invoices. Two guard checks run **before** the expensive browser automation:
+
+- **`currentMonthOnly`** (default: `true`) — If the most recent Harvest export email covers a past month, it is silently skipped. This prevents old emails from being re-processed when polling the inbox via cron. Disable this (`false`) if you want to process exports for any month.
+
+- **`skipExisting`** (default: `true`) — Before downloading the PDF or opening the invoice form, the module logs into sevDesk via headless Chrome, navigates to the Rechnungen list, and checks if any invoice for the same customer has a Rechnungsdatum within the report's Leistungszeitraum. This covers all statuses (Entwurf, Offen, Bezahlt). If a match is found, the run is skipped. This means cron can safely run every day: the first successful run creates the invoice, and all subsequent runs are no-ops.
+
+Both checks are lightweight and exit early. No Harvest PDF download or sevDesk form automation happens when either guard triggers.
 
 ### Notes
 
@@ -386,7 +400,7 @@ feed-my-accounting/
 ├── harvest-invoice/
 │   ├── harvest.go                 # Config, Run(), PDF download via Chrome
 │   ├── parser.go                  # email HTML parsing, PDF hours extraction
-│   └── sevdesk.go                 # sevDesk browser automation (login, form, save)
+│   └── sevdesk.go                 # sevDesk browser automation (login, form, save, duplicate check)
 ├── main.go                        # CLI entry point and config mapping
 ├── config.go                      # unified YAML config structs
 ├── config.yaml.example
