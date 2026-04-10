@@ -4,11 +4,23 @@ package browser
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
 )
+
+// filteredLogf wraps log.Printf but suppresses noisy chromedp messages
+// like "unhandled node event *dom.EventTopLayerElementsUpdated".
+func filteredLogf(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if strings.Contains(msg, "unhandled node event") {
+		return
+	}
+	log.Print(msg)
+}
 
 // NewContext creates a headless Chrome browser context with bot-detection
 // evasion flags (new headless mode, custom user agent, AutomationControlled
@@ -42,8 +54,8 @@ func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), flags...)
 	ctx, ctxCancel := chromedp.NewContext(allocCtx,
-		chromedp.WithErrorf(log.Printf),
-		chromedp.WithLogf(log.Printf),
+		chromedp.WithErrorf(filteredLogf),
+		chromedp.WithLogf(filteredLogf),
 	)
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 

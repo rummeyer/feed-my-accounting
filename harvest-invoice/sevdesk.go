@@ -59,7 +59,12 @@ func sevdeskLogin(ctx context.Context, user, pass string) error {
 	}
 
 	clickButton(ctx, `button[type="submit"]`, "Anmelden")
-	time.Sleep(8 * time.Second)
+
+	// Wait for dashboard to load (hamburger menu or sidebar appears after login)
+	if err := waitForSelector(ctx, `[class*="hamburger"], [class*="menu-toggle"], [class*="sidebar"]`, 15*time.Second); err != nil {
+		// Fallback: if no specific element found, give it a moment
+		time.Sleep(5 * time.Second)
+	}
 
 	dismissCookieBanner(ctx)
 	return nil
@@ -88,39 +93,43 @@ func clickButton(ctx context.Context, selector, text string) {
 // Direct URL navigation to /fi/index/type/RE redirects to the dashboard,
 // so we must click through the SPA menu.
 func navigateToInvoiceList(ctx context.Context) error {
-	// Open the hamburger menu (top-left)
-	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
-		const btn = document.querySelector('[class*="hamburger"], [class*="menu-toggle"]');
-		if (btn) { btn.click(); return; }
-		const icons = document.querySelectorAll('svg, [class*="icon"]');
-		for (const el of icons) {
-			const r = el.getBoundingClientRect();
-			if (r.left < 100 && r.top < 80 && r.width > 0) { el.click(); return; }
-		}
-	})()`, nil))
-	time.Sleep(2 * time.Second)
-
-	// Click "Rechnungen" in the sidebar menu
+	// Open the hamburger menu (top-left) and click "Rechnungen".
+	// Retry up to 3 times — on slower machines the menu may need more time to open.
 	var result string
-	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
-		// Try specific menu selectors first
-		for (const el of document.querySelectorAll('a, [role="menuitem"], [class*="nav"] span, [class*="sidebar"] a')) {
-			if (el.textContent.trim() === 'Rechnungen' || el.textContent.trim() === 'Ausgangsrechnungen') {
-				el.click();
-				return 'ok';
+	for attempt := 0; attempt < 3; attempt++ {
+		chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+			const btn = document.querySelector('[class*="hamburger"], [class*="menu-toggle"]');
+			if (btn) { btn.click(); return; }
+			const icons = document.querySelectorAll('svg, [class*="icon"]');
+			for (const el of icons) {
+				const r = el.getBoundingClientRect();
+				if (r.left < 100 && r.top < 80 && r.width > 0) { el.click(); return; }
 			}
-		}
-		// Fallback: find any visible leaf element with the exact text
-		for (const el of document.querySelectorAll('*')) {
-			if (el.children.length === 0 && el.textContent.trim() === 'Rechnungen' && el.offsetParent !== null) {
-				el.click();
-				return 'ok';
+		})()`, nil))
+		time.Sleep(3 * time.Second)
+
+		chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+			for (const el of document.querySelectorAll('a, [role="menuitem"], [class*="nav"] span, [class*="sidebar"] a')) {
+				if (el.textContent.trim() === 'Rechnungen' || el.textContent.trim() === 'Ausgangsrechnungen') {
+					el.click();
+					return 'ok';
+				}
 			}
+			for (const el of document.querySelectorAll('*')) {
+				if (el.children.length === 0 && el.textContent.trim() === 'Rechnungen' && el.offsetParent !== null) {
+					el.click();
+					return 'ok';
+				}
+			}
+			return 'not found';
+		})()`, &result))
+		if result == "ok" {
+			break
 		}
-		return 'not found';
-	})()`, &result))
+		logger.Printf("Rechnungen menu not found (attempt %d/3), retrying...", attempt+1)
+	}
 	if result != "ok" {
-		logger.Printf("WARNING: Rechnungen menu item not found")
+		logger.Printf("WARNING: Rechnungen menu item not found after 3 attempts")
 	}
 	time.Sleep(8 * time.Second)
 	return nil
@@ -322,12 +331,12 @@ func selectClient(ctx context.Context, clientName string) error {
 		for (const li of document.querySelectorAll('li')) {
 			if (li.innerText.includes('GmbH') && li.innerText.includes('KND')) {
 				(li.querySelector('a') || li).click();
-				return 'ok: ' + li.innerText.trim().substring(0, 60);
+				return 'ok: ' + li.innerText.trim().replace(/\n/g, ' ').substring(0, 80);
 			}
 		}
 		return 'not found';
 	})()`, &result))
-	logger.Printf("Customer: %s", result)
+	logger.Printf("Client: %s", result)
 	time.Sleep(3 * time.Second)
 	return nil
 }
@@ -389,8 +398,39 @@ func setServicePeriod(ctx context.Context, from, to time.Time) error {
 	return nil
 }
 
-// setReferenceNumber fills the "Referenznummer eintragen" field at the top.
+// setReferenceNumber selects "Bestellung vom Käufer BT-13" from the custom
+// dropdown left of the "Referenznummer eintragen" field, then fills the field.
 func setReferenceNumber(ctx context.Context, refNum string) {
+	// Step 1: Click the custom dropdown button next to the reference field
+	var dropdownResult string
+	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+		const refInput = document.querySelector('input[placeholder="Referenznummer eintragen"]');
+		if (!refInput) return 'refInput not found';
+		const container = refInput.parentElement.parentElement;
+		const btn = container.querySelector('button[class*="select-button"]') ||
+			container.querySelector('[class*="select-module"] button') ||
+			container.querySelector('[class*="select"] button');
+		if (btn) { btn.click(); return 'opened'; }
+		return 'button not found';
+	})()`, &dropdownResult))
+	time.Sleep(500 * time.Millisecond)
+
+	// Step 2: Click the "Bestellung vom Käufer BT-13" option in the opened dropdown
+	if dropdownResult == "opened" {
+		chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+			for (const el of document.querySelectorAll('li, [role="option"], [class*="option"], [class*="menu-item"]')) {
+				if (el.innerText.includes('BT-13') || el.innerText.includes('Bestellung')) {
+					el.click();
+					return 'set: ' + el.innerText.trim().replace(/\n/g, ' ');
+				}
+			}
+			return 'BT-13 option not found';
+		})()`, &dropdownResult))
+	}
+	logger.Printf("Reference type: %s", dropdownResult)
+	time.Sleep(500 * time.Millisecond)
+
+	// Step 3: Fill the reference number
 	chromedp.Run(ctx,
 		chromedp.Click(`input[placeholder="Referenznummer eintragen"]`, chromedp.ByQuery),
 		chromedp.Sleep(200*time.Millisecond),
@@ -441,12 +481,12 @@ func addPosition(ctx context.Context, searchTerm, articleNum string, hours float
 		for (const li of matches) {
 			if (li.innerText.trim().includes("%s")) {
 				(li.querySelector('a') || li).click();
-				return 'clicked: ' + li.innerText.trim();
+				return 'clicked: ' + li.innerText.trim().replace(/\n/g, ' ');
 			}
 		}
 		if (matches.length > 0) {
 			(matches[0].querySelector('a') || matches[0]).click();
-			return 'fallback: ' + matches[0].innerText.trim();
+			return 'fallback: ' + matches[0].innerText.trim().replace(/\n/g, ' ');
 		}
 		return 'no matches';
 	})()`, escapedNum), &result)); err != nil {

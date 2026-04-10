@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `sevdesk.clientName` config option to override the client name extracted from Harvest email
 - `[module]` log prefix for all modules (`[harvest]`, `[vodafone]`, `[apple]`, `[travel]`, `[imap]`)
 - `CurrentMonthOnly` flag on IMAP filter — apple-invoice-pdf uses it, harvest-invoice has its own period-based guard
+- E-Rechnung reference type dropdown: automatically selects "Bestellung (vom Käufer) BT-13" when setting reference number
+- Suppress noisy chromedp `unhandled node event` log messages
 
 ### Changed
 
@@ -20,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - harvest-invoice now passes `Subject` to the IMAP filter (was ignored before)
 - Renamed `customer` → `client` throughout harvest-invoice and travel-expense code
 - IMAP filter now checks `FromDomain` before `Subject` for faster elimination of non-matching emails
+- Replaced fixed 8s sleep after sevDesk login with `WaitVisible` for faster navigation
+- Rechnungen menu navigation retries up to 3 times for slower machines (e.g. Raspberry Pi)
 
 ### Fixed
 
