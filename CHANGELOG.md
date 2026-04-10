@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-04-10
+
+### Added
+
+- **harvest-invoice** module: downloads Harvest time report PDFs from email, extracts hours, and creates draft invoices in sevDesk via browser automation
+- Shared `browser` package for headless Chrome context creation (used by vodafone-downloader and harvest-invoice)
+- Unified mail config: all modules now share `imap` and `smtp` sections with camelCase YAML keys
+- `currentMonthOnly` guard: skip Harvest reports that are not for the current month (default: `true`)
+- `skipExisting` guard: navigates to the sevDesk Rechnungen list and checks for duplicate invoices by matching customer name and Rechnungsdatum within the Leistungszeitraum — covers all statuses (Entwurf, Offen, Bezahlt) (default: `true`)
+- Unit tests for date parsing, day truncation, and duplicate match logic
+
+### Changed
+
+- README rewritten with narrative intro, architecture diagram, and per-module documentation
+
+### Removed
+
+- Invoice reopen workaround (`Bearbeiten` button click) — no longer needed after sevDesk UI update
+
+---
+
 ## [1.2.0] - 2026-03-06
 
 ### Added
