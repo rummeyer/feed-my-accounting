@@ -19,7 +19,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var logger = log.New(os.Stderr, "[vodafone] ", log.LstdFlags)
+var logger = log.New(os.Stderr, "[vodafone-invoice] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config

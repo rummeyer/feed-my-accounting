@@ -16,7 +16,7 @@ import (
 	"github.com/rickar/cal/v2/de"
 )
 
-var logger = log.New(os.Stderr, "[travel] ", log.LstdFlags)
+var logger = log.New(os.Stderr, "[travel-expense] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config

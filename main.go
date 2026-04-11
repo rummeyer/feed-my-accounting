@@ -10,8 +10,8 @@
 //
 //	all [M/YYYY]              Run all modules (default when no command given)
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
-//	apple-invoice-pdf         Fetch Apple invoice emails and send as PDFs
-//	vodafone-downloader       Download Vodafone invoices and send via email
+//	apple-invoice             Fetch Apple invoice emails and send as PDFs
+//	vodafone-invoice          Download Vodafone invoices and send via email
 package main
 
 import (
@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	apple "feed-my-accounting/apple-invoice-pdf"
+	apple "feed-my-accounting/apple-invoice"
 	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
-	vodafone "feed-my-accounting/vodafone-downloader"
+	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
 const version = "1.4.0"
@@ -74,12 +74,12 @@ func main() {
 			fmt.Fprintf(os.Stderr, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
-		if err := runAppleInvoicePDF(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "apple error: %v\n", err)
+		if err := runAppleInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "apple-invoice error: %v\n", err)
 			os.Exit(1)
 		}
-		if err := runVodafoneDownloader(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "vodafone error: %v\n", err)
+		if err := runVodafoneInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 		if err := runHarvestInvoice(cfg); err != nil {
@@ -94,15 +94,15 @@ func main() {
 			os.Exit(1)
 		}
 
-	case "apple-invoice-pdf":
-		if err := runAppleInvoicePDF(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "apple error: %v\n", err)
+	case "apple-invoice":
+		if err := runAppleInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "apple-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
-	case "vodafone-downloader":
-		if err := runVodafoneDownloader(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "vodafone error: %v\n", err)
+	case "vodafone-invoice":
+		if err := runVodafoneInvoice(cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -135,23 +135,23 @@ func runTravelExpense(cfg *Config, year int, month time.Month) error {
 	}, year, month)
 }
 
-func runAppleInvoicePDF(cfg *Config) error {
+func runAppleInvoice(cfg *Config) error {
 	return apple.Run(apple.Config{
 		Mail: cfg.Mail,
 		Filter: apple.FilterConfig{
-			Count:   cfg.AppleInvoicePDF.Filter.Count,
-			Subject: cfg.AppleInvoicePDF.Filter.Subject,
-			From:    cfg.AppleInvoicePDF.Filter.From,
+			Count:   cfg.AppleInvoice.Filter.Count,
+			Subject: cfg.AppleInvoice.Filter.Subject,
+			From:    cfg.AppleInvoice.Filter.From,
 		},
 	})
 }
 
-func runVodafoneDownloader(cfg *Config) error {
+func runVodafoneInvoice(cfg *Config) error {
 	return vodafone.Run(vodafone.Config{
 		Mail:                cfg.Mail,
-		Username:            cfg.VodafoneDownloader.Username,
-		Password:            cfg.VodafoneDownloader.Password,
-		FallbackToLastMonth: *cfg.VodafoneDownloader.FallbackToLastMonth,
+		Username:            cfg.VodafoneInvoice.Username,
+		Password:            cfg.VodafoneInvoice.Password,
+		FallbackToLastMonth: *cfg.VodafoneInvoice.FallbackToLastMonth,
 	})
 }
 
@@ -202,8 +202,8 @@ Usage:
 Commands:
   all [M/YYYY]              Run all modules (default when no command given)
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
-  apple-invoice-pdf         Fetch Apple invoice emails and send as PDFs
-  vodafone-downloader       Download Vodafone invoices and send via email
+  apple-invoice             Fetch Apple invoice emails and send as PDFs
+  vodafone-invoice          Download Vodafone invoices and send via email
   harvest-invoice           Create sevDesk invoice from Harvest monthly report
 
 Flags:

@@ -32,13 +32,13 @@ travel-expense:
       distance: 42
       province: BW
 
-apple-invoice-pdf:
+apple-invoice:
   filter:
     count: 50
     subject: "Deine Rechnung von Apple"
     from: "apple.com"
 
-vodafone-downloader:
+vodafone-invoice:
   username: vodafone@example.com
   password: vodapass
 `), 0644)
@@ -74,11 +74,11 @@ vodafone-downloader:
 	if cfg.TravelExpense.Clients[0].Distance != 42 {
 		t.Errorf("Client.Distance = %d, want 42", cfg.TravelExpense.Clients[0].Distance)
 	}
-	if cfg.AppleInvoicePDF.Filter.Count != 50 {
-		t.Errorf("AppleInvoicePDF.Filter.Count = %d, want 50", cfg.AppleInvoicePDF.Filter.Count)
+	if cfg.AppleInvoice.Filter.Count != 50 {
+		t.Errorf("AppleInvoice.Filter.Count = %d, want 50", cfg.AppleInvoice.Filter.Count)
 	}
-	if cfg.VodafoneDownloader.Username != "vodafone@example.com" {
-		t.Errorf("VodafoneDownloader.Username = %q, want vodafone@example.com", cfg.VodafoneDownloader.Username)
+	if cfg.VodafoneInvoice.Username != "vodafone@example.com" {
+		t.Errorf("VodafoneInvoice.Username = %q, want vodafone@example.com", cfg.VodafoneInvoice.Username)
 	}
 }
 
@@ -126,11 +126,11 @@ func TestLoadConfig_DefaultAppleFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
 	}
-	if cfg.AppleInvoicePDF.Filter.Subject != "Deine Rechnung von Apple" {
-		t.Errorf("AppleInvoicePDF.Filter.Subject default = %q", cfg.AppleInvoicePDF.Filter.Subject)
+	if cfg.AppleInvoice.Filter.Subject != "Deine Rechnung von Apple" {
+		t.Errorf("AppleInvoice.Filter.Subject default = %q", cfg.AppleInvoice.Filter.Subject)
 	}
-	if cfg.AppleInvoicePDF.Filter.From != "apple.com" {
-		t.Errorf("AppleInvoicePDF.Filter.From default = %q", cfg.AppleInvoicePDF.Filter.From)
+	if cfg.AppleInvoice.Filter.From != "apple.com" {
+		t.Errorf("AppleInvoice.Filter.From default = %q", cfg.AppleInvoice.Filter.From)
 	}
 }
 

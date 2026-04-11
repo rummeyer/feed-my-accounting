@@ -14,7 +14,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-var logger = log.New(os.Stderr, "[apple] ", log.LstdFlags)
+var logger = log.New(os.Stderr, "[apple-invoice] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config

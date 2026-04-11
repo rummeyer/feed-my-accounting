@@ -1,5 +1,5 @@
 // Package browser provides a shared headless Chrome context for modules
-// that need browser automation (vodafone-downloader, harvest-invoice).
+// that need browser automation (vodafone-invoice, harvest-invoice).
 package browser
 
 import (

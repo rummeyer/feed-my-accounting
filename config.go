@@ -31,7 +31,7 @@ type TravelExpenseConfig struct {
 	ChristmasWeekOff *bool    `yaml:"christmasWeekOff,omitempty"` // default: true
 }
 
-type AppleInvoicePDFConfig struct {
+type AppleInvoiceConfig struct {
 	Filter struct {
 		Count   int    `yaml:"count"`
 		From    string `yaml:"from"` // sender domain filter
@@ -39,7 +39,7 @@ type AppleInvoicePDFConfig struct {
 	} `yaml:"filter"`
 }
 
-type VodafoneDownloaderConfig struct {
+type VodafoneInvoiceConfig struct {
 	Username            string `yaml:"username"`
 	Password            string `yaml:"password"`
 	FallbackToLastMonth *bool  `yaml:"fallbackToLastMonth,omitempty"` // default: true
@@ -71,11 +71,11 @@ type HarvestInvoiceConfig struct {
 // The "mail" block holds shared SMTP/IMAP credentials and addresses;
 // each module has its own section for module-specific settings.
 type Config struct {
-	Mail               email.MailConfig         `yaml:"mail"`
-	TravelExpense      TravelExpenseConfig      `yaml:"travel-expense"`
-	AppleInvoicePDF    AppleInvoicePDFConfig    `yaml:"apple-invoice-pdf"`
-	VodafoneDownloader VodafoneDownloaderConfig `yaml:"vodafone-downloader"`
-	HarvestInvoice     HarvestInvoiceConfig     `yaml:"harvest-invoice"`
+	Mail            email.MailConfig      `yaml:"mail"`
+	TravelExpense   TravelExpenseConfig   `yaml:"travel-expense"`
+	AppleInvoice    AppleInvoiceConfig    `yaml:"apple-invoice"`
+	VodafoneInvoice VodafoneInvoiceConfig `yaml:"vodafone-invoice"`
+	HarvestInvoice  HarvestInvoiceConfig  `yaml:"harvest-invoice"`
 }
 
 // ---------------------------------------------------------------------------
@@ -127,18 +127,18 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username
 	}
-	if cfg.AppleInvoicePDF.Filter.Count == 0 {
-		cfg.AppleInvoicePDF.Filter.Count = 10
+	if cfg.AppleInvoice.Filter.Count == 0 {
+		cfg.AppleInvoice.Filter.Count = 10
 	}
-	if cfg.AppleInvoicePDF.Filter.From == "" {
-		cfg.AppleInvoicePDF.Filter.From = "apple.com"
+	if cfg.AppleInvoice.Filter.From == "" {
+		cfg.AppleInvoice.Filter.From = "apple.com"
 	}
-	if cfg.AppleInvoicePDF.Filter.Subject == "" {
-		cfg.AppleInvoicePDF.Filter.Subject = "Deine Rechnung von Apple"
+	if cfg.AppleInvoice.Filter.Subject == "" {
+		cfg.AppleInvoice.Filter.Subject = "Deine Rechnung von Apple"
 	}
-	if cfg.VodafoneDownloader.FallbackToLastMonth == nil {
+	if cfg.VodafoneInvoice.FallbackToLastMonth == nil {
 		t := true
-		cfg.VodafoneDownloader.FallbackToLastMonth = &t
+		cfg.VodafoneInvoice.FallbackToLastMonth = &t
 	}
 	if cfg.HarvestInvoice.CurrentMonthOnly == nil {
 		t := true

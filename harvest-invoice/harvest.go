@@ -15,7 +15,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-var logger = log.New(os.Stderr, "[harvest] ", log.LstdFlags)
+var logger = log.New(os.Stderr, "[harvest-invoice] ", log.LstdFlags)
 
 // Config holds all configuration for the harvest-invoice module.
 type Config struct {

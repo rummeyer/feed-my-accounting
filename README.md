@@ -12,8 +12,8 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
-| **apple-invoice-pdf** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
-| **vodafone-downloader** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
+| **apple-invoice** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
+| **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **harvest-invoice** | IMAP inbox + Harvest | Downloads time report PDF, extracts hours, creates draft invoice in sevDesk | Direct browser automation |
 
 ### How it all fits together
@@ -25,8 +25,8 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
            ┌────────────────────┼────────────────────┐
            │                    │                    │
   ┌────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-  │ travel-expense │  │ apple-invoice-  │  │ vodafone-       │
-  │                │  │ pdf             │  │ downloader      │
+  │ travel-expense │  │ apple-invoice   │  │ vodafone-invoice│
+  │                │  │                 │  │                 │
   │ Config →       │  │ IMAP → Chrome → │  │ Chrome →        │
   │ generate PDFs  │  │ HTML to PDF     │  │ download PDFs   │
   └───────┬────────┘  └────────┬────────┘  └────────┬────────┘
@@ -62,7 +62,7 @@ All modules share a single `config.yaml` with a common `mail` block for SMTP/IMA
 ## Requirements
 
 - Go 1.25+
-- Google Chrome or Chromium (required by `apple-invoice-pdf`, `vodafone-downloader`, and `harvest-invoice`)
+- Google Chrome or Chromium (required by `apple-invoice`, `vodafone-invoice`, and `harvest-invoice`)
 
 ## Installation
 
@@ -90,10 +90,10 @@ feed-my-accounting travel-expense 3/2026
 feed-my-accounting travel-expense 12/2025
 
 # Apple invoice emails → PDF → email
-feed-my-accounting apple-invoice-pdf
+feed-my-accounting apple-invoice
 
 # Vodafone invoices → email
-feed-my-accounting vodafone-downloader
+feed-my-accounting vodafone-invoice
 
 # Harvest report → sevDesk draft invoice
 feed-my-accounting harvest-invoice
@@ -144,13 +144,13 @@ travel-expense:
       distance: 42
       province: BW
 
-apple-invoice-pdf:
+apple-invoice:
   filter:
     count: 10
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
 
-vodafone-downloader:
+vodafone-invoice:
   username: "your-vodafone-email@example.com"
   password: "your-vodafone-password"
   fallbackToLastMonth: true      # optional, default: true
@@ -256,7 +256,7 @@ Defaults to `BW` if omitted or invalid.
 
 ---
 
-## Module: apple-invoice-pdf
+## Module: apple-invoice
 
 Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF using headless Chrome, and sends all PDFs as attachments in a single email.
 
@@ -269,7 +269,7 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 5. Names each PDF as `MM_YYYY_Rechnung_Apple_BESTELLNUMMER.pdf` using the order number extracted from the invoice HTML; falls back to subject-based naming if not found
 6. Sends all PDFs as attachments in a single email
 
-### apple-invoice-pdf config options
+### apple-invoice config options
 
 | Field | Description | Default |
 |-------|-------------|---------|
@@ -281,7 +281,7 @@ The IMAP host and port are configured under the top-level `mail:` section.
 
 ---
 
-## Module: vodafone-downloader
+## Module: vodafone-invoice
 
 Logs into the MeinVodafone portal via headless Chrome, downloads Mobilfunk and Kabel invoices, and sends them as PDF attachments via email.
 
@@ -305,7 +305,7 @@ Run near the **end of the month** (around the 25th or later). Vodafone invoices 
 
 ### Adding contract types
 
-Edit `contractTypes` in `vodafone-downloader/vodafone-downloader.go`:
+Edit `contractTypes` in `vodafone-invoice/vodafone-invoice.go`:
 
 ```go
 var contractTypes = map[string]string{
@@ -315,7 +315,7 @@ var contractTypes = map[string]string{
 }
 ```
 
-### vodafone-downloader config options
+### vodafone-invoice config options
 
 | Field | Description | Default |
 |-------|-------------|---------|
@@ -405,11 +405,11 @@ feed-my-accounting/
 │   ├── travel-expense.go          # Config, calendar logic, Run()
 │   ├── doc.go                     # document content builders
 │   └── pdf.go                     # PDF generation
-├── apple-invoice-pdf/
-│   ├── apple-invoice-pdf.go       # Config, Run(), invoice parsing
-│   └── pdf.go                     # HTML→PDF conversion, HTML cleanup
-├── vodafone-downloader/
-│   └── vodafone-downloader.go     # Config, browser automation, Run()
+├── apple-invoice/
+│   ├── apple-invoice.go            # Config, Run(), invoice parsing
+│   └── pdf.go                      # HTML→PDF conversion, HTML cleanup
+├── vodafone-invoice/
+│   └── vodafone-invoice.go         # Config, browser automation, Run()
 ├── harvest-invoice/
 │   ├── harvest.go                 # Config, Run(), PDF download via Chrome
 │   ├── parser.go                  # email HTML parsing, PDF hours extraction

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Breaking:** unified module naming — renamed `apple-invoice-pdf` → `apple-invoice` and `vodafone-downloader` → `vodafone-invoice`. Affects the subcommand names, the YAML config keys under the top-level config, and the module directory names.
+- Log prefixes now match module names: `[apple-invoice]`, `[vodafone-invoice]`, `[harvest-invoice]`, `[travel-expense]` (was `[apple]`, `[vodafone]`, `[harvest]`, `[travel]`). Shared email package prefix renamed `[imap]` → `[email]`.
+
+### Added
+
+- `email.Send` now logs subject, recipient, and attachment count before dialing SMTP, plus a success line after.
+
 ## [1.4.0] - 2026-04-10
 
 ### Added

@@ -22,13 +22,13 @@ travel-expense:
       distance: 42               # one-way distance in km
       province: BW               # German state abbreviation for holiday calendar
 
-apple-invoice-pdf:
+apple-invoice:
   filter:
     count: 10                    # how many recent emails to scan
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
 
-vodafone-downloader:
+vodafone-invoice:
   username: "your-vodafone-email@example.com"
   password: "your-vodafone-password"
   fallbackToLastMonth: true      # optional, default: true (send last month's invoice if current not yet available)

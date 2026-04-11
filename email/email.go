@@ -16,7 +16,7 @@ import (
 	"github.com/go-gomail/gomail"
 )
 
-var logger = log.New(os.Stderr, "[imap] ", log.LstdFlags)
+var logger = log.New(os.Stderr, "[email] ", log.LstdFlags)
 
 // ---------------------------------------------------------------------------
 // Config
@@ -65,8 +65,13 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 		}))
 	}
 
+	logger.Printf("Sending %q to %s with %d attachment(s)", subject, cfg.To, len(attachments))
 	dialer := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.Username, cfg.Password)
-	return dialer.DialAndSend(msg)
+	if err := dialer.DialAndSend(msg); err != nil {
+		return err
+	}
+	logger.Println("Email sent")
+	return nil
 }
 
 // ---------------------------------------------------------------------------
