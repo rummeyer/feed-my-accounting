@@ -6,6 +6,7 @@ package travelexpense
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -17,6 +18,9 @@ import (
 )
 
 var logger = log.New(os.Stderr, "[travel-expense] ", log.LstdFlags)
+
+// SetLogOutput redirects this package's log output to the given writer.
+func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 
 // ---------------------------------------------------------------------------
 // Config

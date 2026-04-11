@@ -16,21 +16,55 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	apple "feed-my-accounting/apple-invoice"
+	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.4.0"
+const version = "1.5.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
+
+// logOut is where all module log output is written. Defaults to stderr;
+// main() tees it to a log file next to the executable at startup.
+var logOut io.Writer = os.Stderr
+
+// setupLogging opens <exe-name>.log next to the executable and routes all
+// module loggers to tee output to both stderr and the file. On failure,
+// logs a warning to stderr and continues with stderr-only output.
+func setupLogging() (io.Closer, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	dir := filepath.Dir(exe)
+	base := strings.TrimSuffix(filepath.Base(exe), filepath.Ext(exe))
+	path := filepath.Join(dir, base+".log")
+
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	logOut = io.MultiWriter(os.Stderr, f)
+	apple.SetLogOutput(logOut)
+	vodafone.SetLogOutput(logOut)
+	harvest.SetLogOutput(logOut)
+	travelexpense.SetLogOutput(logOut)
+	email.SetLogOutput(logOut)
+	log.SetOutput(logOut)
+	return f, nil
+}
 
 func main() {
 	args := os.Args[1:]
@@ -40,6 +74,12 @@ func main() {
 			fmt.Printf("feed-my-accounting v%s\n", version)
 			return
 		}
+	}
+
+	if closer, err := setupLogging(); err != nil {
+		fmt.Fprintf(logOut, "WARNING: could not open log file: %v\n", err)
+	} else {
+		defer closer.Close()
 	}
 
 	// Parse --config flag
@@ -54,7 +94,7 @@ func main() {
 
 	cfg, err := loadConfig("config.yaml", configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		fmt.Fprintf(logOut, "Error loading config: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -71,49 +111,49 @@ func main() {
 	case "all":
 		year, month := parseMonthArg(remaining)
 		if err := runTravelExpense(cfg, year, month); err != nil {
-			fmt.Fprintf(os.Stderr, "travel-expense error: %v\n", err)
+			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
 		if err := runAppleInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "apple-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 		if err := runVodafoneInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "vodafone-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 		if err := runHarvestInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "harvest-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "travel-expense":
 		year, month := parseMonthArg(remaining)
 		if err := runTravelExpense(cfg, year, month); err != nil {
-			fmt.Fprintf(os.Stderr, "travel-expense error: %v\n", err)
+			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "apple-invoice":
 		if err := runAppleInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "apple-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "vodafone-invoice":
 		if err := runVodafoneInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "vodafone-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
 	case "harvest-invoice":
 		if err := runHarvestInvoice(cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "harvest-invoice error: %v\n", err)
+			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %q\n\n", subcommand)
+		fmt.Fprintf(logOut, "Unknown command: %q\n\n", subcommand)
 		printUsage()
 		os.Exit(1)
 	}

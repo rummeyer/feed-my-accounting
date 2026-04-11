@@ -3,6 +3,7 @@ package harvest
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,9 @@ import (
 )
 
 var logger = log.New(os.Stderr, "[harvest-invoice] ", log.LstdFlags)
+
+// SetLogOutput redirects this package's log output to the given writer.
+func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 
 // Config holds all configuration for the harvest-invoice module.
 type Config struct {

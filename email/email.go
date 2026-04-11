@@ -18,6 +18,9 @@ import (
 
 var logger = log.New(os.Stderr, "[email] ", log.LstdFlags)
 
+// SetLogOutput redirects this package's log output to the given writer.
+func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
+
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------

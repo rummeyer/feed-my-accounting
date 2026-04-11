@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.5.0] - 2026-04-11
 
 ### Changed
 
@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Automatic log file: all module output is tee'd to `feed-my-accounting.log` next to the executable (append mode), in addition to stderr. If the file can't be opened, a warning is printed and the tool continues with stderr-only output.
+- Each module package exposes a `SetLogOutput(io.Writer)` function so main can redirect logs at startup.
 - `email.Send` now logs subject, recipient, and attachment count before dialing SMTP, plus a success line after.
 
 ## [1.4.0] - 2026-04-10

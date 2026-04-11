@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -20,6 +21,9 @@ import (
 )
 
 var logger = log.New(os.Stderr, "[vodafone-invoice] ", log.LstdFlags)
+
+// SetLogOutput redirects this package's log output to the given writer.
+func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 
 // ---------------------------------------------------------------------------
 // Config

@@ -4,6 +4,7 @@ package apple
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -15,6 +16,9 @@ import (
 )
 
 var logger = log.New(os.Stderr, "[apple-invoice] ", log.LstdFlags)
+
+// SetLogOutput redirects this package's log output to the given writer.
+func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 
 // ---------------------------------------------------------------------------
 // Config
