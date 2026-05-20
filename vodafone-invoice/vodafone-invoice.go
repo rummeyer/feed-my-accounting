@@ -241,7 +241,7 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 func navigateToInvoicePage(ctx context.Context, typeName string) error {
 	if err := chromedp.Run(ctx,
 		chromedp.Navigate("https://www.vodafone.de/meinvodafone/services/"),
-		chromedp.Sleep(3*time.Second),
+		chromedp.Sleep(5*time.Second),
 	); err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 				if (h.innerText.includes(name)) (h.closest('a') || h.parentElement).click();
 			});
 		})("`+strings.ReplaceAll(contractName, `"`, `\"`)+`")`, nil),
-		chromedp.Sleep(3*time.Second),
+		chromedp.Sleep(5*time.Second),
 	); err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 	}
 
 	// Poll for invoice page content to finish loading.
-	for i := 0; i < 15; i++ {
+	for i := 0; i < 30; i++ {
 		time.Sleep(time.Second)
 		var hasContent bool
 		if err := chromedp.Run(ctx, chromedp.Evaluate(`
@@ -306,7 +306,7 @@ func capturePDF(ctx context.Context, clickJS string) ([]byte, error) {
 	if err := chromedp.Run(ctx, chromedp.Evaluate(clickJS, nil)); err != nil {
 		return nil, fmt.Errorf("clicking download button: %w", err)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(8 * time.Second)
 
 	var captured []string
 	if err := chromedp.Run(ctx, chromedp.Evaluate(`window._capturedPDFs || []`, &captured)); err != nil {
