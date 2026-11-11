@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-11-11
+
+### Changed
+
+- travel-expense: a client with assignments gets only its assigned days; the remaining workdays are shared equally by the clients without assignments. `onlyAssigned` is gone — the assignments say it.
+- Web interface: the header shows the next scheduled run; Zuordnungen start without a client chosen and need one.
+
 ## [1.9.1] - 2026-11-11
 
 ### Changed

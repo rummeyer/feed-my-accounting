@@ -134,7 +134,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 	}
 	clients := make([]map[string]any, 0, len(cfg.TravelExpense.Clients))
 	for _, c := range cfg.TravelExpense.Clients {
-		clients = append(clients, map[string]any{"id": c.ID, "name": c.Name, "onlyAssigned": c.OnlyAssigned})
+		clients = append(clients, map[string]any{"id": c.ID, "name": c.Name})
 	}
 	reply(w, map[string]any{
 		"version": version,

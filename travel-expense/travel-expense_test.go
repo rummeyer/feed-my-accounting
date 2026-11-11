@@ -402,7 +402,7 @@ func decemberWithMiami() Config {
 		Employee: "Max",
 		Clients: []Client{
 			{ID: "1", Name: "Acme GmbH", Distance: 15, Province: "BW"},
-			{ID: "2", Name: "Globex Inc.", Distance: 30, Country: "US", OnlyAssigned: true,
+			{ID: "2", Name: "Globex Inc.", Distance: 30, Country: "US",
 				MealFullDay: 65, MealTravelDay: 44},
 		},
 		Assignments: []Assignment{{Client: 1, From: date(3), To: date(9), Overnight: true, Note: "Miami"}},
@@ -429,7 +429,7 @@ func TestPlanOvernightTripAndEqualDistribution(t *testing.T) {
 	if d := byDay(9); d.Meal != 44 || d.Mileage != 30*0.30 {
 		t.Errorf("last day: %+v", d)
 	}
-	// Every other workday to Acme, Globex only taking its assigned days.
+	// Every other workday to Acme: Globex, with an assignment, gets only that.
 	for _, d := range days {
 		if d.Kind == DayTravel && d.Client != 0 {
 			t.Errorf("%s went to client %d", d.Date.Format("02.01."), d.Client)
@@ -467,7 +467,7 @@ func TestGenerateWithOvernightTrip(t *testing.T) {
 
 func TestGenerateAbroadWithoutDriving(t *testing.T) {
 	cfg := Config{
-		Clients:     []Client{{Name: "Abroad", Province: "BW", OnlyAssigned: true, MealFullDay: 50}},
+		Clients:     []Client{{Name: "Abroad", Province: "BW", MealFullDay: 50}},
 		Assignments: []Assignment{{Client: 0, From: date(14), To: date(18), Overnight: true}},
 	}
 	r, err := Generate(cfg, 2026, time.December)
@@ -578,5 +578,28 @@ func TestInlandRatesApplyToClientsWithoutTheirOwn(t *testing.T) {
 	plan := Plan(trip, 2026, time.December)
 	if plan[13].Meal != 14 || plan[14].Meal != 30 || plan[15].Meal != 14 {
 		t.Errorf("inland overnight trip: %v %v %v", plan[13].Meal, plan[14].Meal, plan[15].Meal)
+	}
+}
+
+func TestClientsWithoutAssignmentsShareTheRest(t *testing.T) {
+	cfg := Config{Clients: []Client{{Name: "A", Province: "BW"}, {Name: "B", Province: "BW"}, {Name: "C", Province: "BW"}}}
+	got := map[int]int{}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel {
+			got[d.Client]++
+		}
+	}
+	if got[0] != 7 || got[1] != 7 || got[2] != 7 {
+		t.Errorf("no assignments, equal shares of 21 days: %v", got)
+	}
+	cfg.Assignments = []Assignment{{Client: 2, From: time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)}}
+	got = map[int]int{}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel {
+			got[d.Client]++
+		}
+	}
+	if got[2] != 0 || got[0]+got[1] != 21 {
+		t.Errorf("C has an assignment, so only that, even in other months: %v", got)
 	}
 }

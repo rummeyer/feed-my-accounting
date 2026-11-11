@@ -29,7 +29,6 @@ type Client struct {
 	MealDay       float64 `yaml:"mealDay,omitempty"`       // day trip, more than 8 hours
 	MealFullDay   float64 `yaml:"mealFullDay,omitempty"`   // a full day away, overnight trips
 	MealTravelDay float64 `yaml:"mealTravelDay,omitempty"` // arrival or departure day
-	OnlyAssigned  bool    `yaml:"onlyAssigned,omitempty"`  // no days from the equal distribution
 }
 
 // DateRange is days from From to To (YYYY-MM-DD), inclusive; To empty for one day.

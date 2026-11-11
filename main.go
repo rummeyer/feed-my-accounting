@@ -34,7 +34,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.9.1"
+const version = "1.10.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -201,7 +201,6 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
 			Reason: c.Reason, Distance: c.Distance, Country: c.Country, Province: c.Province,
 			MealDay: c.MealDay, MealFullDay: c.MealFullDay, MealTravelDay: c.MealTravelDay,
-			OnlyAssigned: c.OnlyAssigned,
 		}
 	}
 	for _, c := range te.Clients {

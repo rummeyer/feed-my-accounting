@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.10.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
@@ -217,7 +217,6 @@ travel-expense:
       country: US                # optional, default DE: whose public holidays count
       mealFullDay: 65            # abroad: the country's rates (BMF table)
       mealTravelDay: 44
-      onlyAssigned: true         # optional: only the days assigned to it
   blocked:                       # optional: no travel on these days
     - from: 2026-08-03
       to: 2026-08-14
@@ -316,8 +315,8 @@ When multiple clients are configured, workdays are distributed round-robin. With
 
 Both ways of splitting the days work together:
 
-- **Equal distribution** (the default): every workday goes round-robin to the clients.
-- **Assignments**: a date range given to one client explicitly. Its days go to that client and are left out of the distribution; clients with `onlyAssigned: true` get no other days.
+- **Equal distribution**: the workdays go round-robin to the clients without assignments.
+- **Assignments**: a date range given to one client explicitly. A client with assignments gets those days and no others; the remaining workdays are shared by the clients without any.
   - **Day trips** (`overnight: false`): the workdays in the range, each with the day rate and the drive there and back.
   - **Overnight** (`overnight: true`): every day of the range counts, weekends and holidays too — the first and last day at the travel day rate (An-/Abreisetag) with the drive to and from the airport or station, the days between at the full day rate, without mileage. A client without `distance` has no mileage at all; a month without driving sends only the Verpflegungsmehraufwand PDF.
 
@@ -389,7 +388,6 @@ A month without any travel day — all of it vacation, say — is logged as noth
 | `mealRates` | Inland meal rates in EUR: `day`, `fullDay`, `travelDay` | 14 / 28 / 14 |
 | `clients[].mealDay`, `mealFullDay`, `mealTravelDay` | The client's own meal rates in EUR, see above | `mealRates` |
 | `clients[].country` | ISO 3166 code: whose public holidays count | `DE` |
-| `clients[].onlyAssigned` | Only the days assigned to the client, none from the distribution | `false` |
 | `blocked` | Date ranges without travel: `from`, `to` (optional), `note` | — |
 | `assignments` | Date ranges for one client: `client` (id or name), `from`, `to`, `overnight`, `note` | — |
 

@@ -79,9 +79,6 @@ type Client struct {
 	MealDay       float64
 	MealFullDay   float64
 	MealTravelDay float64
-	// OnlyAssigned keeps the client out of the equal distribution: it gets the days assigned to
-	// it, and no others.
-	OnlyAssigned bool
 }
 
 // MealRates are meal allowance rates in EUR (Verpflegungspauschalen).
@@ -309,8 +306,8 @@ type Day struct {
 
 // Plan works out each day of the month. An overnight assignment counts every day within it.
 // Otherwise weekends, holidays, the Christmas week and blocked ranges are off, and a workday goes
-// to the client it is assigned to, or else round-robin to the clients not only taking assigned
-// days, each checked against its own province's holidays.
+// to the client it is assigned to, or else round-robin to the clients without assignments of
+// their own, each checked against its own holidays.
 func Plan(cfg Config, year int, month time.Month) []Day {
 	if len(cfg.Clients) == 0 {
 		return nil
@@ -318,9 +315,15 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 	calendars := getClientCalendars(cfg.Clients)
 	christmas := cfg.christmasWeekOffEnabled()
 	inland := cfg.inlandRates()
-	var shared []int // the clients sharing the unassigned workdays
-	for i, c := range cfg.Clients {
-		if !c.OnlyAssigned {
+	// The clients sharing the unassigned workdays: those without assignments of their own. A
+	// client with assignments gets those days, and no others.
+	assignedTo := map[int]bool{}
+	for _, a := range cfg.Assignments {
+		assignedTo[a.Client] = true
+	}
+	var shared []int
+	for i := range cfg.Clients {
+		if !assignedTo[i] {
 			shared = append(shared, i)
 		}
 	}

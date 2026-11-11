@@ -480,7 +480,6 @@ const CLIENT_FIELDS = [
   ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
   ['MealDay', 'Tagesreise > 8 h (€)', 'money', 14], ['MealFullDay', 'Ganzer Tag (€)', 'money', 28],
   ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14],
-  ['OnlyAssigned', 'Nur zugeordnete Tage', 'bool', false, 'instant'],
 ];
 
 let settings = null;
@@ -492,7 +491,7 @@ function setPath(obj, path, value) {
   keys.reduce((o, k) => (o[k] ??= {}), obj)[last] = value;
 }
 
-function field(obj, [path, label, type, extra, instant]) {
+function field(obj, [path, label, type, extra]) {
   const value = getPath(obj, path);
   let input;
   if (type === 'bool') {
@@ -500,8 +499,6 @@ function field(obj, [path, label, type, extra, instant]) {
     input.type = 'checkbox';
     input.checked = value ?? extra;
     bind(input, () => setPath(obj, path, input.checked));
-    // Some switches change the calendar: saved at once, and the calendar reworked.
-    if (instant) input.addEventListener('change', () => saveNow(input.closest('form.part')));
     return el('label', 'check span', input, label);
   }
   if (type === 'province') {
@@ -605,20 +602,6 @@ async function saveSettings(e, note) {
     e.target.querySelector('.actions .muted').textContent = 'Gespeichert.';
   } catch (err) {
     note.textContent = err.message;
-  }
-}
-
-/** Saves the settings without the Speichern button, and reworks the travel calendar. */
-async function saveNow(form) {
-  const note = form?.querySelector('.actions .muted');
-  try {
-    await api('PUT', '/api/settings', settings.config);
-    overview = null;
-    await loadOverview();
-    await loadTravel();
-    if (note) note.textContent = 'Gespeichert, Kalender neu berechnet.';
-  } catch (err) {
-    if (note) note.textContent = err.message;
   }
 }
 
