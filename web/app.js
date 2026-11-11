@@ -368,6 +368,7 @@ function editEntry(name, i) {
     $('b-to').value = e.to || '';
     $('b-note').value = e.note || '';
   }
+  for (const id of ['a-from', 'b-from']) $(id).dispatchEvent(new Event('change'));
   renderLists();
   $(list.form).scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
@@ -415,6 +416,24 @@ $('blocked-form').addEventListener('submit', (e) => {
 for (const name of Object.keys(lists)) {
   $(lists[name].form).querySelector('.cancel').addEventListener('click', () => { stopEditing(name); renderLists(); });
   $(`${name}-save`).addEventListener('click', () => saveList(name));
+}
+
+// Date ranges: "von" starts at today, "bis" only from the day after "von" on — empty for a
+// single day. Kept so after every reset of the form.
+const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+for (const [from, to] of [['a-from', 'a-to'], ['b-from', 'b-to']]) {
+  const follow = () => {
+    if (!$(from).value) return;
+    const next = new Date(`${$(from).value}T12:00:00`);
+    next.setDate(next.getDate() + 1);
+    $(to).min = isoDay(next);
+    if ($(to).value && $(to).value < $(to).min) $(to).value = '';
+  };
+  $(from).defaultValue = isoDay(new Date());
+  $(from).value = $(from).defaultValue;
+  $(from).addEventListener('change', follow);
+  $(from).form.addEventListener('reset', () => setTimeout(follow));
+  follow();
 }
 
 // Leaving with changes not saved: the browser asks first.
