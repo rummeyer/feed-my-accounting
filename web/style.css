@@ -297,4 +297,4 @@ input.missing { border-color: var(--bad); }
 .grid .break { grid-column: 1 / -1; height: 0; }
 
 /* The month for the Harvest run: M/YYYY, as on the command line. */
-.actions input.month { width: 8ch; text-align: center; }
+.actions input.month { width: calc(7ch + 18px + 2ch); text-align: center; }
