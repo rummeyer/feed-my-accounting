@@ -121,8 +121,8 @@ func RunReport(cfg Config) (*ReportData, error) {
 		return nil, nil
 	}
 
-	logger.Println("Logging into Harvest to download report PDF...")
-	pdfData, err := downloadExportPDF(ctx, cfg.Harvest, report.ExportURL)
+	logger.Println("Downloading the report PDF from Harvest...")
+	pdfData, err := downloadExportPDF(cfg.Harvest, report.ExportURL)
 	if err != nil {
 		return nil, fmt.Errorf("downloading PDF: %w", err)
 	}
@@ -247,7 +247,17 @@ func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exist
 // PDF export file. It navigates to the export URL (which redirects to the
 // Harvest login), submits credentials, and waits for the file download to
 // complete in a temporary directory.
-func downloadExportPDF(ctx context.Context, creds HarvestLogin, exportURL string) ([]byte, error) {
+func downloadExportPDF(creds HarvestLogin, exportURL string) ([]byte, error) {
+	// A browser of its own, which is what it says it is and remembers the Harvest login:
+	// Harvest's sign in has an hCaptcha that turned the Mac disguise away (11.11.2026), and
+	// a remembered login needs no sign in, so no captcha, at all.
+	var opts = []browser.Option{browser.WithGermanLocale(), browser.WithNativeUserAgent()}
+	if dir, err := os.UserCacheDir(); err == nil {
+		opts = append(opts, browser.WithProfile(filepath.Join(dir, "feed-my-accounting", "harvest-browser")))
+	}
+	ctx, cancel := browser.NewContext(opts...)
+	defer cancel()
+
 	downloadDir, err := os.MkdirTemp("", "harvest-export-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating temp dir: %w", err)
@@ -263,30 +273,15 @@ func downloadExportPDF(ctx context.Context, creds HarvestLogin, exportURL string
 		return nil, fmt.Errorf("setting download behavior: %w", err)
 	}
 
-	// Navigate to export URL → redirects to Harvest login
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate(exportURL),
-		chromedp.Sleep(3*time.Second),
-	); err != nil {
+	// The export URL downloads the PDF straight away when the login is remembered; else it
+	// redirects to Harvest's sign in, and the download follows the sign in.
+	if err := chromedp.Run(ctx, chromedp.Navigate(exportURL)); err != nil && !strings.Contains(err.Error(), "net::ERR_ABORTED") {
 		return nil, fmt.Errorf("navigating to export: %w", err)
 	}
 
-	// Login — after submit, the download is triggered automatically
-	if err := chromedp.Run(ctx,
-		chromedp.WaitVisible(`#email`, chromedp.ByID),
-		chromedp.Clear(`#email`, chromedp.ByID),
-		chromedp.SendKeys(`#email`, creds.Username, chromedp.ByID),
-		chromedp.Clear(`#password`, chromedp.ByID),
-		chromedp.SendKeys(`#password`, creds.Password, chromedp.ByID),
-		chromedp.Sleep(500*time.Millisecond),
-		chromedp.Click(`button[type="submit"]`, chromedp.ByQuery),
-	); err != nil {
-		return nil, fmt.Errorf("Harvest login: %w", err)
-	}
-
-	// Wait for download to complete
 	var downloadedFile string
-	for i := 0; i < 30; i++ {
+	signedIn := false
+	for i := 0; i < 60 && downloadedFile == ""; i++ {
 		time.Sleep(time.Second)
 		entries, _ := os.ReadDir(downloadDir)
 		for _, e := range entries {
@@ -294,13 +289,29 @@ func downloadExportPDF(ctx context.Context, creds HarvestLogin, exportURL string
 				downloadedFile = filepath.Join(downloadDir, e.Name())
 			}
 		}
-		if downloadedFile != "" {
-			break
+		if downloadedFile != "" || signedIn {
+			continue
 		}
+		var form bool
+		if err := chromedp.Run(ctx, chromedp.Evaluate(`(() => { const e = document.querySelector('#email'); return !!e && e.offsetParent !== null; })()`, &form)); err != nil || !form {
+			continue
+		}
+		logger.Println("Signing in to Harvest...")
+		if err := chromedp.Run(ctx,
+			chromedp.Clear(`#email`, chromedp.ByID),
+			chromedp.SendKeys(`#email`, creds.Username, chromedp.ByID),
+			chromedp.Clear(`#password`, chromedp.ByID),
+			chromedp.SendKeys(`#password`, creds.Password, chromedp.ByID),
+			chromedp.Sleep(500*time.Millisecond),
+			chromedp.Click(`button[type="submit"]`, chromedp.ByQuery),
+		); err != nil {
+			return nil, fmt.Errorf("Harvest login: %w", err)
+		}
+		signedIn = true
 	}
 
 	if downloadedFile == "" {
-		return nil, fmt.Errorf("PDF download did not complete within 30 seconds: %s", harvestPageState(ctx))
+		return nil, fmt.Errorf("PDF download did not complete within a minute: %s", harvestPageState(ctx))
 	}
 
 	data, err := os.ReadFile(downloadedFile)
