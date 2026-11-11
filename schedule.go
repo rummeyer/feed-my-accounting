@@ -127,7 +127,7 @@ var scheduledJobs = map[string]scheduledJob{
 	})},
 	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
-	"harvest-invoice":  {"Kundenrechnung aus Harvest-Mail", harvestWithReport},
+	"harvest-invoice":  {"Kundenrechnung aus Harvest-Bericht", harvestWithReport},
 }
 
 // noFiles is a module run that makes no files to download.

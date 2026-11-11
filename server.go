@@ -66,7 +66,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
 	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", noFiles(runAppleInvoice)))
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
-	mux.HandleFunc("POST /api/harvest/run", s.simpleRun("harvest-invoice", "Kundenrechnung aus Harvest-Mail", harvestWithReport))
+	mux.HandleFunc("POST /api/harvest/run", s.simpleRun("harvest-invoice", "Kundenrechnung aus Harvest-Bericht", harvestWithReport))
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
