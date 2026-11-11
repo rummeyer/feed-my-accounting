@@ -697,7 +697,7 @@ function disarm() {
 $('save-all').addEventListener('click', async () => {
   if (!armed) {
     $('save-all').classList.add('armed');
-    $('save-all').textContent = 'Speichern – sicher?';
+    $('save-all').textContent = 'Sicher?';
     armed = setTimeout(disarm, 4000);
     return;
   }
