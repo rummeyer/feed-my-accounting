@@ -291,12 +291,15 @@ function renderRanges() {
   const clients = overview?.clients ?? [];
   const select = $('a-client');
   const chosen = select.value;
-  select.replaceChildren(...clients.map((c) => {
+  // No client chosen to begin with: an assignment is made on purpose, not by default.
+  const none = el('option', '', 'Kunde wählen…');
+  none.value = '';
+  select.replaceChildren(none, ...clients.map((c) => {
     const o = el('option', '', c.name);
     o.value = c.id || c.name;
     return o;
   }));
-  if (chosen) select.value = chosen;
+  select.value = chosen;
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   // First the rule, read only: who gets every workday not assigned — changed under Kunden.
