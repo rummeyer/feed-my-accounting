@@ -407,7 +407,7 @@ const PARTS = {
     ['Mail.From', 'Absender'], ['Mail.To', 'Empfänger'], ['Mail.CC', 'Kopie (z. B. sevDesk-Autobox)'],
   ]]],
   web: [['Oberfläche', [
-    ['Web.Listen', 'Adresse (Neustart nötig)', 'text', ':8595'], ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
+    ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'], ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
   ]]],
   travel: [['Kunden', [
     ['TravelExpense.Employee', 'Name (Lieferant im PDF)'],
