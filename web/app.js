@@ -557,7 +557,7 @@ const PARTS = {
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 2],
     BREAK,
     ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 4],
-    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest (leer: wie sevDesk)', 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
+    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest', 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
     BREAK,
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
   ]]],
@@ -647,7 +647,7 @@ function field(obj, [path, label, type, extra]) {
     // Left empty, another field's value applies: shown as the hint, as it is typed there.
     if (type === 'shadow') {
       input.dataset.shadowOf = extra;
-      input.placeholder = getPath(obj, extra) || '';
+      input.placeholder = getPath(obj, extra) ? `Standard: ${getPath(obj, extra)}` : '';
     }
     input.autocomplete = 'off';
   }
@@ -658,7 +658,7 @@ function field(obj, [path, label, type, extra]) {
 document.addEventListener('input', (e) => {
   const path = e.target.dataset && e.target.dataset.path;
   if (!path) return;
-  for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value;
+  for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value ? `Standard: ${e.target.value}` : '';
 });
 
 function bind(input, update) {
