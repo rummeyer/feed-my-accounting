@@ -557,7 +557,7 @@ const PARTS = {
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 2],
     BREAK,
     ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 4],
-    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest (leer: wie sevDesk)'],
+    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest (leer: wie sevDesk)', 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
     BREAK,
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
   ]]],
@@ -621,6 +621,7 @@ function field(obj, [path, label, type, extra]) {
   } else {
     input = el('input');
     input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
+    input.dataset.path = path;
     if (type === 'money') {
       input.step = '0.01';
       // Abroad, an empty rate falls back to the inland one: marked.
@@ -643,11 +644,22 @@ function field(obj, [path, label, type, extra]) {
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
     // Left empty, the default applies: shown as the hint.
     if ((type === 'text' || type === 'number') && extra !== undefined) input.placeholder = `Standard: ${extra}`;
+    // Left empty, another field's value applies: shown as the hint, as it is typed there.
+    if (type === 'shadow') {
+      input.dataset.shadowOf = extra;
+      input.placeholder = getPath(obj, extra) || '';
+    }
     input.autocomplete = 'off';
   }
   bind(input, () => setPath(obj, path, type === 'number' || type === 'money' ? Number(input.value) || 0 : input.value));
   return el('label', '', label, input);
 }
+
+document.addEventListener('input', (e) => {
+  const path = e.target.dataset && e.target.dataset.path;
+  if (!path) return;
+  for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value;
+});
 
 function bind(input, update) {
   input.addEventListener('input', update);
