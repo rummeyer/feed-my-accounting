@@ -504,7 +504,7 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		set = append(set, *p != "")
 		*p = ""
 	}
-	reply(w, map[string]any{"config": cfg, "secretsSet": set, "path": s.configPath})
+	reply(w, map[string]any{"config": cfg, "secretsSet": set, "path": s.configPath, "countries": travelexpense.Countries})
 }
 
 func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {

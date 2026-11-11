@@ -434,9 +434,9 @@ const SECTIONS = [
 ];
 const CLIENT_FIELDS = [
   ['ID', 'Nr.'], ['Name', 'Name'], ['From', 'Von'], ['To', 'Nach'], ['Reason', 'Grund'],
-  ['Distance', 'Entfernung (km, einfach)', 'number'], ['Province', 'Bundesland', 'province'],
-  ['MealDay', 'Tagesreise > 8 h (€, leer: 14)', 'money'], ['MealFullDay', 'Ganzer Tag (€, leer: 28)', 'money'],
-  ['MealTravelDay', 'An-/Abreisetag (€, leer: 14)', 'money'],
+  ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
+  ['MealDay', 'Tagesreise > 8 h (€)', 'money', 14], ['MealFullDay', 'Ganzer Tag (€)', 'money', 28],
+  ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14],
   ['OnlyAssigned', 'Nur zugeordnete Tage', 'bool', false],
 ];
 
@@ -463,10 +463,30 @@ function field(obj, [path, label, type, extra]) {
     input = el('select');
     input.append(...PROVINCES.map((p) => el('option', '', p)));
     input.value = value || 'BW';
+  } else if (type === 'country') {
+    input = el('select');
+    const names = Object.entries(settings.countries).sort((a, b) => a[1].localeCompare(b[1], 'de'));
+    input.append(...names.map(([code, name]) => {
+      const o = el('option', '', `${name} (${code})`);
+      o.value = code;
+      return o;
+    }));
+    input.value = (value || 'DE').toUpperCase();
+    // Germany has states, other countries their national holidays and their own rates.
+    input.addEventListener('change', () => {
+      setPath(obj, path, input.value === 'DE' ? '' : input.value);
+      if (input.value !== 'DE') obj.Province = '';
+      renderSettings();
+    });
+    return el('label', '', label, input);
   } else {
     input = el('input');
     input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
-    if (type === 'money') input.step = '0.01';
+    if (type === 'money') {
+      input.step = '0.01';
+      // Abroad the German rate is wrong: the country's own is wanted.
+      input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${extra}` : 'Satz des Landes';
+    }
     input.value = type === 'secret' ? '' : value || (type === 'number' || type === 'money' ? '' : value ?? '');
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
     input.autocomplete = 'off';
@@ -509,11 +529,13 @@ function fieldOrPair(obj, f) {
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
-  const box = el('div', '', el('p', 'muted', 'Kunden für die Reisekosten. Im Ausland die Verpflegungspauschalen des Landes eintragen.'));
+  const box = el('div', '', el('p', 'muted', 'Kunden für die Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen (BMF-Ländertabelle).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
       button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); }),
-      el('div', 'grid', ...CLIENT_FIELDS.map((f) => fieldOrPair(c, f)))));
+      el('div', 'grid', ...CLIENT_FIELDS
+        .filter(([key]) => key !== 'Province' || (c.Country || 'DE').toUpperCase() === 'DE')
+        .map((f) => fieldOrPair(c, f)))));
   });
   box.append(el('div', 'actions', button('Kunde hinzufügen', '', () => {
     cfg.TravelExpense.Clients.push({ Province: 'BW' });

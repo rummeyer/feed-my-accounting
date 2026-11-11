@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.6.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
@@ -202,9 +202,9 @@ travel-expense:
       to: "Miami, Brickell Ave (Globex Inc.)"
       reason: Projektarbeit vor Ort
       distance: 25               # the drive to the airport, first and last day
-      province: BW
-      mealFullDay: 64            # optional: the country's rates, abroad
-      mealTravelDay: 43
+      country: US                # optional, default DE: whose public holidays count
+      mealFullDay: 65            # abroad: the country's rates (BMF table)
+      mealTravelDay: 44
       onlyAssigned: true         # optional: only the days assigned to it
   blocked:                       # optional: no travel on these days
     - from: 2026-08-03
@@ -293,8 +293,9 @@ Each client represents a destination:
 | `from` | Origin address (e.g. `"Stuttgart, Heimatbüro (Your Company GmbH)"`) |
 | `to` | Destination address (e.g. `"München, Hauptstr. (Acme GmbH)"`) |
 | `reason` | Purpose of the trip (e.g. `Projektarbeit`) |
-| `distance` | One-way distance in kilometres |
-| `province` | German state code for holiday calculation (see below) |
+| `distance` | One-way distance in kilometres; `0` for no mileage |
+| `country` | ISO 3166 code of the client's country, default `DE`: its public holidays count (see below) |
+| `province` | German state code for holiday calculation, for `DE` only (see below) |
 
 When multiple clients are configured, workdays are distributed round-robin. With 20 workdays and 2 clients each gets 10 days. Mileage is calculated per client based on their distance.
 
@@ -319,6 +320,14 @@ Example: 3–9 December in Miami for Globex, overnight; every other workday with
 
 The defaults are the German Verpflegungspauschalen. For trips abroad, set the BMF's Auslandspauschalen for the country (Auslandsreisekosten table of the year) on that client.
 
+### Countries
+
+A client's day trips skip the public holidays of its country: in Germany those of its state (`province`), elsewhere the national ones. Known countries:
+
+`DE` Deutschland · `AR` Argentinien · `AT` Österreich · `BE` Belgien · `BG` Bulgarien · `BR` Brasilien · `CA` Kanada · `CH` Schweiz · `CZ` Tschechien · `DK` Dänemark · `ES` Spanien · `FI` Finnland · `FR` Frankreich · `GB` Vereinigtes Königreich · `GR` Griechenland · `HR` Kroatien · `IE` Irland · `IS` Island · `IT` Italien · `JP` Japan · `LT` Litauen · `LU` Luxemburg · `LV` Lettland · `MX` Mexiko · `NL` Niederlande · `NO` Norwegen · `NZ` Neuseeland · `PL` Polen · `RO` Rumänien · `SE` Schweden · `SI` Slowenien · `SK` Slowakei · `TH` Thailand · `UA` Ukraine · `US` USA · `ZA` Südafrika
+
+Abroad the German meal rates do not apply: give the client the country's rates. A run that has to fall back to a German rate for a client abroad says so in the log. Overnight trips count every day regardless of holidays.
+
 ### Province codes (Bundesland)
 
 | Code | State (German) | State (English) |
@@ -340,7 +349,7 @@ The defaults are the German Verpflegungspauschalen. For trips abroad, set the BM
 | SH | Schleswig-Holstein | Schleswig-Holstein |
 | TH | Thüringen | Thuringia |
 
-Defaults to `BW` if omitted or invalid.
+Defaults to `BW` if omitted or invalid. Only used for `country: DE`.
 
 ### Excluded dates
 
@@ -363,6 +372,7 @@ A month without any travel day — all of it vacation, say — is logged as noth
 | `christmasWeekOff` | Exclude Dec 24 and Dec 27–31 | `true` |
 | `clients` | List of client/trip configurations | required |
 | `clients[].mealDay`, `mealFullDay`, `mealTravelDay` | Meal allowance rates in EUR, see above | 14 / 28 / 14 |
+| `clients[].country` | ISO 3166 code: whose public holidays count | `DE` |
 | `clients[].onlyAssigned` | Only the days assigned to the client, none from the distribution | `false` |
 | `blocked` | Date ranges without travel: `from`, `to` (optional), `note` | — |
 | `assignments` | Date ranges for one client: `client` (id or name), `from`, `to`, `overnight`, `note` | — |

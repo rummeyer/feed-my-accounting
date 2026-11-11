@@ -10,12 +10,48 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"feed-my-accounting/email"
 
 	"github.com/rickar/cal/v2"
+	"github.com/rickar/cal/v2/ar"
+	"github.com/rickar/cal/v2/at"
+	"github.com/rickar/cal/v2/be"
+	"github.com/rickar/cal/v2/bg"
+	"github.com/rickar/cal/v2/br"
+	"github.com/rickar/cal/v2/ca"
+	"github.com/rickar/cal/v2/ch"
+	"github.com/rickar/cal/v2/cz"
 	"github.com/rickar/cal/v2/de"
+	"github.com/rickar/cal/v2/dk"
+	"github.com/rickar/cal/v2/es"
+	"github.com/rickar/cal/v2/fi"
+	"github.com/rickar/cal/v2/fr"
+	"github.com/rickar/cal/v2/gb"
+	"github.com/rickar/cal/v2/gr"
+	"github.com/rickar/cal/v2/hr"
+	"github.com/rickar/cal/v2/ie"
+	"github.com/rickar/cal/v2/is"
+	"github.com/rickar/cal/v2/it"
+	"github.com/rickar/cal/v2/jp"
+	"github.com/rickar/cal/v2/lt"
+	"github.com/rickar/cal/v2/lu"
+	"github.com/rickar/cal/v2/lv"
+	"github.com/rickar/cal/v2/mx"
+	"github.com/rickar/cal/v2/nl"
+	"github.com/rickar/cal/v2/no"
+	"github.com/rickar/cal/v2/nz"
+	"github.com/rickar/cal/v2/pl"
+	"github.com/rickar/cal/v2/ro"
+	"github.com/rickar/cal/v2/se"
+	"github.com/rickar/cal/v2/si"
+	"github.com/rickar/cal/v2/sk"
+	"github.com/rickar/cal/v2/th"
+	"github.com/rickar/cal/v2/ua"
+	"github.com/rickar/cal/v2/us"
+	"github.com/rickar/cal/v2/za"
 )
 
 var logger = log.New(os.Stderr, "[travel-expense] ", log.LstdFlags)
@@ -34,7 +70,8 @@ type Client struct {
 	To       string
 	Reason   string
 	Distance int    // one-way distance in km
-	Province string // German state abbreviation (e.g., "BW", "BY")
+	Country  string // ISO 3166 code, "DE" if empty: whose public holidays count
+	Province string // German state abbreviation (e.g., "BW", "BY"), for Germany only
 
 	// Meal allowance in EUR, zero for the German rates: a day trip of more than 8 hours, a full
 	// day away, and the day of arrival or departure of an overnight trip. Abroad, the BMF's
@@ -57,6 +94,25 @@ const (
 func (c Client) mealDay() float64       { return orDefault(c.MealDay, defaultMealDay) }
 func (c Client) mealFullDay() float64   { return orDefault(c.MealFullDay, defaultMealFullDay) }
 func (c Client) mealTravelDay() float64 { return orDefault(c.MealTravelDay, defaultMealTravelDay) }
+
+// missingRates names the rates the days need that the client leaves to the German defaults.
+func (c Client) missingRates(days []Day) string {
+	var missing []string
+	need := map[string]bool{}
+	for _, d := range days {
+		need[d.MealText] = true
+	}
+	if need["8h - 24h"] && c.MealDay == 0 {
+		missing = append(missing, "mealDay")
+	}
+	if need["24h"] && c.MealFullDay == 0 {
+		missing = append(missing, "mealFullDay")
+	}
+	if need["An-/Abreisetag"] && c.MealTravelDay == 0 {
+		missing = append(missing, "mealTravelDay")
+	}
+	return strings.Join(missing, ", ")
+}
 
 func orDefault(v, def float64) float64 {
 	if v > 0 {
@@ -124,10 +180,39 @@ var provinceHolidays = map[string][]*cal.Holiday{
 	"TH": de.HolidaysTH,
 }
 
-func newBusinessCalendar(province string) *cal.BusinessCalendar {
+// Countries are the countries whose public holidays are known, by ISO 3166 code, with their
+// German names. Germany's depend on the state, the others' are the national ones.
+var Countries = map[string]string{
+	"DE": "Deutschland", "AR": "Argentinien", "AT": "Österreich", "BE": "Belgien", "BG": "Bulgarien",
+	"BR": "Brasilien", "CA": "Kanada", "CH": "Schweiz", "CZ": "Tschechien", "DK": "Dänemark",
+	"ES": "Spanien", "FI": "Finnland", "FR": "Frankreich", "GB": "Vereinigtes Königreich",
+	"GR": "Griechenland", "HR": "Kroatien", "IE": "Irland", "IS": "Island", "IT": "Italien",
+	"JP": "Japan", "LT": "Litauen", "LU": "Luxemburg", "LV": "Lettland", "MX": "Mexiko",
+	"NL": "Niederlande", "NO": "Norwegen", "NZ": "Neuseeland", "PL": "Polen", "RO": "Rumänien",
+	"SE": "Schweden", "SI": "Slowenien", "SK": "Slowakei", "TH": "Thailand", "UA": "Ukraine",
+	"US": "USA", "ZA": "Südafrika",
+}
+
+var countryHolidays = map[string][]*cal.Holiday{
+	"AR": ar.Holidays, "AT": at.Holidays, "BE": be.Holidays, "BG": bg.Holidays, "BR": br.Holidays,
+	"CA": ca.Holidays, "CH": ch.Holidays, "CZ": cz.Holidays, "DK": dk.Holidays, "ES": es.Holidays,
+	"FI": fi.Holidays, "FR": fr.Holidays, "GB": gb.Holidays, "GR": gr.Holidays, "HR": hr.Holidays,
+	"IE": ie.Holidays, "IS": is.Holidays, "IT": it.Holidays, "JP": jp.Holidays, "LT": lt.Holidays,
+	"LU": lu.Holidays, "LV": lv.Holidays, "MX": mx.Holidays, "NL": nl.Holidays, "NO": no.Holidays,
+	"NZ": nz.Holidays, "PL": pl.Holidays, "RO": ro.Holidays, "SE": se.Holidays, "SI": si.Holidays,
+	"SK": sk.Holidays, "TH": th.Holidays, "UA": ua.Holidays, "US": us.Holidays, "ZA": za.Holidays,
+}
+
+// newBusinessCalendar is a client's working days: weekends and the public holidays of its
+// country — in Germany of its state, Baden-Württemberg if none is given.
+func newBusinessCalendar(country, province string) *cal.BusinessCalendar {
 	c := cal.NewBusinessCalendar()
 	c.Name = "Company"
 	c.Description = "Business calendar"
+	if country = normalCountry(country); country != "DE" {
+		c.AddHoliday(countryHolidays[country]...)
+		return c
+	}
 	holidays, ok := provinceHolidays[province]
 	if !ok {
 		holidays = de.HolidaysBW
@@ -136,10 +221,21 @@ func newBusinessCalendar(province string) *cal.BusinessCalendar {
 	return c
 }
 
+// normalCountry is the country's code in capitals, Germany if empty.
+func normalCountry(country string) string {
+	if country = strings.ToUpper(strings.TrimSpace(country)); country == "" {
+		return "DE"
+	}
+	return country
+}
+
+// Abroad says whether the client is outside Germany, where the German meal rates do not apply.
+func (c Client) Abroad() bool { return normalCountry(c.Country) != "DE" }
+
 func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
 	calendars := make([]*cal.BusinessCalendar, len(clients))
 	for i, c := range clients {
-		calendars[i] = newBusinessCalendar(c.Province)
+		calendars[i] = newBusinessCalendar(c.Country, c.Province)
 	}
 	return calendars
 }
@@ -224,7 +320,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 		case len(shared) > 0:
 			client = shared[next]
 		}
-		c := newBusinessCalendar("")
+		c := newBusinessCalendar("", "")
 		if client >= 0 {
 			c = calendars[client]
 		}
@@ -376,6 +472,9 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 			continue
 		}
 		logger.Printf("Client %q: %d day(s)", client.Name, len(days))
+		if missing := client.missingRates(days); client.Abroad() && missing != "" {
+			logger.Printf("WARNING: %q is abroad (%s) but has no %s: the German rate is used", client.Name, normalCountry(client.Country), missing)
+		}
 		mealBlocks = append(mealBlocks, buildClientHeader(client))
 		drives := false
 		for _, day := range days {

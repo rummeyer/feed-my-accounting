@@ -21,8 +21,9 @@ type Client struct {
 	From     string `yaml:"from"`
 	To       string `yaml:"to"`
 	Reason   string `yaml:"reason"`
-	Distance int    `yaml:"distance"` // one-way distance in km
-	Province string `yaml:"province"` // German state abbreviation (e.g., "BW", "BY")
+	Distance int    `yaml:"distance"`           // one-way distance in km
+	Country  string `yaml:"country,omitempty"`  // ISO 3166 code, default DE: whose public holidays count
+	Province string `yaml:"province,omitempty"` // German state abbreviation (e.g., "BW", "BY"), Germany only
 
 	// Meal allowance in EUR; empty for the German rates (14 / 28 / 14).
 	MealDay       float64 `yaml:"mealDay,omitempty"`       // day trip, more than 8 hours

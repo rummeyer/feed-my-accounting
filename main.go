@@ -34,7 +34,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.6.1"
+const version = "1.7.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -199,9 +199,16 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 	for i, c := range te.Clients {
 		clients[i] = travelexpense.Client{
 			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
-			Reason: c.Reason, Distance: c.Distance, Province: c.Province,
+			Reason: c.Reason, Distance: c.Distance, Country: c.Country, Province: c.Province,
 			MealDay: c.MealDay, MealFullDay: c.MealFullDay, MealTravelDay: c.MealTravelDay,
 			OnlyAssigned: c.OnlyAssigned,
+		}
+	}
+	for _, c := range te.Clients {
+		if code := strings.ToUpper(strings.TrimSpace(c.Country)); code != "" {
+			if _, known := travelexpense.Countries[code]; !known {
+				return travelexpense.Config{}, fmt.Errorf("travel-expense: client %q: country %q unknown, use an ISO code such as DE, AT, US", c.Name, c.Country)
+			}
 		}
 	}
 	tc := travelexpense.Config{

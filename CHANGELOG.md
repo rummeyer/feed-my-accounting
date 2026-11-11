@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-11-11
+
+### Added
+
+- travel-expense clients in any of 36 countries (`country`, ISO 3166 code, default `DE`): day trips skip that country's public holidays; the German state (`province`) applies to `DE` only. An unknown code is an error.
+- A run warns when a client abroad falls back to a German meal rate.
+- Settings: a country per client, the state only for Germany, and the country's rates asked for abroad.
+
 ## [1.6.1] - 2026-11-11
 
 ### Fixed

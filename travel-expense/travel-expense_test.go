@@ -267,13 +267,13 @@ func TestChristmasWeekOffEnabled(t *testing.T) {
 }
 
 func TestNewBusinessCalendar(t *testing.T) {
-	if cal := newBusinessCalendar("BY"); cal == nil {
+	if cal := newBusinessCalendar("", "BY"); cal == nil {
 		t.Fatal("newBusinessCalendar(BY) returned nil")
 	}
-	if cal := newBusinessCalendar("INVALID"); cal == nil {
+	if cal := newBusinessCalendar("", "INVALID"); cal == nil {
 		t.Fatal("newBusinessCalendar(INVALID) returned nil")
 	}
-	if cal := newBusinessCalendar(""); cal == nil {
+	if cal := newBusinessCalendar("", ""); cal == nil {
 		t.Fatal("newBusinessCalendar('') returned nil")
 	}
 }
@@ -292,7 +292,7 @@ func TestGetClientCalendars(t *testing.T) {
 }
 
 func TestIsWorkday(t *testing.T) {
-	cal := newBusinessCalendar("BW")
+	cal := newBusinessCalendar("DE", "BW")
 	tests := []struct {
 		name             string
 		date             time.Time
@@ -402,7 +402,7 @@ func decemberWithMiami() Config {
 		Employee: "Max",
 		Clients: []Client{
 			{ID: "1", Name: "Acme GmbH", Distance: 15, Province: "BW"},
-			{ID: "2", Name: "Globex Inc.", Distance: 30, Province: "BW", OnlyAssigned: true,
+			{ID: "2", Name: "Globex Inc.", Distance: 30, Country: "US", OnlyAssigned: true,
 				MealFullDay: 64, MealTravelDay: 43},
 		},
 		Assignments: []Assignment{{Client: 1, From: date(3), To: date(9), Overnight: true, Note: "Miami"}},
@@ -523,6 +523,41 @@ func TestAmountsLineUpWithTheTotal(t *testing.T) {
 		}
 		if strings.Contains(line, ")44") || strings.Contains(line, ")65") {
 			t.Errorf("amount runs into its label: %q", line)
+		}
+	}
+}
+
+func TestHolidaysByCountry(t *testing.T) {
+	july4 := time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC) // observed: the 4th is a Saturday
+	thanksgiving := time.Date(2026, 11, 26, 0, 0, 0, 0, time.UTC)
+	unity := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC) // a Monday, a workday in the US
+	us := newBusinessCalendar("us", "BW")                 // the state is for Germany only
+	if us.IsWorkday(thanksgiving) || us.IsWorkday(july4) || !us.IsWorkday(unity) {
+		t.Error("US holidays wrong")
+	}
+	easterMonday := time.Date(2026, 4, 6, 0, 0, 0, 0, time.UTC)
+	de := newBusinessCalendar("", "BW")
+	if !de.IsWorkday(thanksgiving) || de.IsWorkday(easterMonday) || !us.IsWorkday(easterMonday) {
+		t.Error("Easter Monday is a holiday in Germany, not in the US; Thanksgiving the other way")
+	}
+	if !(Client{Country: "us"}).Abroad() || (Client{}).Abroad() || (Client{Country: "DE"}).Abroad() {
+		t.Error("Abroad")
+	}
+	for code := range Countries {
+		if code != "DE" && countryHolidays[code] == nil {
+			t.Errorf("%s has a name but no holidays", code)
+		}
+	}
+}
+
+func TestDayTripsAbroadSkipTheCountrysHolidays(t *testing.T) {
+	cfg := Config{Clients: []Client{{Name: "Globex", Country: "US", MealDay: 40}}}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Date.Day() == 26 && d.Kind != DayHoliday {
+			t.Errorf("Thanksgiving in the US: %+v", d)
+		}
+		if d.Kind == DayTravel && d.Meal != 40 {
+			t.Errorf("the client's own rate: %+v", d)
 		}
 	}
 }
