@@ -294,3 +294,4 @@ input.missing { border-color: var(--bad); }
   :root:not([data-theme="light"]) .masthead img.logo { background: #ececeb; border-radius: 10px; padding: 8px 16px; }
 }
 :root[data-theme="dark"] .masthead img.logo { background: #ececeb; border-radius: 10px; padding: 8px 16px; }
+.grid .break { grid-column: 1 / -1; height: 0; }

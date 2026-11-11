@@ -32,7 +32,7 @@
     </header>
 
     <nav class="tabs" aria-label="Bereiche">
-      <a href="#cron">Cron</a>
+      <a href="#cron">Zeitplan</a>
       <a href="#receipts">Belege</a>
       <a href="#travel">Reisekosten</a>
       <a href="#invoice">Kundenrechnung</a>
@@ -87,7 +87,7 @@
       </form>
 
       <h2>Gesperrte Tage</h2>
-      <p class="muted">Urlaub, Krankheit, Fortbildung: an diesen Tagen wird nicht gereist. Gilt auch für den Cron-Lauf. Änderungen gelten erst mit „Speichern“ unten.</p>
+      <p class="muted">Urlaub, Krankheit, Fortbildung: an diesen Tagen wird nicht gereist. Gilt auch für den geplanten Lauf. Änderungen gelten erst mit „Speichern“ unten.</p>
       <ul id="blocked" class="rows"></ul>
       <form id="blocked-form" class="inline-form">
         <input type="date" id="b-from" aria-label="von" required>
@@ -122,7 +122,7 @@
       <div class="console" data-console="invoice" hidden></div>
 
       <h2>Aus der Harvest-Mail</h2>
-      <p class="muted">Wie der Cron-Lauf: die neueste Export-Mail suchen, den Bericht bei Harvest laden und den Entwurf anlegen — nur für den laufenden Monat, und nie doppelt.</p>
+      <p class="muted">Wie der geplante Lauf: die neueste Export-Mail suchen, den Bericht bei Harvest laden und den Entwurf anlegen — nur für den laufenden Monat, und nie doppelt. Den geladenen Bericht gibt es danach hier und im Protokoll zum Herunterladen, bis zum Neustart des Servers.</p>
       <div class="actions"><button type="button" data-run="harvest">Aus Mail anlegen</button></div>
       <div class="console" data-console="harvest" hidden></div>
 

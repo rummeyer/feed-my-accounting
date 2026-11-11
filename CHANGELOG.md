@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - travel-expense: clients outside Europe never take part in the equal distribution — only their assigned days count. Clients in Europe still do.
 
+- Web interface: the Harvest report PDF a run downloads from Harvest — by hand or on schedule — is offered for download with the run, until the server restarts. `harvest.RunReport` hands it back.
+- Web interface: the first card is called Zeitplan; the Harvest and sevDesk logins have a line each.
+
 ### Fixed
 
 - travel-expense abroad: a day trip of more than 8 hours takes the client's travel day rate when it has no day trip rate, and the other way round — the BMF's table has one rate for both. Only with neither does the inland rate apply; the web interface marks such days red, names the missing rate under the totals and frames the empty field.

@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	harvest "feed-my-accounting/harvest-invoice"
 	"log"
 	"strconv"
 	"strings"
@@ -115,17 +117,32 @@ func (c *cronSpec) next(t time.Time) time.Time {
 // current month.
 type scheduledJob struct {
 	title string
-	run   func(*Config) error
+	run   func(*Config) ([]File, error)
 }
 
 var scheduledJobs = map[string]scheduledJob{
-	"travel-expense": {"Reisekosten senden (laufender Monat)", func(cfg *Config) error {
+	"travel-expense": {"Reisekosten senden (laufender Monat)", noFiles(func(cfg *Config) error {
 		now := time.Now()
 		return runTravelExpense(cfg, now.Year(), now.Month())
-	}},
-	"apple-invoice":    {"Apple-Rechnungen abholen", runAppleInvoice},
-	"vodafone-invoice": {"Vodafone-Rechnungen abholen", runVodafoneInvoice},
-	"harvest-invoice":  {"Kundenrechnung aus Harvest-Mail", runHarvestInvoice},
+	})},
+	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
+	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
+	"harvest-invoice":  {"Kundenrechnung aus Harvest-Mail", harvestWithReport},
+}
+
+// noFiles is a module run that makes no files to download.
+func noFiles(run func(*Config) error) func(*Config) ([]File, error) {
+	return func(cfg *Config) ([]File, error) { return nil, run(cfg) }
+}
+
+// harvestWithReport runs harvest-invoice and keeps the report PDF it downloaded, to be saved
+// from the web interface — on iCloud Drive, say.
+func harvestWithReport(cfg *Config) ([]File, error) {
+	report, err := harvest.RunReport(harvestConfig(cfg))
+	if report == nil || len(report.PDFData) == 0 {
+		return nil, err
+	}
+	return []File{{Name: report.FileName(), Size: len(report.PDFData), data: report.PDFData}}, err
 }
 
 // nextRun is the schedule's next run after now: its job and when; nil if nothing is scheduled.
@@ -184,7 +201,7 @@ func (s *server) scheduler() {
 				delete(pending, job)
 				continue
 			}
-			if _, err := s.jobs.Start(job, sj.title+" · Cron", func() ([]File, error) { return nil, sj.run(cfg) }); err == nil {
+			if _, err := s.jobs.Start(job, sj.title+" · Zeitplan", func() ([]File, error) { return sj.run(cfg) }); err == nil {
 				delete(pending, job)
 			}
 		}

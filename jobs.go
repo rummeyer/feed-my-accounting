@@ -59,6 +59,7 @@ func NewJobs(path string) *Jobs {
 			if job.Status == "running" { // the server stopped while it ran
 				job.Status, job.Error = "failed", "interrupted"
 			}
+			job.Files = nil // kept in memory only: gone with the restart
 		}
 	}
 	return j

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"feed-my-accounting/browser"
@@ -48,6 +49,14 @@ type FilterConfig struct {
 // Run fetches Harvest report emails, downloads the PDF, parses hours and period,
 // and creates a sevDesk invoice via browser automation.
 func Run(cfg Config) error {
+	_, err := RunReport(cfg)
+	return err
+}
+
+// RunReport is Run, handing back the report it worked with — with the downloaded PDF, once
+// there is one, even if the invoice then fails: the web interface offers it for download. Nil
+// if no report was found, or one was skipped before downloading.
+func RunReport(cfg Config) (*ReportData, error) {
 	logger.Println("Fetching Harvest report emails...")
 	messages, err := email.FetchHTMLEmails(cfg.Mail, email.IMAPFilter{
 		Count:      cfg.Filter.Count,
@@ -55,12 +64,12 @@ func Run(cfg Config) error {
 		FromDomain: cfg.Filter.From,
 	})
 	if err != nil {
-		return fmt.Errorf("fetching emails: %w", err)
+		return nil, fmt.Errorf("fetching emails: %w", err)
 	}
 
 	if len(messages) == 0 {
 		logger.Println("No Harvest report emails found")
-		return nil
+		return nil, nil
 	}
 
 	// Find the most recent export email (skip password change etc.)
@@ -78,7 +87,7 @@ func Run(cfg Config) error {
 	}
 	if report == nil {
 		logger.Println("No Harvest export emails found (checked all matches)")
-		return nil
+		return nil, nil
 	}
 
 	// Use fixed client name from config if set, otherwise use the one from the email
@@ -98,7 +107,7 @@ func Run(cfg Config) error {
 		if report.PeriodFrom.Year() != now.Year() || report.PeriodFrom.Month() != now.Month() {
 			logger.Printf("Skipping: report period %s is not current month (%s)",
 				report.PeriodFrom.Format("01/2006"), now.Format("01/2006"))
-			return nil
+			return nil, nil
 		}
 	}
 
@@ -109,20 +118,20 @@ func Run(cfg Config) error {
 	// Guard: check if sevDesk already has an invoice for this client+period
 	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
 	if exists {
-		return nil
+		return nil, nil
 	}
 
 	logger.Println("Logging into Harvest to download report PDF...")
 	pdfData, err := downloadExportPDF(ctx, cfg.Harvest, report.ExportURL)
 	if err != nil {
-		return fmt.Errorf("downloading PDF: %w", err)
+		return nil, fmt.Errorf("downloading PDF: %w", err)
 	}
 	report.PDFData = pdfData
 	logger.Printf("Downloaded PDF: %d bytes", len(pdfData))
 
 	totalHours, err := ParsePDFHours(pdfData)
 	if err != nil {
-		return fmt.Errorf("parsing PDF hours: %w", err)
+		return report, fmt.Errorf("parsing PDF hours: %w", err)
 	}
 	report.TotalHours = totalHours
 
@@ -131,10 +140,24 @@ func Run(cfg Config) error {
 	// Create sevDesk invoice via browser (reuse the same browser context)
 	logger.Println("Creating sevDesk invoice...")
 	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
-		return fmt.Errorf("creating sevDesk invoice: %w", err)
+		return report, fmt.Errorf("creating sevDesk invoice: %w", err)
 	}
 
-	return nil
+	return report, nil
+}
+
+// FileName is the report PDF's name for saving it: "Harvest_2026-11_Acme_GmbH.pdf".
+func (r *ReportData) FileName() string {
+	name := strings.Map(func(c rune) rune {
+		if c == ' ' || c == '/' || c == '\\' || c == ':' {
+			return '_'
+		}
+		return c
+	}, strings.TrimSpace(r.ClientName))
+	if name != "" {
+		name = "_" + name
+	}
+	return fmt.Sprintf("Harvest_%s%s.pdf", r.PeriodFrom.Format("2006-01"), name)
 }
 
 // ErrAlreadyInvoiced is a report sevDesk already has an invoice for: same client, a Rechnungsdatum

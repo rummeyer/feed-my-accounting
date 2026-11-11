@@ -64,9 +64,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/travel/send", s.travelRun(true))
 	mux.HandleFunc("PUT /api/travel/blocked", s.saveBlocked)
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
-	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", runAppleInvoice))
-	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", runVodafoneInvoice))
-	mux.HandleFunc("POST /api/harvest/run", s.simpleRun("harvest-invoice", "Kundenrechnung aus Harvest-Mail", runHarvestInvoice))
+	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", noFiles(runAppleInvoice)))
+	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
+	mux.HandleFunc("POST /api/harvest/run", s.simpleRun("harvest-invoice", "Kundenrechnung aus Harvest-Mail", harvestWithReport))
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
@@ -365,14 +365,14 @@ func (s *server) saveAssignments(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 // simpleRun runs a module as the command line does, with the configuration as it is.
-func (s *server) simpleRun(kind, title string, run func(*Config) error) http.HandlerFunc {
+func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg, err := s.config()
 		if err != nil {
 			fail(w, http.StatusInternalServerError, err)
 			return
 		}
-		s.start(w, kind, title, func() ([]File, error) { return nil, run(cfg) })
+		s.start(w, kind, title, func() ([]File, error) { return run(cfg) })
 	}
 }
 

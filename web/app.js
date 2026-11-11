@@ -518,6 +518,9 @@ function bmfLink() {
 }
 
 const PROVINCES = ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'];
+// A new line in a form's grid: what follows starts on the left.
+const BREAK = ['', '', 'break'];
+
 // The settings as the config file has them, each where it is used: per part of the page, its
 // sections with field path, label, type. Only what all of them share is under Einstellungen.
 const PARTS = {
@@ -544,8 +547,11 @@ const PARTS = {
     ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
     ['HarvestInvoice.SevDesk.ProductName', 'Artikel (Suchbegriff)'], ['HarvestInvoice.SevDesk.ProductNum', 'Artikelnummer'],
     ['HarvestInvoice.SevDesk.ReferenceNum', 'Kundenreferenz (E-Rechnung)'],
+    BREAK,
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
+    BREAK,
     ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort', 'secret', 2],
+    BREAK,
     ['HarvestInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
     ['HarvestInvoice.Filter.From', 'Absender-Domain', 'text', 'harvestapp.com'],
     ['HarvestInvoice.Filter.Subject', 'Betreff', 'text', 'We’ve exported your detailed time report'],
@@ -579,6 +585,7 @@ function setPath(obj, path, value) {
 }
 
 function field(obj, [path, label, type, extra]) {
+  if (type === 'break') return el('div', 'break');
   const value = getPath(obj, path);
   let input;
   if (type === 'bool') {
@@ -677,7 +684,7 @@ function renderSettings() {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
     }
     if (part === 'mail') {
-      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Cron.`));
+      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom

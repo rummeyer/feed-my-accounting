@@ -143,3 +143,13 @@ func TestParseFloat_Invalid(t *testing.T) {
 		t.Error("parseFloat(\"abc\") expected error")
 	}
 }
+
+func TestReportFileName(t *testing.T) {
+	r := &ReportData{ClientName: "Acme GmbH / Süd", PeriodFrom: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)}
+	if got := r.FileName(); got != "Harvest_2026-11_Acme_GmbH___Süd.pdf" {
+		t.Errorf("FileName() = %q", got)
+	}
+	if got := (&ReportData{PeriodFrom: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)}).FileName(); got != "Harvest_2026-11.pdf" {
+		t.Errorf("without a client: %q", got)
+	}
+}
