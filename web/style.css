@@ -278,3 +278,11 @@ button.link.cancel { font-size: 11px; }
 button.save { background: var(--bad); color: #fff; border-color: var(--bad); box-shadow: 2px 2px 0 var(--rule); padding: 12px 22px; }
 button.save:hover { color: #fff; filter: brightness(1.1); }
 button.save:disabled { background: var(--panel); color: var(--muted); border-color: var(--rule); filter: none; }
+
+/* A client abroad without its own rate, falling back to the inland one. */
+.day.fallback .eur { color: var(--bad); }
+.day.fallback .n::after { content: ' !'; color: var(--bad); }
+.totals .warn { border-color: var(--bad); }
+.totals .warn dt { color: var(--bad); }
+.totals .warn dd { font-size: 13px; font-weight: 400; white-space: normal; color: var(--ink); }
+input.missing { border-color: var(--bad); }

@@ -101,13 +101,29 @@ func (cfg *Config) inlandRates() MealRates {
 	}
 }
 
-// The client's rates: its own where it has them, else the inland ones.
-func (c Client) mealDay(inland MealRates) float64 { return orDefault(c.MealDay, inland.Day) }
+// The client's rates: its own where it has them, else the inland ones. Abroad, the BMF's table
+// has one rate for the day of arrival or departure and for a day of more than 8 hours away: a
+// client's day trip rate and travel day rate stand in for each other, before the inland one.
+func (c Client) dayRate() float64 {
+	if c.MealDay == 0 && c.Abroad() {
+		return c.MealTravelDay
+	}
+	return c.MealDay
+}
+
+func (c Client) travelDayRate() float64 {
+	if c.MealTravelDay == 0 && c.Abroad() {
+		return c.MealDay
+	}
+	return c.MealTravelDay
+}
+
+func (c Client) mealDay(inland MealRates) float64 { return orDefault(c.dayRate(), inland.Day) }
 func (c Client) mealFullDay(inland MealRates) float64 {
 	return orDefault(c.MealFullDay, inland.FullDay)
 }
 func (c Client) mealTravelDay(inland MealRates) float64 {
-	return orDefault(c.MealTravelDay, inland.TravelDay)
+	return orDefault(c.travelDayRate(), inland.TravelDay)
 }
 
 // missingRates names the rates the days need that the client leaves to the inland ones.
@@ -117,13 +133,13 @@ func (c Client) missingRates(days []Day) string {
 	for _, d := range days {
 		need[d.MealText] = true
 	}
-	if need["8h - 24h"] && c.MealDay == 0 {
+	if need["8h - 24h"] && c.dayRate() == 0 {
 		missing = append(missing, "mealDay")
 	}
 	if need["24h"] && c.MealFullDay == 0 {
 		missing = append(missing, "mealFullDay")
 	}
-	if need["An-/Abreisetag"] && c.MealTravelDay == 0 {
+	if need["An-/Abreisetag"] && c.travelDayRate() == 0 {
 		missing = append(missing, "mealTravelDay")
 	}
 	return strings.Join(missing, ", ")
@@ -300,6 +316,9 @@ type Day struct {
 	Meal     float64
 	MealText string // what the meal allowance is for: "8h - 24h", "24h", "An-/Abreisetag"
 	Mileage  float64
+	// Missing names the client's own rate the day needed but did not find, abroad, where the
+	// inland rate was taken instead: "mealDay", "mealFullDay" or "mealTravelDay".
+	Missing string
 }
 
 // Plan works out each day of the month. An overnight assignment counts every day within it.
@@ -419,6 +438,9 @@ func travelDay(day Day, c Client, client int, inland MealRates) Day {
 	day.Kind, day.Client = DayTravel, client
 	day.Times, day.Meal, day.MealText = "07:00 - 17:00", c.mealDay(inland), "8h - 24h"
 	day.Mileage = float64(c.Distance) * kmRatePerKm
+	if c.Abroad() && c.dayRate() == 0 {
+		day.Missing = "mealDay"
+	}
 	return day
 }
 
@@ -431,13 +453,20 @@ func awayDay(c Client, a Assignment, day Day, inland MealRates) Day {
 	}
 	first, last := day.Date.Equal(a.From), day.Date.Equal(to)
 	day.Kind, day.Client, day.Assigned, day.Note = DayAway, a.Client, true, a.Note
+	own := 0.0
 	switch {
 	case first && last:
-		day.Times, day.Meal, day.MealText = "07:00 - 17:00", c.mealDay(inland), "8h - 24h"
+		day.Times, day.Meal, day.MealText, own = "07:00 - 17:00", c.mealDay(inland), "8h - 24h", c.dayRate()
+		day.Missing = "mealDay"
 	case first || last:
-		day.Meal, day.MealText = c.mealTravelDay(inland), "An-/Abreisetag"
+		day.Meal, day.MealText, own = c.mealTravelDay(inland), "An-/Abreisetag", c.travelDayRate()
+		day.Missing = "mealTravelDay"
 	default:
-		day.Meal, day.MealText = c.mealFullDay(inland), "24h"
+		day.Meal, day.MealText, own = c.mealFullDay(inland), "24h", c.MealFullDay
+		day.Missing = "mealFullDay"
+	}
+	if !c.Abroad() || own > 0 {
+		day.Missing = ""
 	}
 	if first || last {
 		day.Mileage = float64(c.Distance) * kmRatePerKm

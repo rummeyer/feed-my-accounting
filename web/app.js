@@ -259,20 +259,28 @@ function renderCalendar() {
   for (let i = 0; i < first; i++) cells.push(el('div', 'day pad'));
   const today = new Date().toISOString().slice(0, 10);
   for (const d of plan.days) {
-    const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today'].filter(Boolean).join(' ');
+    const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today', d.missing && 'fallback'].filter(Boolean).join(' ');
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
     const eur = d.meal || d.mileage
       ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}`) : null;
     const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), who,
       d.client && d.note && el('span', 'note muted', d.note), eur);
-    cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.note].filter(Boolean).join(' · ');
+    cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.note,
+      d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`].filter(Boolean).join(' · ');
     cells.push(cell);
   }
   $('calendar').replaceChildren(...cells);
 }
 
+const RATE_NAMES = { mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag' };
+
 function renderTotals() {
   const t = plan.totals;
+  // Clients abroad falling back to the inland rate: named once each, under the totals.
+  const missing = new Map();
+  for (const d of plan.days) {
+    if (d.missing) missing.set(`${d.client}|${d.missing}`, `${d.client}: Satz „${RATE_NAMES[d.missing]}“ fehlt — es gilt der Inlandssatz ${euro(d.meal)}`);
+  }
   const per = Object.entries(plan.perClient).map(([name, n]) => `${name} ${n}`).join(' · ');
   $('travel-totals').replaceChildren(...[
     el('div', '', el('dt', '', 'Reisetage'), el('dd', '', String(t.days ?? 0))),
@@ -280,6 +288,9 @@ function renderTotals() {
     el('div', '', el('dt', '', 'Kilometer'), el('dd', '', euro(t.mileage))),
     el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro((t.meals ?? 0) + (t.mileage ?? 0)))),
     per && el('div', 'whole', el('dt', '', 'Je Kunde'), el('dd', 'muted', per)),
+    missing.size > 0 && el('div', 'whole warn', el('dt', '', 'Satz fehlt'),
+      el('dd', '', ...[...missing.values()].flatMap((text, i) => (i ? [el('br'), text] : [text])), el('br'),
+        'Beim Kunden eintragen: ', bmfLink())),
   ].filter(Boolean));
 }
 
@@ -602,10 +613,18 @@ function field(obj, [path, label, type, extra]) {
     input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
     if (type === 'money') {
       input.step = '0.01';
+      // Abroad, an empty rate falls back to the inland one: marked.
+      const stand = { MealDay: 'MealTravelDay', MealTravelDay: 'MealDay' }[path];
+      if (path.startsWith('Meal') && (obj.Country || 'DE').toUpperCase() !== 'DE' && !value && !(stand && obj[stand])) input.classList.add('missing');
       if (path.startsWith('Meal')) {
         // A client's own rate: else the inland one — abroad that is wrong, the country's is wanted.
         const inland = getPath(settings.config, `TravelExpense.MealRates.${path.slice(4)}`) || extra;
-        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)` : 'Satz des Landes';
+        // Abroad, the day trip and travel day rates are one in the BMF's table: each stands in
+        // for the other.
+        const other = { MealDay: 'MealTravelDay', MealTravelDay: 'MealDay' }[path];
+        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)`
+          : other && obj[other] ? `leer: ${obj[other]} (wie ${path === 'MealDay' ? 'An-/Abreisetag' : 'Tagesreise'})`
+          : 'Satz des Landes';
       } else {
         input.placeholder = `Standard: ${extra} (gesetzlich)`;
       }

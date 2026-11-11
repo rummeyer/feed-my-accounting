@@ -230,6 +230,7 @@ type planDay struct {
 	Meal     float64 `json:"meal,omitempty"`
 	MealText string  `json:"mealText,omitempty"`
 	Mileage  float64 `json:"mileage,omitempty"`
+	Missing  string  `json:"missing,omitempty"`
 }
 
 var weekdays = [...]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
@@ -257,6 +258,7 @@ func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 		day := planDay{
 			Date: d.Date.Format(time.DateOnly), Weekday: weekdays[d.Date.Weekday()], Kind: d.Kind,
 			Assigned: d.Assigned, Note: d.Note, Meal: d.Meal, MealText: d.MealText, Mileage: d.Mileage,
+			Missing: d.Missing,
 		}
 		if d.Client >= 0 {
 			day.Client = tc.Clients[d.Client].Name

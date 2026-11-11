@@ -634,3 +634,32 @@ func TestBlocksPerClientAndTheirOwnHolidays(t *testing.T) {
 		t.Errorf("blocks: %v", counts)
 	}
 }
+
+func TestDaysAbroadWithoutTheClientsRateSaySo(t *testing.T) {
+	// Abroad, a day trip of more than 8 hours has the travel day rate (BMF table, column 2).
+	cfg := Config{Clients: []Client{{Name: "Globex", Country: "US", MealFullDay: 65, MealTravelDay: 44}}}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel && (d.Missing != "" || d.Meal != 44) {
+			t.Errorf("a day trip abroad without mealDay takes the travel day rate: %+v", d)
+		}
+	}
+	// Neither of the two: the inland rate, and said so.
+	bare := Config{Clients: []Client{{Name: "Globex", Country: "US", MealFullDay: 65}}}
+	for _, d := range Plan(bare, 2026, time.November) {
+		if d.Kind == DayTravel && (d.Missing != "mealDay" || d.Meal != 14) {
+			t.Errorf("abroad without either rate: %+v", d)
+		}
+	}
+	cfg.Assignments = []Assignment{{Client: 0, From: date(3), To: date(9), Overnight: true}}
+	for _, d := range Plan(cfg, 2026, time.December) {
+		if d.Kind == DayAway && d.Missing != "" {
+			t.Errorf("rates there, nothing missing: %+v", d)
+		}
+	}
+	home := Config{Clients: []Client{{Name: "Acme", Province: "BW"}}}
+	for _, d := range Plan(home, 2026, time.November) {
+		if d.Missing != "" {
+			t.Errorf("in Germany the inland rate is the rate: %+v", d)
+		}
+	}
+}
