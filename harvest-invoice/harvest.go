@@ -146,6 +146,35 @@ func RunReport(cfg Config) (*ReportData, error) {
 	return report, nil
 }
 
+// harvestPageState says what the browser shows when the download does not come: still the sign
+// in page, a captcha asked for — Harvest's sign in has an invisible hCaptcha since 2026, which
+// may turn into a challenge for an automated browser — or an error Harvest shows. Never what was
+// typed.
+func harvestPageState(ctx context.Context) string {
+	var state struct {
+		Page    string `json:"page"`
+		Captcha bool   `json:"captcha"`
+		Message string `json:"message"`
+	}
+	err := chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+		const frames = [...document.querySelectorAll('iframe[src*="hcaptcha"], iframe[src*="recaptcha"]')];
+		const challenge = frames.some((f) => { const r = f.getBoundingClientRect(); return r.width > 100 && r.height > 100; });
+		const alert = document.querySelector('[role="alert"], .alert, .error, .flash, .form-error');
+		return { page: location.host + location.pathname, captcha: challenge, message: alert ? alert.innerText.trim().slice(0, 200) : '' };
+	})()`, &state))
+	if err != nil {
+		return "page state unknown: " + err.Error()
+	}
+	parts := []string{"on " + state.Page}
+	if state.Captcha {
+		parts = append(parts, "Harvest asks for a captcha: upload the report PDF by hand instead")
+	}
+	if state.Message != "" {
+		parts = append(parts, fmt.Sprintf("Harvest says %q", state.Message))
+	}
+	return strings.Join(parts, "; ")
+}
+
 // FileName is the report PDF's name for saving it: "Harvest_2026-11_Acme_GmbH.pdf".
 func (r *ReportData) FileName() string {
 	name := strings.Map(func(c rune) rune {
@@ -271,7 +300,7 @@ func downloadExportPDF(ctx context.Context, creds HarvestLogin, exportURL string
 	}
 
 	if downloadedFile == "" {
-		return nil, fmt.Errorf("PDF download did not complete within 30 seconds")
+		return nil, fmt.Errorf("PDF download did not complete within 30 seconds: %s", harvestPageState(ctx))
 	}
 
 	data, err := os.ReadFile(downloadedFile)

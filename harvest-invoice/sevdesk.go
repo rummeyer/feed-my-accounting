@@ -44,7 +44,9 @@ func sevdeskLogin(ctx context.Context, user, pass string) error {
 		return err
 	}
 
-	dismissCookieBanner(ctx)
+	if err := waitForLoginForm(ctx); err != nil {
+		return err
+	}
 
 	if err := chromedp.Run(ctx,
 		chromedp.WaitVisible(`input[type="email"], input[placeholder*="E-Mail"]`, chromedp.ByQuery),
@@ -71,6 +73,45 @@ func sevdeskLogin(ctx context.Context, user, pass string) error {
 }
 
 // dismissCookieBanner clicks the cookie consent button if present.
+// waitForLoginForm waits until the login form takes input. sevDesk's cookie banner comes a few
+// seconds after the form — the page itself takes half a minute on a Raspberry Pi — as a modal
+// that keeps the form from taking focus until it is closed (11.11.2026: "Element is not
+// focusable"). So: close the banner once it is there, with the necessary cookies only; and
+// with no banner, wait a little before taking the form for ready.
+func waitForLoginForm(ctx context.Context) error {
+	const grace = 8 * time.Second // how long a form without banner is watched for one coming
+	var seen time.Time
+	dismissed := false
+	for deadline := time.Now().Add(45 * time.Second); time.Now().Before(deadline); time.Sleep(500 * time.Millisecond) {
+		var state string
+		if err := chromedp.Run(ctx, chromedp.Evaluate(`(() => {
+			const visible = (e) => e && e.offsetParent !== null;
+			const buttons = [...document.querySelectorAll('button')].filter(visible);
+			const banner = buttons.find((b) => b.innerText.includes('Nur Notwendige')) ||
+				buttons.find((b) => b.innerText.includes('Alle akzeptieren'));
+			if (banner) { banner.click(); return 'banner'; }
+			const e = document.querySelector('input[type="email"], input[placeholder*="E-Mail"]');
+			if (!visible(e)) return 'loading';
+			e.focus();
+			return document.activeElement === e ? 'ready' : 'blocked';
+		})()`, &state)); err != nil {
+			return fmt.Errorf("waiting for the login form: %w", err)
+		}
+		switch state {
+		case "banner":
+			dismissed = true
+		case "ready":
+			if seen.IsZero() {
+				seen = time.Now()
+			}
+			if dismissed || time.Since(seen) >= grace {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("the login form never took input (cookie banner?)")
+}
+
 func dismissCookieBanner(ctx context.Context) {
 	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
 		const b = [...document.querySelectorAll('button')].find(b =>
