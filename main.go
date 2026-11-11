@@ -297,12 +297,8 @@ func runVodafoneInvoice(cfg *Config) error {
 
 func harvestConfig(cfg *Config) harvest.Config {
 	return harvest.Config{
-		Mail:             cfg.Mail,
-		CurrentMonthOnly: *cfg.HarvestInvoice.CurrentMonthOnly,
-		SkipExisting:     *cfg.HarvestInvoice.SkipExisting,
-		Harvest: harvest.HarvestLogin{
-			Username:  cfg.HarvestInvoice.Harvest.Username,
-			Password:  cfg.HarvestInvoice.Harvest.Password,
+		SkipExisting: *cfg.HarvestInvoice.SkipExisting,
+		Harvest: harvest.HarvestAPI{
 			Token:     cfg.HarvestInvoice.Harvest.Token,
 			AccountID: cfg.HarvestInvoice.Harvest.AccountID,
 			Client:    cfg.HarvestInvoice.Harvest.Client,
@@ -315,20 +311,30 @@ func harvestConfig(cfg *Config) harvest.Config {
 			ProductNum:   cfg.HarvestInvoice.SevDesk.ProductNum,
 			ReferenceNum: cfg.HarvestInvoice.SevDesk.ReferenceNum,
 		},
-		Filter: harvest.FilterConfig{
-			Count:   cfg.HarvestInvoice.Filter.Count,
-			Subject: cfg.HarvestInvoice.Filter.Subject,
-			From:    cfg.HarvestInvoice.Filter.From,
-		},
 	}
 }
 
-// runHarvestInvoice makes the draft from Harvest: with the API for the month given, else from
-// the newest export mail.
+// runHarvestInvoice makes the sevDesk draft for the month's hours in Harvest.
 func runHarvestInvoice(cfg *Config, year int, month time.Month) error {
 	hc := harvestConfig(cfg)
 	hc.Month = time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
 	return harvest.Run(hc)
+}
+
+// slashMonth reads a month as the command line takes it, "11/2026"; empty is the current one.
+func slashMonth(s string) (int, time.Month, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		now := time.Now()
+		return now.Year(), now.Month(), nil
+	}
+	if !monthArgRegex.MatchString(s) {
+		return 0, 0, fmt.Errorf("month %q: want M/YYYY, e.g. 11/2026", s)
+	}
+	parts := strings.Split(s, "/")
+	year, _ := strconv.Atoi(parts[1])
+	m, _ := strconv.Atoi(parts[0])
+	return year, time.Month(m), nil
 }
 
 func parseMonthArg(args []string) (int, time.Month) {
@@ -355,7 +361,7 @@ Commands:
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
-  harvest-invoice [M/YYYY]  Create sevDesk invoice from Harvest (month with the API token)
+  harvest-invoice [M/YYYY]  Create sevDesk draft invoice from the month's Harvest hours
   serve                     Web interface on web.listen (default :8595)
 
 Flags:

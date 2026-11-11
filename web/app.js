@@ -224,8 +224,9 @@ for (const b of document.querySelectorAll('[data-run]')) {
   b.addEventListener('click', () => start(b.dataset.run, 'POST', `/api/${b.dataset.run}/run`));
 }
 
-// The month the Harvest API is asked for: the current one, or an earlier one after the fact.
-{ const now = new Date(); $('harvest-month').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; }
+// The month the Harvest API is asked for, as on the command line: the current one, or an
+// earlier one after the fact.
+{ const now = new Date(); $('harvest-month').value = `${now.getMonth() + 1}/${now.getFullYear()}`; }
 $('harvest-run').addEventListener('click', () =>
   start('harvest', 'POST', '/api/harvest/run', { month: $('harvest-month').value }));
 
@@ -537,7 +538,7 @@ const PARTS = {
   ]]],
   web: [['Oberfläche', [
     ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'],
-    ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
+    ['Web.Password', 'Passwort für diese Seite', 'secret', 3],
     ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
   ]]],
   travel: [['Kunden', [
@@ -553,17 +554,11 @@ const PARTS = {
     ['HarvestInvoice.SevDesk.ProductName', 'Artikel (Suchbegriff)'], ['HarvestInvoice.SevDesk.ProductNum', 'Artikelnummer'],
     ['HarvestInvoice.SevDesk.ReferenceNum', 'Kundenreferenz (E-Rechnung)'],
     BREAK,
-    ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
+    ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 2],
     BREAK,
-    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 5],
+    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 4],
     ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest (leer: wie sevDesk)'],
     BREAK,
-    ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer (ohne Token)'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort (ohne Token)', 'secret', 2],
-    BREAK,
-    ['HarvestInvoice.Filter.Count', 'Mails durchsuchen (ohne Token)', 'number', 10],
-    ['HarvestInvoice.Filter.From', 'Absender-Domain (ohne Token)', 'text', 'harvestapp.com'],
-    ['HarvestInvoice.Filter.Subject', 'Betreff (ohne Token)', 'text', 'We’ve exported your detailed time report'],
-    ['HarvestInvoice.CurrentMonthOnly', 'Aus der Mail nur Berichte des laufenden Monats', 'bool', true],
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
   ]]],
   apple: [['', [

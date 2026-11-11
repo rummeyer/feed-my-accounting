@@ -97,17 +97,9 @@ type VodafoneInvoiceConfig struct {
 }
 
 type HarvestInvoiceConfig struct {
-	CurrentMonthOnly *bool `yaml:"currentMonthOnly,omitempty"` // default: true
-	SkipExisting     *bool `yaml:"skipExisting,omitempty"`     // default: true
-	Filter           struct {
-		Count   int    `yaml:"count"`
-		From    string `yaml:"from"`
-		Subject string `yaml:"subject"`
-	} `yaml:"filter"`
-	Harvest struct {
-		Username  string `yaml:"username"`  // Harvest login email
-		Password  string `yaml:"password"`  // Harvest login password
-		Token     string `yaml:"token"`     // personal access token: the API instead of the login
+	SkipExisting *bool `yaml:"skipExisting,omitempty"` // default: true
+	Harvest      struct {
+		Token     string `yaml:"token"`     // personal access token for the Harvest API v2
 		AccountID string `yaml:"accountId"` // empty: the token's Harvest account
 		Client    string `yaml:"client"`    // client in Harvest; empty: sevdesk.clientName
 	} `yaml:"harvest"`
@@ -228,22 +220,9 @@ func applyDefaults(cfg *Config) {
 		t := true
 		cfg.VodafoneInvoice.FallbackToLastMonth = &t
 	}
-	if cfg.HarvestInvoice.CurrentMonthOnly == nil {
-		t := true
-		cfg.HarvestInvoice.CurrentMonthOnly = &t
-	}
 	if cfg.HarvestInvoice.SkipExisting == nil {
 		t := true
 		cfg.HarvestInvoice.SkipExisting = &t
-	}
-	if cfg.HarvestInvoice.Filter.Count == 0 {
-		cfg.HarvestInvoice.Filter.Count = 10
-	}
-	if cfg.HarvestInvoice.Filter.From == "" {
-		cfg.HarvestInvoice.Filter.From = "harvestapp.com"
-	}
-	if cfg.HarvestInvoice.Filter.Subject == "" {
-		cfg.HarvestInvoice.Filter.Subject = "We\u2019ve exported your detailed time report"
 	}
 	if cfg.Web.Listen == "" {
 		cfg.Web.Listen = ":8595"

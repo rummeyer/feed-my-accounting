@@ -295,3 +295,6 @@ input.missing { border-color: var(--bad); }
 }
 :root[data-theme="dark"] .masthead img.logo { background: #ececeb; border-radius: 10px; padding: 8px 16px; }
 .grid .break { grid-column: 1 / -1; height: 0; }
+
+/* The month for the Harvest run: M/YYYY, as on the command line. */
+.actions input.month { width: 8ch; text-align: center; }

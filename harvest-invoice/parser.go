@@ -1,6 +1,5 @@
-// Package harvest fetches Harvest monthly report emails, downloads the PDF
-// export, extracts total hours and service period, and creates a matching
-// invoice in sevDesk via browser automation.
+// Package harvest reads a month's hours from the Harvest API — or an uploaded Harvest report
+// PDF — and creates a matching draft invoice in sevDesk via browser automation.
 package harvest
 
 import (
@@ -11,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/ledongthuc/pdf"
 )
 
@@ -20,9 +18,7 @@ type ReportData struct {
 	TotalHours float64
 	PeriodFrom time.Time // first day of reported period
 	PeriodTo   time.Time // last day of reported period
-	ExportURL  string    // download link from the email
-	ClientName string    // client mentioned in the email
-	PDFData    []byte    // raw PDF bytes for attaching to invoice
+	ClientName string    // client in sevDesk
 }
 
 // date pattern dd.mm.yyyy
@@ -30,67 +26,6 @@ var datePattern = regexp.MustCompile(`(\d{2})\.(\d{2})\.(\d{4})`)
 
 // totalHoursPattern matches "157,00 Hours" or "157.00 Hours"
 var totalHoursPattern = regexp.MustCompile(`([\d.,]+)\s+Hours`)
-
-// ParseEmail extracts the download link and period from a Harvest export notification email.
-func ParseEmail(html string) (*ReportData, error) {
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
-	if err != nil {
-		return nil, fmt.Errorf("parsing HTML: %w", err)
-	}
-
-	data := &ReportData{}
-
-	// Extract export download URL
-	doc.Find("a").Each(func(_ int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			if strings.Contains(href, "/exports/") {
-				text := strings.TrimSpace(s.Text())
-				if text == "Download" || strings.Contains(strings.ToLower(text), "download") {
-					data.ExportURL = href
-				}
-			}
-		}
-	})
-	// Fallback: schema.org ViewAction link
-	if data.ExportURL == "" {
-		doc.Find(`link[itemprop="url"]`).Each(func(_ int, s *goquery.Selection) {
-			if href, exists := s.Attr("href"); exists && strings.Contains(href, "/exports/") {
-				data.ExportURL = href
-			}
-		})
-	}
-	if data.ExportURL == "" {
-		return nil, fmt.Errorf("no export download URL found in email")
-	}
-
-	// Extract period from heading like "from 01.03.2026 to 31.03.2026"
-	text := doc.Text()
-	dates := datePattern.FindAllStringSubmatch(text, -1)
-	if len(dates) >= 2 {
-		from, err := parseDate(dates[0])
-		if err != nil {
-			return nil, fmt.Errorf("parsing from-date: %w", err)
-		}
-		to, err := parseDate(dates[1])
-		if err != nil {
-			return nil, fmt.Errorf("parsing to-date: %w", err)
-		}
-		data.PeriodFrom = from
-		data.PeriodTo = to
-	} else {
-		return nil, fmt.Errorf("could not find date range in email")
-	}
-
-	// Extract client name from "to <ClientName>" list item
-	doc.Find("li").Each(func(_ int, s *goquery.Selection) {
-		t := strings.TrimSpace(s.Text())
-		if strings.HasPrefix(t, "to ") && !strings.HasPrefix(t, "to the project") && !strings.HasPrefix(t, "to any") {
-			data.ClientName = strings.TrimPrefix(t, "to ")
-		}
-	})
-
-	return data, nil
-}
 
 // ParsePDFHours extracts the total hours from a Harvest PDF report.
 // Looks for the pattern "157,00 Hours" near the top of the document.
@@ -103,7 +38,7 @@ func ParsePDFHours(pdfData []byte) (float64, error) {
 }
 
 // ParseReportPDF reads an uploaded Harvest report: its total hours and, where it states them as
-// dd.mm.yyyy like the export email does, the first and last day of its period. The period is left
+// dd.mm.yyyy, the first and last day of its period. The period is left
 // zero if the PDF does not state it; the caller then has to give it.
 func ParseReportPDF(pdfData []byte) (*ReportData, error) {
 	text, err := pdfText(pdfData)
@@ -114,7 +49,7 @@ func ParseReportPDF(pdfData []byte) (*ReportData, error) {
 	if err != nil {
 		return nil, err
 	}
-	report := &ReportData{TotalHours: hours, PDFData: pdfData}
+	report := &ReportData{TotalHours: hours}
 	if dates := datePattern.FindAllStringSubmatch(text, 2); len(dates) == 2 {
 		report.PeriodFrom, _ = parseDate(dates[0])
 		report.PeriodTo, _ = parseDate(dates[1])

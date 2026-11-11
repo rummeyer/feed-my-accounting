@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-// The Harvest API v2, with a personal access token (id.getharvest.com/developers): the hours
-// of a report without the web sign in and its captcha. On every plan, the free one too.
+// The Harvest API v2, with a personal access token: a month's hours, without Harvest's web
+// sign in and its captcha.
 
 var apiClient = &http.Client{Timeout: 30 * time.Second}
 
 // apiGet fetches a Harvest API URL into v.
-func apiGet(creds HarvestLogin, accountID, rawURL string, v any) error {
+func apiGet(creds HarvestAPI, accountID, rawURL string, v any) error {
 	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func apiGet(creds HarvestLogin, accountID, rawURL string, v any) error {
 
 // apiAccount is the Harvest account to read: the one configured, else the token's first
 // Harvest account.
-func apiAccount(creds HarvestLogin) (string, error) {
+func apiAccount(creds HarvestAPI) (string, error) {
 	if creds.AccountID != "" {
 		return creds.AccountID, nil
 	}
@@ -62,7 +62,7 @@ func apiAccount(creds HarvestLogin) (string, error) {
 
 // APIHours is the hours booked for client — all clients if empty — from from to to, as
 // Harvest's reports count them: rounded, when the account rounds.
-func APIHours(creds HarvestLogin, client string, from, to time.Time) (float64, int, error) {
+func APIHours(creds HarvestAPI, client string, from, to time.Time) (float64, int, error) {
 	account, err := apiAccount(creds)
 	if err != nil {
 		return 0, 0, err

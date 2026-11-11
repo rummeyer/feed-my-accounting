@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-
-	harvest "feed-my-accounting/harvest-invoice"
 	"log"
 	"strconv"
 	"strings"
@@ -127,27 +125,15 @@ var scheduledJobs = map[string]scheduledJob{
 	})},
 	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
-	"harvest-invoice": {"Kundenrechnung aus Harvest", func(cfg *Config) ([]File, error) {
-		return harvestWithReport(cfg, time.Time{})
-	}},
+	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", noFiles(func(cfg *Config) error {
+		now := time.Now()
+		return runHarvestInvoice(cfg, now.Year(), now.Month())
+	})},
 }
 
 // noFiles is a module run that makes no files to download.
 func noFiles(run func(*Config) error) func(*Config) ([]File, error) {
 	return func(cfg *Config) ([]File, error) { return nil, run(cfg) }
-}
-
-// harvestWithReport runs harvest-invoice — with the API for month, zero the current one — and
-// keeps the report PDF it downloaded without, to be saved from the web interface — on iCloud
-// Drive, say.
-func harvestWithReport(cfg *Config, month time.Time) ([]File, error) {
-	hc := harvestConfig(cfg)
-	hc.Month = month
-	report, err := harvest.RunReport(hc)
-	if report == nil || len(report.PDFData) == 0 {
-		return nil, err
-	}
-	return []File{{Name: report.FileName(), Size: len(report.PDFData), data: report.PDFData}}, err
 }
 
 // nextRun is the schedule's next run after now: its job and when; nil if nothing is scheduled.

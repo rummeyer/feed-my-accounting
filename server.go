@@ -376,8 +376,8 @@ func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)
 	}
 }
 
-// harvestRun makes the draft from Harvest: with the API, for the month asked for; else from the
-// newest export mail.
+// harvestRun makes the sevDesk draft for a month's hours in Harvest: "11/2026", as on the
+// command line; empty is the current month.
 func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Month string `json:"month"`
@@ -385,7 +385,7 @@ func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
 	if !read(w, r, &in) {
 		return
 	}
-	year, month, err := monthParam(in.Month)
+	year, month, err := slashMonth(in.Month)
 	if err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
@@ -395,12 +395,12 @@ func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	title := "Kundenrechnung aus Harvest-Bericht"
-	at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-	if cfg.HarvestInvoice.Harvest.Token != "" {
-		title = fmt.Sprintf("Kundenrechnung %02d/%d aus Harvest", month, year)
+	if cfg.HarvestInvoice.Harvest.Token == "" {
+		fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter Einstellungen eintragen"))
+		return
 	}
-	s.start(w, "harvest-invoice", title, func() ([]File, error) { return harvestWithReport(cfg, at) })
+	title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
+	s.start(w, "harvest-invoice", title, func() ([]File, error) { return nil, runHarvestInvoice(cfg, year, month) })
 }
 
 // harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before
@@ -523,7 +523,6 @@ func secrets(cfg *Config) []*string {
 	return []*string{
 		&cfg.Mail.Password,
 		&cfg.VodafoneInvoice.Password,
-		&cfg.HarvestInvoice.Harvest.Password,
 		&cfg.HarvestInvoice.SevDesk.Password,
 		&cfg.Web.Password,
 		&cfg.HarvestInvoice.Harvest.Token,
@@ -536,7 +535,7 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	set := make([]bool, 0, 6)
+	set := make([]bool, 0, 5)
 	for _, p := range secrets(cfg) {
 		set = append(set, *p != "")
 		*p = ""

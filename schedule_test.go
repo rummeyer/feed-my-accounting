@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -65,5 +66,22 @@ func TestNextRunIsTheSoonestEnabledEntry(t *testing.T) {
 	}
 	if nextRun(&Config{}, at("2026-11-11 13:00")) != nil {
 		t.Error("nothing scheduled: nil")
+	}
+}
+
+func TestSlashMonth(t *testing.T) {
+	for in, want := range map[string]string{"11/2026": "2026-11", "1/2027": "2027-01", "01/2027": "2027-01", " 3/2026 ": "2026-03"} {
+		y, m, err := slashMonth(in)
+		if err != nil || fmt.Sprintf("%d-%02d", y, m) != want {
+			t.Errorf("slashMonth(%q) = %d-%02d, %v; want %s", in, y, m, err, want)
+		}
+	}
+	for _, bad := range []string{"2026-11", "13/2026", "11/26", "nov"} {
+		if _, _, err := slashMonth(bad); err == nil {
+			t.Errorf("slashMonth(%q): no error", bad)
+		}
+	}
+	if y, m, _ := slashMonth(""); y != time.Now().Year() || m != time.Now().Month() {
+		t.Errorf("slashMonth(\"\") = %d/%d, want the current month", m, y)
 	}
 }

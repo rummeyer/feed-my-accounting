@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- harvest-invoice: `harvest.token` (and optionally `harvest.accountId`) — with a Harvest personal access token, the hours come from the Harvest API v2: the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month — current, given (`harvest-invoice 10/2026`) or chosen on the web interface next to *Aus Harvest anlegen*. No export mail, no Harvest login, so no captcha. Works on the free plan. Without a token, everything works from the mail as before; the PDF upload stays as it is.
+- harvest-invoice: the hours come from the Harvest API v2, with a personal access token (`harvest.token`, required; optionally `harvest.accountId`): the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month — the current one, the one given (`harvest-invoice 10/2026`) or the one given on the web interface next to *Aus Harvest anlegen*, as `10/2026`. Works on the free plan.
+
+### Removed
+
+- harvest-invoice: the export mail and the Harvest web login — Harvest's sign in has an hCaptcha that turns the automated browser away. Gone with them: `currentMonthOnly`, `filter`, `harvest.username`, `harvest.password`, the PDF download and offering it with the run. A Harvest PDF report goes in only by upload on the web interface, as before.
 
 ### Changed
 
@@ -20,13 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - travel-expense: clients outside Europe never take part in the equal distribution — only their assigned days count. Clients in Europe still do.
 
-- Web interface: the Harvest report PDF a run downloads from Harvest — by hand or on schedule — is offered for download with the run, until the server restarts. `harvest.RunReport` hands it back.
-- Web interface: the first card is called Zeitplan; the Harvest and sevDesk logins have a line each.
+- Web interface: the first card is called Zeitplan.
 
 ### Fixed
 
 - harvest-invoice: the sevDesk login waits for the cookie banner, which comes seconds after the login form and kept it from taking input ("Element is not focusable").
-- harvest-invoice: the PDF download runs in a browser of its own that shows itself as the Chromium it is, keeps its Harvest login between runs and waits a minute; when it fails, the error names the page, a captcha and Harvest's message.
 - travel-expense abroad: a day trip of more than 8 hours takes the client's travel day rate when it has no day trip rate, and the other way round — the BMF's table has one rate for both. Only with neither does the inland rate apply; the web interface marks such days red, names the missing rate under the totals and frames the empty field.
 
 ## [1.9.1] - 2026-11-11
