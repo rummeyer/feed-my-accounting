@@ -58,7 +58,7 @@ $('theme').addEventListener('click', () => {
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
-const TABS = ['cron', 'travel', 'invoice', 'receipts', 'log', 'settings'];
+const TABS = ['cron', 'receipts', 'travel', 'invoice', 'log', 'settings'];
 const loaders = {};
 
 function showTab() {
