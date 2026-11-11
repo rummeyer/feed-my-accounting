@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1] - 2026-11-11
+
+### Changed
+
+- Web interface: every setting is on the card where it is used — clients on Reisekosten, Harvest and sevDesk on Kundenrechnung, Apple and Vodafone on Belege — each part with its own save button. Einstellungen keeps only the mail account and the web interface. Empty fields show their default.
+
 ## [1.7.0] - 2026-11-11
 
 ### Added

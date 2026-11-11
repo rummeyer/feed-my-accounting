@@ -96,6 +96,8 @@
         <input id="b-note" placeholder="Notiz, z. B. Urlaub" aria-label="Notiz">
         <button type="submit">Sperren</button>
       </form>
+
+      <form class="part" data-part="travel"></form>
     </section>
 
     <!-- Kundenrechnung -->
@@ -123,6 +125,8 @@
       <p class="muted">Wie der Cron-Lauf: die neueste Export-Mail suchen, den Bericht bei Harvest laden und den Entwurf anlegen — nur für den laufenden Monat, und nie doppelt.</p>
       <div class="actions"><button type="button" data-run="harvest">Aus Mail anlegen</button></div>
       <div class="console" data-console="harvest" hidden></div>
+
+      <form class="part" data-part="invoice"></form>
     </section>
 
     <!-- Belege -->
@@ -132,12 +136,14 @@
       <p class="last" data-last="apple-invoice"></p>
       <div class="actions"><button type="button" data-run="apple">Apple-Rechnungen abholen</button></div>
       <div class="console" data-console="apple" hidden></div>
+      <details class="part-box"><summary>Einstellungen Apple</summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
       <p class="muted">Bei MeinVodafone anmelden, die Rechnungen für Mobilfunk und Kabel laden und an die Buchhaltung senden.</p>
       <p class="last" data-last="vodafone-invoice"></p>
       <div class="actions"><button type="button" data-run="vodafone">Vodafone-Rechnungen abholen</button></div>
       <div class="console" data-console="vodafone" hidden></div>
+      <details class="part-box"><summary>Einstellungen Vodafone</summary><form class="part" data-part="vodafone"></form></details>
     </section>
 
     <!-- Protokoll -->
@@ -150,13 +156,8 @@
 
     <!-- Einstellungen -->
     <section id="tab-settings" class="tab" hidden>
-      <form id="settings-form">
-        <div id="settings-fields"></div>
-        <div class="actions sticky">
-          <button type="submit" class="strong">Speichern</button>
-          <span id="settings-note" class="muted"></span>
-        </div>
-      </form>
+      <form class="part" data-part="mail"></form>
+      <form class="part" data-part="web"></form>
     </section>
   </main>
 

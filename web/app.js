@@ -237,7 +237,7 @@ async function loadTravel() {
   renderTotals();
   renderRanges();
 }
-loaders.travel = loadTravel;
+loaders.travel = () => { loadTravel(); loadSettings(); };
 
 const KIND_TEXT = { weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' };
 
@@ -274,13 +274,13 @@ function renderTotals() {
 function renderRanges() {
   const clients = overview?.clients ?? [];
   const select = $('a-client');
-  if (!select.options.length) {
-    select.append(...clients.map((c) => {
-      const o = el('option', '', c.name);
-      o.value = c.id || c.name;
-      return o;
-    }));
-  }
+  const chosen = select.value;
+  select.replaceChildren(...clients.map((c) => {
+    const o = el('option', '', c.name);
+    o.value = c.id || c.name;
+    return o;
+  }));
+  if (chosen) select.value = chosen;
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   $('assignments').replaceChildren(...plan.assignments.map((a, i) => el('li', '',
@@ -397,41 +397,44 @@ loaders.log = loadLog;
 // ── Settings ───────────────────────────────────────────────────────────────
 
 const PROVINCES = ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'];
-// The settings as the config file has them: section, field path, label, type.
-const SECTIONS = [
-  ['E-Mail', [
+// The settings as the config file has them, each where it is used: per part of the page, its
+// sections with field path, label, type. Only what all of them share is under Einstellungen.
+const PARTS = {
+  mail: [['E-Mail', [
     ['Mail.SMTPHost', 'SMTP-Server'], ['Mail.SMTPPort', 'SMTP-Port', 'number'],
     ['Mail.IMAPHost', 'IMAP-Server'], ['Mail.IMAPPort', 'IMAP-Port', 'number'],
     ['Mail.Username', 'Benutzer'], ['Mail.Password', 'Passwort', 'secret', 0],
     ['Mail.From', 'Absender'], ['Mail.To', 'Empfänger'], ['Mail.CC', 'Kopie (z. B. sevDesk-Autobox)'],
-  ]],
-  ['Reisekosten', [
+  ]]],
+  web: [['Oberfläche', [
+    ['Web.Listen', 'Adresse (Neustart nötig)', 'text', ':8595'], ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
+  ]]],
+  travel: [['Kunden', [
     ['TravelExpense.Employee', 'Name (Lieferant im PDF)'],
     ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
-  ]],
-  ['Apple', [
-    ['AppleInvoice.Filter.Count', 'Mails durchsuchen', 'number'],
-    ['AppleInvoice.Filter.From', 'Absender-Domain'], ['AppleInvoice.Filter.Subject', 'Betreff'],
-  ]],
-  ['Vodafone', [
-    ['VodafoneInvoice.Username', 'Benutzer'], ['VodafoneInvoice.Password', 'Passwort', 'secret', 1],
-    ['VodafoneInvoice.FallbackToLastMonth', 'Sonst die Rechnung vom Vormonat', 'bool', true],
-  ]],
-  ['Harvest & sevDesk', [
-    ['HarvestInvoice.CurrentMonthOnly', 'Nur Berichte des laufenden Monats (Mail)', 'bool', true],
-    ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
-    ['HarvestInvoice.Filter.Count', 'Mails durchsuchen', 'number'],
-    ['HarvestInvoice.Filter.From', 'Absender-Domain'], ['HarvestInvoice.Filter.Subject', 'Betreff'],
-    ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort', 'secret', 2],
-    ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
+  ]]],
+  invoice: [['Einstellungen', [
     ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
     ['HarvestInvoice.SevDesk.ProductName', 'Artikel (Suchbegriff)'], ['HarvestInvoice.SevDesk.ProductNum', 'Artikelnummer'],
     ['HarvestInvoice.SevDesk.ReferenceNum', 'Kundenreferenz (E-Rechnung)'],
-  ]],
-  ['Oberfläche', [
-    ['Web.Listen', 'Adresse (Neustart nötig)'], ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
-  ]],
-];
+    ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
+    ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort', 'secret', 2],
+    ['HarvestInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
+    ['HarvestInvoice.Filter.From', 'Absender-Domain', 'text', 'harvestapp.com'],
+    ['HarvestInvoice.Filter.Subject', 'Betreff', 'text', 'We’ve exported your detailed time report'],
+    ['HarvestInvoice.CurrentMonthOnly', 'Aus der Mail nur Berichte des laufenden Monats', 'bool', true],
+    ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
+  ]]],
+  apple: [['', [
+    ['AppleInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
+    ['AppleInvoice.Filter.From', 'Absender-Domain', 'text', 'apple.com'],
+    ['AppleInvoice.Filter.Subject', 'Betreff', 'text', 'Deine Rechnung von Apple'],
+  ]]],
+  vodafone: [['', [
+    ['VodafoneInvoice.Username', 'Benutzer'], ['VodafoneInvoice.Password', 'Passwort', 'secret', 1],
+    ['VodafoneInvoice.FallbackToLastMonth', 'Sonst die Rechnung vom Vormonat', 'bool', true],
+  ]]],
+};
 const CLIENT_FIELDS = [
   ['ID', 'Nr.'], ['Name', 'Name'], ['From', 'Von'], ['To', 'Nach'], ['Reason', 'Grund'],
   ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
@@ -489,6 +492,8 @@ function field(obj, [path, label, type, extra]) {
     }
     input.value = type === 'secret' ? '' : value || (type === 'number' || type === 'money' ? '' : value ?? '');
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
+    // Left empty, the default applies: shown as the hint.
+    if ((type === 'text' || type === 'number') && extra !== undefined) input.placeholder = `Standard: ${extra}`;
     input.autocomplete = 'off';
   }
   bind(input, () => setPath(obj, path, type === 'number' || type === 'money' ? Number(input.value) || 0 : input.value));
@@ -505,37 +510,60 @@ async function loadSettings() {
   try {
     settings = await api('GET', '/api/settings');
   } catch (err) {
-    $('settings-fields').replaceChildren(el('p', 'badge failed', err.message));
+    for (const form of document.querySelectorAll('form.part')) form.replaceChildren(el('p', 'badge failed', err.message));
     return;
   }
   renderSettings();
 }
-loaders.settings = loadSettings;
+for (const tab of ['settings', 'invoice', 'receipts']) loaders[tab] = loadSettings;
 
+/** Fills every settings part on the page from the one configuration they all edit. */
 function renderSettings() {
+  if (!settings) return;
   const cfg = settings.config;
-  const parts = [];
-  for (const [title, fields] of SECTIONS) {
-    parts.push(el('h2', '', title), el('fieldset', 'grid', ...fields.map((f) => fieldOrPair(cfg, f))));
-    if (title === 'Reisekosten') parts.push(renderClients(cfg));
+  for (const form of document.querySelectorAll('form.part')) {
+    const part = form.dataset.part;
+    const children = [];
+    for (const [title, fields] of PARTS[part]) {
+      if (title) children.push(el('h2', '', title));
+      if (part === 'travel') children.push(renderClients(cfg));
+      children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
+    }
+    const note = el('span', 'muted');
+    children.push(el('div', 'actions', el('button', 'strong', 'Speichern'), note));
+    if (part === 'mail') {
+      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Cron.`));
+    }
+    form.replaceChildren(...children);
+    form.onsubmit = (e) => saveSettings(e, note);
   }
-  parts.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak.`));
-  $('settings-fields').replaceChildren(...parts);
 }
 
-function fieldOrPair(obj, f) {
-  return field(obj, f);
+async function saveSettings(e, note) {
+  e.preventDefault();
+  try {
+    await api('PUT', '/api/settings', settings.config);
+    overview = null;
+    await loadSettings();
+    await loadOverview();
+    if (!$('tab-travel').hidden) loadTravel();
+    note.textContent = '';
+    for (const n of document.querySelectorAll('form.part .actions .muted')) n.textContent = '';
+    e.target.querySelector('.actions .muted').textContent = 'Gespeichert.';
+  } catch (err) {
+    note.textContent = err.message;
+  }
 }
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
-  const box = el('div', '', el('p', 'muted', 'Kunden für die Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen (BMF-Ländertabelle).'));
+  const box = el('div', '', el('p', 'muted', 'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen (BMF-Ländertabelle).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
       button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); }),
       el('div', 'grid', ...CLIENT_FIELDS
         .filter(([key]) => key !== 'Province' || (c.Country || 'DE').toUpperCase() === 'DE')
-        .map((f) => fieldOrPair(c, f)))));
+        .map((f) => field(c, f)))));
   });
   box.append(el('div', 'actions', button('Kunde hinzufügen', '', () => {
     cfg.TravelExpense.Clients.push({ Province: 'BW' });
@@ -543,19 +571,6 @@ function renderClients(cfg) {
   })));
   return box;
 }
-
-$('settings-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    await api('PUT', '/api/settings', settings.config);
-    $('settings-note').textContent = 'Gespeichert.';
-    overview = null;
-    loadSettings();
-    loadOverview();
-  } catch (err) {
-    $('settings-note').textContent = err.message;
-  }
-});
 
 // ── Start ──────────────────────────────────────────────────────────────────
 

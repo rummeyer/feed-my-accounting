@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
@@ -125,18 +125,22 @@ feed-my-accounting serve          # http://<host>:8595
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the two PDFs it made" width="380">
 </p>
 
-<p align="center"><sub>Screenshots with made-up companies and data. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Einstellungen</a>.</sub></p>
+<p align="center"><sub>Screenshots with made-up companies and data. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>.</sub></p>
 
 `serve` starts a small web server — one Go binary, the page embedded — with a register card per area of work. Everything it does is also what the command line does; it reads `config.yaml` afresh on every request, so edits by hand count at once.
+
+Every setting is on the card where it is used, each part with its own *Speichern*.
 
 | Card | What it does |
 |------|--------------|
 | **Cron** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab), its next runs, its last result, a switch to turn it off, and *jetzt* to run it now. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
-| **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. *PDFs ansehen* generates the two PDFs to look at; *An die Buchhaltung senden* sends them. |
-| **Kundenrechnung** | Drop the Harvest PDF report in: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check as the cron run. *Aus Mail anlegen* runs harvest-invoice as before. |
-| **Belege** | Apple and Vodafone invoices on demand. |
+| **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. *PDFs ansehen* generates the two PDFs to look at; *An die Buchhaltung senden* sends them. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
+| **Kundenrechnung** | Drop the Harvest PDF report in: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check as the cron run. *Aus Mail anlegen* runs harvest-invoice as before. Below: the sevDesk client, article and reference, the Harvest and sevDesk logins, and the mail filter. |
+| **Belege** | Apple and Vodafone invoices on demand, each with its settings: the Apple mail filter, the Vodafone login. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
-| **Einstellungen** | All of `config.yaml` as forms. Passwords are never sent to the page: leave a password field empty to keep it. |
+| **Einstellungen** | What all of them share: the mail account, and the web interface's address and password. |
+
+Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.
 
 **Saving from the web interface rewrites `config.yaml`** — values intact, comments gone — and keeps the previous file as `config.yaml.bak`.
 

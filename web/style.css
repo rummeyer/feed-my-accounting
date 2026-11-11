@@ -260,3 +260,9 @@ footer {
 .small { font-size: 13px; }
 .totals .whole { grid-column: 1 / -1; }
 .grid label.check { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; font-size: 11px; }
+
+/* Settings where they are used. */
+form.part h2 { margin-top: 40px; }
+details.part-box { margin-top: 16px; }
+details.part-box summary { cursor: pointer; color: var(--muted); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+details.part-box form.part { margin-top: 6px; }
