@@ -121,9 +121,12 @@
       </form>
       <div class="console" data-console="invoice" hidden></div>
 
-      <h2>Aus dem Harvest-Bericht</h2>
-      <p class="muted">Wie der geplante Lauf: die neueste Export-Mail des Harvest-Berichts suchen, die Stunden für Kunde und Zeitraum bei Harvest holen und den Entwurf anlegen — nur für den laufenden Monat, und nie doppelt. Mit API-Token kommen die Stunden aus der Harvest-API; ohne wird der Bericht geladen und ist danach im Protokoll zum Herunterladen, bis zum Neustart des Servers.</p>
-      <div class="actions"><button type="button" data-run="harvest">Aus Harvest-Bericht anlegen</button></div>
+      <h2>Aus Harvest</h2>
+      <p class="muted">Die Stunden des Kunden im gewählten Monat aus der Harvest-API holen und den Entwurf in sevDesk anlegen — nie doppelt. Ohne API-Token (Einstellungen unten) stattdessen wie früher: die neueste Export-Mail suchen und den Bericht bei Harvest laden; der Monat kommt dann aus der Mail, und der Bericht ist im Protokoll zum Herunterladen, bis zum Neustart des Servers.</p>
+      <div class="actions">
+        <input type="month" id="harvest-month" aria-label="Monat">
+        <button type="button" id="harvest-run">Aus Harvest anlegen</button>
+      </div>
       <div class="console" data-console="harvest" hidden></div>
 
       <form class="part" data-part="invoice"></form>

@@ -127,7 +127,9 @@ var scheduledJobs = map[string]scheduledJob{
 	})},
 	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
-	"harvest-invoice":  {"Kundenrechnung aus Harvest-Bericht", harvestWithReport},
+	"harvest-invoice": {"Kundenrechnung aus Harvest", func(cfg *Config) ([]File, error) {
+		return harvestWithReport(cfg, time.Time{})
+	}},
 }
 
 // noFiles is a module run that makes no files to download.
@@ -135,10 +137,13 @@ func noFiles(run func(*Config) error) func(*Config) ([]File, error) {
 	return func(cfg *Config) ([]File, error) { return nil, run(cfg) }
 }
 
-// harvestWithReport runs harvest-invoice and keeps the report PDF it downloaded, to be saved
-// from the web interface — on iCloud Drive, say.
-func harvestWithReport(cfg *Config) ([]File, error) {
-	report, err := harvest.RunReport(harvestConfig(cfg))
+// harvestWithReport runs harvest-invoice — with the API for month, zero the current one — and
+// keeps the report PDF it downloaded without, to be saved from the web interface — on iCloud
+// Drive, say.
+func harvestWithReport(cfg *Config, month time.Time) ([]File, error) {
+	hc := harvestConfig(cfg)
+	hc.Month = month
+	report, err := harvest.RunReport(hc)
 	if report == nil || len(report.PDFData) == 0 {
 		return nil, err
 	}

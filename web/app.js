@@ -224,6 +224,11 @@ for (const b of document.querySelectorAll('[data-run]')) {
   b.addEventListener('click', () => start(b.dataset.run, 'POST', `/api/${b.dataset.run}/run`));
 }
 
+// The month the Harvest API is asked for: the current one, or an earlier one after the fact.
+{ const now = new Date(); $('harvest-month').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; }
+$('harvest-run').addEventListener('click', () =>
+  start('harvest', 'POST', '/api/harvest/run', { month: $('harvest-month').value }));
+
 // ── Travel expenses ────────────────────────────────────────────────────────
 
 let month = new Date();
@@ -550,12 +555,14 @@ const PARTS = {
     BREAK,
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
     BREAK,
-    ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort', 'secret', 2],
-    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token (statt Anmeldung)', 'secret', 5],
+    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 5],
+    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest (leer: wie sevDesk)'],
     BREAK,
-    ['HarvestInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
-    ['HarvestInvoice.Filter.From', 'Absender-Domain', 'text', 'harvestapp.com'],
-    ['HarvestInvoice.Filter.Subject', 'Betreff', 'text', 'We’ve exported your detailed time report'],
+    ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer (ohne Token)'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort (ohne Token)', 'secret', 2],
+    BREAK,
+    ['HarvestInvoice.Filter.Count', 'Mails durchsuchen (ohne Token)', 'number', 10],
+    ['HarvestInvoice.Filter.From', 'Absender-Domain (ohne Token)', 'text', 'harvestapp.com'],
+    ['HarvestInvoice.Filter.Subject', 'Betreff (ohne Token)', 'text', 'We’ve exported your detailed time report'],
     ['HarvestInvoice.CurrentMonthOnly', 'Aus der Mail nur Berichte des laufenden Monats', 'bool', true],
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
   ]]],

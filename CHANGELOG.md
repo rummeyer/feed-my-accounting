@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- harvest-invoice: `harvest.token` (and optionally `harvest.accountId`) — with a Harvest personal access token, the hours come from the Harvest API v2: the time entries of the export mail's client in its period. No Harvest login, so no captcha. Works on the free plan. On the web interface under Kundenrechnung › Einstellungen. The PDF upload stays as it is.
+- harvest-invoice: `harvest.token` (and optionally `harvest.accountId`) — with a Harvest personal access token, the hours come from the Harvest API v2: the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month — current, given (`harvest-invoice 10/2026`) or chosen on the web interface next to *Aus Harvest anlegen*. No export mail, no Harvest login, so no captcha. Works on the free plan. Without a token, everything works from the mail as before; the PDF upload stays as it is.
 
 ### Changed
 

@@ -31,6 +31,7 @@ type Config struct {
 	Harvest          HarvestLogin  `yaml:"harvest"`
 	SevDesk          SevDeskConfig `yaml:"sevdesk"`
 	Filter           FilterConfig  `yaml:"filter"`
+	Month            time.Time     // with the API: the month to invoice; zero is the current one
 }
 
 // HarvestLogin holds credentials for Harvest: a personal access token for the API, which is
@@ -40,6 +41,7 @@ type HarvestLogin struct {
 	Password  string `yaml:"password"`
 	Token     string `yaml:"token"`
 	AccountID string `yaml:"accountId"` // empty: the token's Harvest account
+	Client    string `yaml:"client"`    // client in Harvest; empty: the sevDesk client's name
 }
 
 // FilterConfig defines which Harvest emails to look for.
@@ -60,6 +62,57 @@ func Run(cfg Config) error {
 // there is one, even if the invoice then fails: the web interface offers it for download. Nil
 // if no report was found, or one was skipped before downloading.
 func RunReport(cfg Config) (*ReportData, error) {
+	var report *ReportData
+	var err error
+	if cfg.Harvest.Token != "" {
+		report, err = apiReport(cfg)
+	} else {
+		report, err = mailReport(cfg)
+	}
+	if report == nil || err != nil {
+		return nil, err
+	}
+
+	// Create browser context (shared for sevDesk check, Harvest download, and invoice creation)
+	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
+	defer cancel()
+
+	// Guard: check if sevDesk already has an invoice for this client+period
+	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
+	if exists {
+		return nil, nil
+	}
+
+	if report.ExportURL != "" {
+		logger.Println("Downloading the report PDF from Harvest...")
+		pdfData, err := downloadExportPDF(cfg.Harvest, report.ExportURL)
+		if err != nil {
+			return nil, fmt.Errorf("downloading PDF: %w", err)
+		}
+		report.PDFData = pdfData
+		logger.Printf("Downloaded PDF: %d bytes", len(pdfData))
+
+		totalHours, err := ParsePDFHours(pdfData)
+		if err != nil {
+			return report, fmt.Errorf("parsing PDF hours: %w", err)
+		}
+		report.TotalHours = totalHours
+	}
+
+	logger.Printf("Total hours: %.2f", report.TotalHours)
+
+	// Create sevDesk invoice via browser (reuse the same browser context)
+	logger.Println("Creating sevDesk invoice...")
+	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
+		return report, fmt.Errorf("creating sevDesk invoice: %w", err)
+	}
+
+	return report, nil
+}
+
+// mailReport is the report from the newest Harvest export mail: its period, client and download
+// link. Nil if there is none, or it is not for the current month and only that is wanted.
+func mailReport(cfg Config) (*ReportData, error) {
 	logger.Println("Fetching Harvest report emails...")
 	messages, err := email.FetchHTMLEmails(cfg.Mail, email.IMAPFilter{
 		Count:      cfg.Filter.Count,
@@ -94,7 +147,6 @@ func RunReport(cfg Config) (*ReportData, error) {
 	}
 
 	// Use fixed client name from config if set, otherwise use the one from the email
-	harvestClient := report.ClientName
 	if cfg.SevDesk.ClientName != "" {
 		report.ClientName = cfg.SevDesk.ClientName
 	}
@@ -115,48 +167,35 @@ func RunReport(cfg Config) (*ReportData, error) {
 		}
 	}
 
-	// Create browser context (shared for sevDesk check, Harvest download, and invoice creation)
-	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
-	defer cancel()
+	return report, nil
+}
 
-	// Guard: check if sevDesk already has an invoice for this client+period
-	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
-	if exists {
-		return nil, nil
+// apiReport is the month's report from the Harvest API: the client's hours in it, no mail
+// needed. Before the sevDesk check — which is slower — so an empty month stops early.
+func apiReport(cfg Config) (*ReportData, error) {
+	month := cfg.Month
+	if month.IsZero() {
+		month = time.Now()
 	}
-
-	if cfg.Harvest.Token != "" {
-		logger.Println("Reading the hours from the Harvest API...")
-		hours, entries, err := APIHours(cfg.Harvest, harvestClient, report.PeriodFrom, report.PeriodTo)
-		if err != nil {
-			return nil, err
-		}
-		report.TotalHours = hours
-		logger.Printf("%d time entries", entries)
-	} else {
-		logger.Println("Downloading the report PDF from Harvest...")
-		pdfData, err := downloadExportPDF(cfg.Harvest, report.ExportURL)
-		if err != nil {
-			return nil, fmt.Errorf("downloading PDF: %w", err)
-		}
-		report.PDFData = pdfData
-		logger.Printf("Downloaded PDF: %d bytes", len(pdfData))
-
-		totalHours, err := ParsePDFHours(pdfData)
-		if err != nil {
-			return report, fmt.Errorf("parsing PDF hours: %w", err)
-		}
-		report.TotalHours = totalHours
+	from := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, time.Local)
+	report := &ReportData{PeriodFrom: from, PeriodTo: from.AddDate(0, 1, -1), ClientName: cfg.SevDesk.ClientName}
+	client := cfg.Harvest.Client
+	if client == "" {
+		client = cfg.SevDesk.ClientName
 	}
-
-	logger.Printf("Total hours: %.2f", report.TotalHours)
-
-	// Create sevDesk invoice via browser (reuse the same browser context)
-	logger.Println("Creating sevDesk invoice...")
-	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
-		return report, fmt.Errorf("creating sevDesk invoice: %w", err)
+	if client == "" {
+		return nil, fmt.Errorf("no client: set harvest.client or sevdesk.clientName")
 	}
-
+	if report.ClientName == "" {
+		report.ClientName = client
+	}
+	logger.Printf("Reading the hours of %s for %s from the Harvest API...", client, from.Format("01/2006"))
+	hours, entries, err := APIHours(cfg.Harvest, client, report.PeriodFrom, report.PeriodTo)
+	if err != nil {
+		return nil, err
+	}
+	report.TotalHours = hours
+	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), entries, hours)
 	return report, nil
 }
 

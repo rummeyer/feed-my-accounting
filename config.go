@@ -109,6 +109,7 @@ type HarvestInvoiceConfig struct {
 		Password  string `yaml:"password"`  // Harvest login password
 		Token     string `yaml:"token"`     // personal access token: the API instead of the login
 		AccountID string `yaml:"accountId"` // empty: the token's Harvest account
+		Client    string `yaml:"client"`    // client in Harvest; empty: sevdesk.clientName
 	} `yaml:"harvest"`
 	SevDesk struct {
 		Username     string `yaml:"username"`

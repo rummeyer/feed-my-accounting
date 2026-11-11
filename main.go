@@ -140,7 +140,7 @@ func main() {
 			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
-		if err := runHarvestInvoice(cfg); err != nil {
+		if err := runHarvestInvoice(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
@@ -165,7 +165,8 @@ func main() {
 		}
 
 	case "harvest-invoice":
-		if err := runHarvestInvoice(cfg); err != nil {
+		year, month := parseMonthArg(remaining)
+		if err := runHarvestInvoice(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
@@ -294,10 +295,6 @@ func runVodafoneInvoice(cfg *Config) error {
 	})
 }
 
-func runHarvestInvoice(cfg *Config) error {
-	return harvest.Run(harvestConfig(cfg))
-}
-
 func harvestConfig(cfg *Config) harvest.Config {
 	return harvest.Config{
 		Mail:             cfg.Mail,
@@ -308,6 +305,7 @@ func harvestConfig(cfg *Config) harvest.Config {
 			Password:  cfg.HarvestInvoice.Harvest.Password,
 			Token:     cfg.HarvestInvoice.Harvest.Token,
 			AccountID: cfg.HarvestInvoice.Harvest.AccountID,
+			Client:    cfg.HarvestInvoice.Harvest.Client,
 		},
 		SevDesk: harvest.SevDeskConfig{
 			Username:     cfg.HarvestInvoice.SevDesk.Username,
@@ -323,6 +321,14 @@ func harvestConfig(cfg *Config) harvest.Config {
 			From:    cfg.HarvestInvoice.Filter.From,
 		},
 	}
+}
+
+// runHarvestInvoice makes the draft from Harvest: with the API for the month given, else from
+// the newest export mail.
+func runHarvestInvoice(cfg *Config, year int, month time.Month) error {
+	hc := harvestConfig(cfg)
+	hc.Month = time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+	return harvest.Run(hc)
 }
 
 func parseMonthArg(args []string) (int, time.Month) {
@@ -349,7 +355,7 @@ Commands:
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
-  harvest-invoice           Create sevDesk invoice from Harvest monthly report
+  harvest-invoice [M/YYYY]  Create sevDesk invoice from Harvest (month with the API token)
   serve                     Web interface on web.listen (default :8595)
 
 Flags:

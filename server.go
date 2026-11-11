@@ -66,7 +66,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
 	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", noFiles(runAppleInvoice)))
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
-	mux.HandleFunc("POST /api/harvest/run", s.simpleRun("harvest-invoice", "Kundenrechnung aus Harvest-Bericht", harvestWithReport))
+	mux.HandleFunc("POST /api/harvest/run", s.harvestRun)
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
@@ -374,6 +374,33 @@ func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)
 		}
 		s.start(w, kind, title, func() ([]File, error) { return run(cfg) })
 	}
+}
+
+// harvestRun makes the draft from Harvest: with the API, for the month asked for; else from the
+// newest export mail.
+func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Month string `json:"month"`
+	}
+	if !read(w, r, &in) {
+		return
+	}
+	year, month, err := monthParam(in.Month)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	cfg, err := s.config()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	title := "Kundenrechnung aus Harvest-Bericht"
+	at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+	if cfg.HarvestInvoice.Harvest.Token != "" {
+		title = fmt.Sprintf("Kundenrechnung %02d/%d aus Harvest", month, year)
+	}
+	s.start(w, "harvest-invoice", title, func() ([]File, error) { return harvestWithReport(cfg, at) })
 }
 
 // harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before
