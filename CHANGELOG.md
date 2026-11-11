@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- travel-expense: a client with assignments gets only its assigned days; the remaining workdays are shared equally by the clients without assignments. `onlyAssigned` is gone — the assignments say it.
+- travel-expense: a client with assignments gets only its assigned days; the remaining workdays are shared by the clients without assignments in consecutive blocks of equal size, in the order they are listed, rather than alternating day by day. `onlyAssigned` is gone — the assignments say it.
 - Web interface: the header shows the next scheduled run; Zuordnungen start without a client chosen and need one.
 - Web interface: Zuordnungen and gesperrte Tage are edited as drafts — add, *bearbeiten*, *entfernen*.
 - Web interface: one red *Speichern* at the bottom of the page saves every change on every card, after asking *Sicher?*; the separate save buttons are gone, and switching cards keeps changes not saved yet.

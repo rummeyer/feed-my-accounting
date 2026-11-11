@@ -345,15 +345,17 @@ func TestPlanSkipsWeekendsHolidaysAndBlockedDays(t *testing.T) {
 	if d := days[10]; d.Kind != DayBlocked || d.Note != "Urlaub" || d.Client != -1 {
 		t.Errorf("11 May should be blocked: %+v", d)
 	}
-	// Round-robin over travel days only: the first two go to A then B.
+	// Consecutive blocks over the travel days: 15 days, A the first 8, B the other 7.
 	var travel []Day
 	for _, d := range days {
 		if d.Kind == DayTravel {
 			travel = append(travel, d)
 		}
 	}
-	if travel[0].Client != 0 || travel[1].Client != 1 || travel[2].Client != 0 {
-		t.Errorf("round-robin broken: %+v", travel[:3])
+	for i, d := range travel {
+		if want := map[bool]int{true: 0, false: 1}[i < 8]; d.Client != want {
+			t.Errorf("travel day %d (%s) went to %d, want %d", i, d.Date.Format("02.01."), d.Client, want)
+		}
 	}
 }
 
@@ -601,5 +603,34 @@ func TestClientsWithoutAssignmentsShareTheRest(t *testing.T) {
 	}
 	if got[2] != 0 || got[0]+got[1] != 21 {
 		t.Errorf("C has an assignment, so only that, even in other months: %v", got)
+	}
+}
+
+func TestBlocksPerClientAndTheirOwnHolidays(t *testing.T) {
+	// Three clients in November 2026: 21 workdays, 7 each, in that order.
+	cfg := Config{Clients: []Client{{Name: "A", Province: "BW"}, {Name: "B", Province: "BW"}, {Name: "C", Province: "BW"}}}
+	var order []int
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel && (len(order) == 0 || order[len(order)-1] != d.Client) {
+			order = append(order, d.Client)
+		}
+	}
+	if len(order) != 3 || order[0] != 0 || order[1] != 1 || order[2] != 2 {
+		t.Errorf("want blocks A, B, C, got %v", order)
+	}
+	// A in Germany, B in the US: Thanksgiving (26.11.) falls in B's block, a day off there; the
+	// 1st of November is a Sunday anyway. 21 open days: A the first 11, B the last 10 less one.
+	cfg = Config{Clients: []Client{{Name: "A", Province: "BW"}, {Name: "B", Country: "US"}}}
+	counts := map[int]int{}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel {
+			counts[d.Client]++
+		}
+		if d.Date.Day() == 26 && d.Kind != DayHoliday {
+			t.Errorf("Thanksgiving in B's block: %+v", d)
+		}
+	}
+	if counts[0] != 11 || counts[1] != 9 {
+		t.Errorf("blocks: %v", counts)
 	}
 }

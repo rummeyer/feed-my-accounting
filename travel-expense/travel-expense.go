@@ -259,16 +259,14 @@ func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
 }
 
 func isWorkday(c *cal.BusinessCalendar, date time.Time, christmasWeekOff bool) bool {
-	if !c.IsWorkday(date) {
-		return false
-	}
-	if christmasWeekOff && date.Month() == 12 {
-		day := date.Day()
-		if day == 24 || (day >= 27 && day <= 31) {
-			return false
-		}
-	}
-	return true
+	return c.IsWorkday(date) && !(christmasWeekOff && christmasWeek(date))
+}
+
+// christmasWeek says whether date is Dec 24 or Dec 27–31, the days off with christmasWeekOff;
+// Dec 25 and 26 are holidays anyway.
+func christmasWeek(date time.Time) bool {
+	day := date.Day()
+	return date.Month() == 12 && (day == 24 || (day >= 27 && day <= 31))
 }
 
 func daysInMonth(year int, month time.Month) int {
@@ -305,9 +303,10 @@ type Day struct {
 }
 
 // Plan works out each day of the month. An overnight assignment counts every day within it.
-// Otherwise weekends, holidays, the Christmas week and blocked ranges are off, and a workday goes
-// to the client it is assigned to, or else round-robin to the clients without assignments of
-// their own, each checked against its own holidays.
+// Otherwise weekends, the Christmas week and blocked ranges are off; a workday assigned to a
+// client goes to it, checked against its own holidays; and the remaining workdays go to the
+// clients without assignments of their own, in one consecutive block each, of equal size, in the
+// order the clients are listed.
 func Plan(cfg Config, year int, month time.Month) []Day {
 	if len(cfg.Clients) == 0 {
 		return nil
@@ -327,57 +326,100 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 			shared = append(shared, i)
 		}
 	}
+	sharedCalendars := []*cal.BusinessCalendar{newBusinessCalendar("", "")}
+	if len(shared) > 0 {
+		sharedCalendars = sharedCalendars[:0]
+		for _, i := range shared {
+			sharedCalendars = append(sharedCalendars, calendars[i])
+		}
+	}
+
 	days := make([]Day, 0, 31)
-	next := 0 // the next client in shared to get a day
+	var open []int // the days left for the shared clients, by index into days
 	for d := 1; d <= daysInMonth(year, month); d++ {
 		date := time.Date(year, month, d, 0, 0, 0, 0, time.UTC)
 		day := Day{Date: date, Client: -1}
 		assigned := assignmentOn(cfg.Assignments, date)
-		if assigned != nil && assigned.Overnight && cfg.validClient(assigned.Client) {
+		if assigned != nil && !cfg.validClient(assigned.Client) {
+			assigned = nil
+		}
+		if assigned != nil && assigned.Overnight {
 			days = append(days, awayDay(cfg.Clients[assigned.Client], *assigned, day, inland))
 			continue
 		}
-		// Whose holidays count: the assigned client's, else the next one's in turn.
-		client := -1
-		switch {
-		case assigned != nil && cfg.validClient(assigned.Client):
-			client = assigned.Client
-		case len(shared) > 0:
-			client = shared[next]
-		}
-		c := newBusinessCalendar("", "")
-		if client >= 0 {
-			c = calendars[client]
+		// Whose holidays count: the assigned client's; for the shared days, any of the shared
+		// clients' — a day off for all of them is off, the rest is settled with the blocks.
+		cals := sharedCalendars
+		if assigned != nil {
+			cals = []*cal.BusinessCalendar{calendars[assigned.Client]}
 		}
 		switch {
 		case date.Weekday() == time.Saturday || date.Weekday() == time.Sunday:
 			day.Kind = DayWeekend
-		case !c.IsWorkday(date):
+		case holidayForAll(cals, date, &day):
 			day.Kind = DayHoliday
-			if _, _, h := c.IsHoliday(date); h != nil {
-				day.Note = h.Name
-			}
-		case !isWorkday(c, date, christmas):
+		case christmas && christmasWeek(date):
 			day.Kind = DayChristmas
 		case blockedNote(cfg.Blocked, date) != nil:
 			day.Kind = DayBlocked
 			day.Note = *blockedNote(cfg.Blocked, date)
-		case client < 0:
+		case assigned != nil:
+			day = travelDay(day, cfg.Clients[assigned.Client], assigned.Client, inland)
+			day.Assigned, day.Note = true, assigned.Note
+		case len(shared) == 0:
 			day.Kind = DayHome
 		default:
-			cl := cfg.Clients[client]
-			day.Kind, day.Client = DayTravel, client
-			day.Times, day.Meal, day.MealText = "07:00 - 17:00", cl.mealDay(inland), "8h - 24h"
-			day.Mileage = float64(cl.Distance) * kmRatePerKm
-			if assigned != nil {
-				day.Assigned, day.Note = true, assigned.Note
-			} else {
-				next = (next + 1) % len(shared)
-			}
+			open = append(open, len(days))
 		}
 		days = append(days, day)
 	}
+
+	// The open days in consecutive blocks, one per shared client, as equal as they come: the
+	// first clients get one more where they do not divide evenly.
+	for k, from := 0, 0; k < len(shared); k++ {
+		size := len(open) / len(shared)
+		if k < len(open)%len(shared) {
+			size++
+		}
+		client := shared[k]
+		for _, i := range open[from : from+size] {
+			day := days[i]
+			if c := calendars[client]; !c.IsWorkday(day.Date) {
+				day.Kind = DayHoliday // a holiday of this client's, another's workday
+				if _, _, h := c.IsHoliday(day.Date); h != nil {
+					day.Note = h.Name
+				}
+			} else {
+				day = travelDay(day, cfg.Clients[client], client, inland)
+			}
+			days[i] = day
+		}
+		from += size
+	}
 	return days
+}
+
+// holidayForAll says whether date is a public holiday for every one of the calendars, and names
+// it in day if so.
+func holidayForAll(cals []*cal.BusinessCalendar, date time.Time, day *Day) bool {
+	for _, c := range cals {
+		if c.IsWorkday(date) {
+			return false
+		}
+	}
+	if _, _, h := cals[0].IsHoliday(date); h != nil {
+		day.Note = h.Name
+	}
+	return true
+}
+
+// travelDay is a day trip to the client: the day rate, the hours away, and the drive there and
+// back.
+func travelDay(day Day, c Client, client int, inland MealRates) Day {
+	day.Kind, day.Client = DayTravel, client
+	day.Times, day.Meal, day.MealText = "07:00 - 17:00", c.mealDay(inland), "8h - 24h"
+	day.Mileage = float64(c.Distance) * kmRatePerKm
+	return day
 }
 
 // awayDay is a day of an overnight trip: the travel day rate on its first and last day, with the

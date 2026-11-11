@@ -283,7 +283,7 @@ Generates two PDF documents per month for German business travel expense reporti
 ### How it works
 
 1. Calculates workdays for the month (excluding weekends, German public holidays, blocked days, and optionally the Christmas/New Year week)
-2. Gives the days of explicit **assignments** to their client, and distributes the remaining workdays equally among the other clients using round-robin assignment
+2. Gives the days of explicit **assignments** to their client, and the remaining workdays to the other clients in consecutive blocks of equal size
 3. Generates formatted PDF documents with smart page breaks (blocks never split across pages)
 4. Sends both PDFs via email as in-memory attachments (no files written to disk)
 
@@ -309,13 +309,13 @@ Each client represents a destination:
 | `country` | ISO 3166 code of the client's country, default `DE`: its public holidays count (see below) |
 | `province` | German state code for holiday calculation, for `DE` only (see below) |
 
-When multiple clients are configured, workdays are distributed round-robin. With 20 workdays and 2 clients each gets 10 days. Mileage is calculated per client based on their distance.
+When multiple clients are configured, the workdays are split into consecutive blocks, one per client: with 20 workdays and 2 clients, the first 10 go to one, the other 10 to the next. Mileage is calculated per client based on their distance.
 
 ### Assignments and overnight trips
 
 Both ways of splitting the days work together:
 
-- **Equal distribution**: the workdays go round-robin to the clients without assignments.
+- **Equal distribution**: the clients without assignments share the remaining workdays in consecutive blocks of equal size, in the order they are listed — with two clients and 21 days, the first 11 to one, the other 10 to the next. A day in a client's block that is a public holiday of its own is off.
 - **Assignments**: a date range given to one client explicitly. A client with assignments gets those days and no others; the remaining workdays are shared by the clients without any.
   - **Day trips** (`overnight: false`): the workdays in the range, each with the day rate and the drive there and back.
   - **Overnight** (`overnight: true`): every day of the range counts, weekends and holidays too — the first and last day at the travel day rate (An-/Abreisetag) with the drive to and from the airport or station, the days between at the full day rate, without mileage. A client without `distance` has no mileage at all; a month without driving sends only the Verpflegungsmehraufwand PDF.
