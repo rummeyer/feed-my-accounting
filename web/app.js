@@ -549,7 +549,7 @@ const PARTS = {
     ['TravelExpense.MealRates.FullDay', 'Ganzer Tag (€)', 'money', 28],
     ['TravelExpense.MealRates.TravelDay', 'An-/Abreisetag (€)', 'money', 14],
   ]]],
-  invoice: [['Einstellungen', [
+  invoice: [['', [
     ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
     ['HarvestInvoice.SevDesk.ProductName', 'Artikel (Suchbegriff)'], ['HarvestInvoice.SevDesk.ProductNum', 'Artikelnummer'],
     ['HarvestInvoice.SevDesk.ReferenceNum', 'Kundenreferenz (E-Rechnung)'],

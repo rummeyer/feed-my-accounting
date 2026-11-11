@@ -103,7 +103,7 @@
     <!-- Kundenrechnung -->
     <section id="tab-invoice" class="tab" hidden>
       <h2>Aus Harvest</h2>
-      <p class="muted">Die Stunden des Kunden im Monat über die Harvest-API holen und den Entwurf in sevDesk anlegen — er wird nie verschickt, und nie doppelt angelegt. Braucht den Harvest-API-Token unter Einstellungen.</p>
+      <p class="muted">Die Stunden des Kunden im Monat über die Harvest-API holen und den Entwurf in sevDesk anlegen — er wird nie verschickt, und nie doppelt angelegt. Braucht den Harvest-API-Token, unten unter „Einstellungen Kundenrechnung“.</p>
       <div class="actions">
         <input id="harvest-month" class="month" inputmode="numeric" placeholder="11/2026" aria-label="Monat (M/JJJJ)">
         <button type="button" id="harvest-run">Aus Harvest anlegen</button>
@@ -129,7 +129,7 @@
       </form>
       <div class="console" data-console="invoice" hidden></div>
 
-      <form class="part" data-part="invoice"></form>
+      <details class="part-box"><summary>Einstellungen Kundenrechnung</summary><form class="part" data-part="invoice"></form></details>
     </section>
 
     <!-- Belege -->

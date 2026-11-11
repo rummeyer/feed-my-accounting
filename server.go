@@ -396,7 +396,7 @@ func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cfg.HarvestInvoice.Harvest.Token == "" {
-		fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter Einstellungen eintragen"))
+		fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter „Einstellungen Kundenrechnung“ eintragen"))
 		return
 	}
 	title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
