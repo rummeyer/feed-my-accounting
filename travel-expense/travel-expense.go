@@ -266,6 +266,18 @@ func normalCountry(country string) string {
 // Abroad says whether the client is outside Germany, where the German meal rates do not apply.
 func (c Client) Abroad() bool { return normalCountry(c.Country) != "DE" }
 
+// europe are the known countries in Europe: a day trip there is a long drive, but one.
+var europe = map[string]bool{
+	"DE": true, "AT": true, "BE": true, "BG": true, "CH": true, "CZ": true, "DK": true, "ES": true,
+	"FI": true, "FR": true, "GB": true, "GR": true, "HR": true, "IE": true, "IS": true, "IT": true,
+	"LT": true, "LU": true, "LV": true, "NL": true, "NO": true, "PL": true, "RO": true, "SE": true,
+	"SI": true, "SK": true, "UA": true,
+}
+
+// Overseas says whether the client is outside Europe: no day trips there, only assigned days —
+// an overnight trip — never the equally distributed ones.
+func (c Client) Overseas() bool { return !europe[normalCountry(c.Country)] }
+
 func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
 	calendars := make([]*cal.BusinessCalendar, len(clients))
 	for i, c := range clients {
@@ -324,8 +336,8 @@ type Day struct {
 // Plan works out each day of the month. An overnight assignment counts every day within it.
 // Otherwise weekends, the Christmas week and blocked ranges are off; a workday assigned to a
 // client goes to it, checked against its own holidays; and the remaining workdays go to the
-// clients without assignments of their own, in one consecutive block each, of equal size, in the
-// order the clients are listed.
+// clients in Europe without assignments of their own, in one consecutive block each, of equal
+// size, in the order the clients are listed.
 func Plan(cfg Config, year int, month time.Month) []Day {
 	if len(cfg.Clients) == 0 {
 		return nil
@@ -339,9 +351,10 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 	for _, a := range cfg.Assignments {
 		assignedTo[a.Client] = true
 	}
+	// Nor do clients outside Europe: going there and back every day is no way to travel.
 	var shared []int
-	for i := range cfg.Clients {
-		if !assignedTo[i] {
+	for i, c := range cfg.Clients {
+		if !assignedTo[i] && !c.Overseas() {
 			shared = append(shared, i)
 		}
 	}

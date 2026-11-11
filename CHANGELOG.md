@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Web interface: Zuordnungen and gesperrte Tage are edited as drafts — add, *bearbeiten*, *entfernen*.
 - Web interface: one red *Speichern* at the bottom of the page saves every change on every card, after asking *Sicher?*; the separate save buttons are gone, and switching cards keeps changes not saved yet.
 
+- travel-expense: clients outside Europe never take part in the equal distribution — only their assigned days count. Clients in Europe still do.
+
 ### Fixed
 
 - travel-expense abroad: a day trip of more than 8 hours takes the client's travel day rate when it has no day trip rate, and the other way round — the BMF's table has one rate for both. Only with neither does the inland rate apply; the web interface marks such days red, names the missing rate under the totals and frames the empty field.

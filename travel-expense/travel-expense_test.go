@@ -553,10 +553,11 @@ func TestHolidaysByCountry(t *testing.T) {
 }
 
 func TestDayTripsAbroadSkipTheCountrysHolidays(t *testing.T) {
-	cfg := Config{Clients: []Client{{Name: "Globex", Country: "US", MealDay: 40}}}
-	for _, d := range Plan(cfg, 2026, time.November) {
-		if d.Date.Day() == 26 && d.Kind != DayHoliday {
-			t.Errorf("Thanksgiving in the US: %+v", d)
+	// Austria: 8 December is a holiday there, not in Baden-Württemberg.
+	cfg := Config{Clients: []Client{{Name: "Initech", Country: "AT", MealDay: 40}}}
+	for _, d := range Plan(cfg, 2026, time.December) {
+		if d.Date.Day() == 8 && d.Kind != DayHoliday {
+			t.Errorf("Mariä Empfängnis in Austria: %+v", d)
 		}
 		if d.Kind == DayTravel && d.Meal != 40 {
 			t.Errorf("the client's own rate: %+v", d)
@@ -618,19 +619,20 @@ func TestBlocksPerClientAndTheirOwnHolidays(t *testing.T) {
 	if len(order) != 3 || order[0] != 0 || order[1] != 1 || order[2] != 2 {
 		t.Errorf("want blocks A, B, C, got %v", order)
 	}
-	// A in Germany, B in the US: Thanksgiving (26.11.) falls in B's block, a day off there; the
-	// 1st of November is a Sunday anyway. 21 open days: A the first 11, B the last 10 less one.
-	cfg = Config{Clients: []Client{{Name: "A", Province: "BW"}, {Name: "B", Country: "US"}}}
+	// Austria first, then Baden-Württemberg, in December: 17 open days — weekdays less Christmas
+	// Day and the Christmas week — 9 to Austria, 8 to Germany. 8 December, a holiday in Austria
+	// only, falls in Austria's block and is off there.
+	cfg = Config{Clients: []Client{{Name: "A", Country: "AT"}, {Name: "B", Province: "BW"}}}
 	counts := map[int]int{}
-	for _, d := range Plan(cfg, 2026, time.November) {
+	for _, d := range Plan(cfg, 2026, time.December) {
 		if d.Kind == DayTravel {
 			counts[d.Client]++
 		}
-		if d.Date.Day() == 26 && d.Kind != DayHoliday {
-			t.Errorf("Thanksgiving in B's block: %+v", d)
+		if d.Date.Day() == 8 && d.Kind != DayHoliday {
+			t.Errorf("8 December in Austria's block: %+v", d)
 		}
 	}
-	if counts[0] != 11 || counts[1] != 9 {
+	if counts[0] != 8 || counts[1] != 8 {
 		t.Errorf("blocks: %v", counts)
 	}
 }
@@ -660,6 +662,32 @@ func TestDaysAbroadWithoutTheClientsRateSaySo(t *testing.T) {
 	for _, d := range Plan(home, 2026, time.November) {
 		if d.Missing != "" {
 			t.Errorf("in Germany the inland rate is the rate: %+v", d)
+		}
+	}
+}
+
+func TestClientsOverseasOnlyTravelWhenAssigned(t *testing.T) {
+	cfg := Config{Clients: []Client{
+		{Name: "Acme", Province: "BW"},
+		{Name: "Globex", Country: "US", MealFullDay: 65, MealTravelDay: 44},
+		{Name: "Initech", Country: "CH", MealDay: 43},
+	}}
+	counts := map[int]int{}
+	for _, d := range Plan(cfg, 2026, time.November) {
+		if d.Kind == DayTravel {
+			counts[d.Client]++
+		}
+	}
+	// 21 workdays: Acme and Initech (Switzerland is Europe) share them, Globex (US) none.
+	if counts[1] != 0 || counts[0]+counts[2] != 21 || counts[2] == 0 {
+		t.Errorf("Globex overseas without assignment gets nothing: %v", counts)
+	}
+	if !(Client{Country: "US"}).Overseas() || (Client{Country: "CH"}).Overseas() || (Client{}).Overseas() {
+		t.Error("Overseas")
+	}
+	for code := range Countries {
+		if code == "" {
+			t.Error("empty code")
 		}
 	}
 }

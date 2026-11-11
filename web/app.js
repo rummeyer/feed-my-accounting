@@ -756,7 +756,7 @@ document.addEventListener('change', () => setTimeout(refreshSave));
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
   const box = el('div', '', el('p', 'muted',
-    'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen: ',
+    'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Kunden außerhalb Europas bekommen nur Tage über Zuordnungen, nie aus der gleichmäßigen Verteilung. Im Ausland die Verpflegungspauschalen des Landes eintragen: ',
     bmfLink(), ' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
