@@ -302,15 +302,7 @@ function renderRanges() {
   select.value = chosen;
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
-  // First the rule, read only: who gets every workday not assigned — changed under Kunden.
-  const shared = clients.filter((c) => !c.onlyAssigned).map((c) => c.name);
-  const rule = el('li', 'rule',
-    el('span', 'when', 'Standard'),
-    el('span', 'grow', shared.length === 0 ? 'kein Kunde — übrige Arbeitstage ohne Reise'
-      : shared.length === 1 ? `${shared[0]} · alle übrigen Arbeitstage`
-      : `${shared.join(' · ')} · übrige Arbeitstage gleichmäßig verteilt`),
-    el('span', 'muted small', 'bei Kunden ändern'));
-  $('assignments').replaceChildren(rule, ...plan.assignments.map((a, i) => el('li', '',
+  $('assignments').replaceChildren(...plan.assignments.map((a, i) => el('li', '',
     el('span', 'when', span(a)),
     el('span', 'grow', nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.note ? ` · ${a.note}` : ''),
     button('entfernen', 'link', () => saveAssignments(plan.assignments.filter((_, j) => j !== i))))));
@@ -488,7 +480,7 @@ const CLIENT_FIELDS = [
   ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
   ['MealDay', 'Tagesreise > 8 h (€)', 'money', 14], ['MealFullDay', 'Ganzer Tag (€)', 'money', 28],
   ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14],
-  ['OnlyAssigned', 'Nur zugeordnete Tage', 'bool', false],
+  ['OnlyAssigned', 'Nur zugeordnete Tage', 'bool', false, 'instant'],
 ];
 
 let settings = null;
@@ -500,7 +492,7 @@ function setPath(obj, path, value) {
   keys.reduce((o, k) => (o[k] ??= {}), obj)[last] = value;
 }
 
-function field(obj, [path, label, type, extra]) {
+function field(obj, [path, label, type, extra, instant]) {
   const value = getPath(obj, path);
   let input;
   if (type === 'bool') {
@@ -508,6 +500,8 @@ function field(obj, [path, label, type, extra]) {
     input.type = 'checkbox';
     input.checked = value ?? extra;
     bind(input, () => setPath(obj, path, input.checked));
+    // Some switches change the calendar: saved at once, and the calendar reworked.
+    if (instant) input.addEventListener('change', () => saveNow(input.closest('form.part')));
     return el('label', 'check span', input, label);
   }
   if (type === 'province') {
@@ -611,6 +605,20 @@ async function saveSettings(e, note) {
     e.target.querySelector('.actions .muted').textContent = 'Gespeichert.';
   } catch (err) {
     note.textContent = err.message;
+  }
+}
+
+/** Saves the settings without the Speichern button, and reworks the travel calendar. */
+async function saveNow(form) {
+  const note = form?.querySelector('.actions .muted');
+  try {
+    await api('PUT', '/api/settings', settings.config);
+    overview = null;
+    await loadOverview();
+    await loadTravel();
+    if (note) note.textContent = 'Gespeichert, Kalender neu berechnet.';
+  } catch (err) {
+    if (note) note.textContent = err.message;
   }
 }
 

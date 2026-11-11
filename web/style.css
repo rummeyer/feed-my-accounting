@@ -266,5 +266,3 @@ form.part h2 { margin-top: 40px; }
 details.part-box { margin-top: 16px; }
 details.part-box summary { cursor: pointer; color: var(--muted); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
 details.part-box form.part { margin-top: 6px; }
-ul.rows li.rule { color: var(--muted); }
-ul.rows li.rule .when { color: var(--muted); }
