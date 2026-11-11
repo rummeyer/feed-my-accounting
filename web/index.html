@@ -102,6 +102,14 @@
 
     <!-- Kundenrechnung -->
     <section id="tab-invoice" class="tab" hidden>
+      <h2>Aus Harvest</h2>
+      <p class="muted">Die Stunden des Kunden im Monat über die Harvest-API holen und den Entwurf in sevDesk anlegen — er wird nie verschickt, und nie doppelt angelegt. Braucht den Harvest-API-Token unter Einstellungen.</p>
+      <div class="actions">
+        <input id="harvest-month" class="month" inputmode="numeric" placeholder="11/2026" aria-label="Monat (M/JJJJ)">
+        <button type="button" id="harvest-run">Aus Harvest anlegen</button>
+      </div>
+      <div class="console" data-console="harvest" hidden></div>
+
       <h2>Harvest-Bericht hochladen</h2>
       <p class="muted">Statt über die API: den PDF-Stundenbericht aus Harvest hier ablegen. Stunden und Leistungszeitraum werden ausgelesen, zum Prüfen. Dann legt das Tool den Rechnungsentwurf in sevDesk an — er wird nie verschickt.</p>
       <form id="upload-form" class="drop">
@@ -120,14 +128,6 @@
         </div>
       </form>
       <div class="console" data-console="invoice" hidden></div>
-
-      <h2>Aus Harvest</h2>
-      <p class="muted">Die Stunden des Kunden im Monat über die Harvest-API holen und den Entwurf in sevDesk anlegen — er wird nie verschickt, und nie doppelt angelegt. Braucht den Harvest-API-Token unter Einstellungen.</p>
-      <div class="actions">
-        <input id="harvest-month" class="month" inputmode="numeric" placeholder="11/2026" aria-label="Monat (M/JJJJ)">
-        <button type="button" id="harvest-run">Aus Harvest anlegen</button>
-      </div>
-      <div class="console" data-console="harvest" hidden></div>
 
       <form class="part" data-part="invoice"></form>
     </section>
