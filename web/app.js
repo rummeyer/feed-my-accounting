@@ -134,7 +134,6 @@ function renderSchedule() {
     return el('div', `entry ${e.enabled ? '' : 'off'}`,
       el('div', 'entry-head',
         el('label', 'check', on, 'an'), job, cron,
-        button('jetzt', '', () => start('cron', 'POST', `/api/schedule/run/${e.job}`, undefined, loadCron)),
         button('entfernen', 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); })),
       el('div', 'entry-next small', next),
       el('div', 'entry-last small muted', e.last ? `zuletzt: ${lastText(e.last)}` : 'noch nicht über die Oberfläche gelaufen'));

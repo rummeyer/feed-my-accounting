@@ -58,7 +58,6 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/schedule", s.getSchedule)
 	mux.HandleFunc("PUT /api/schedule", s.putSchedule)
-	mux.HandleFunc("POST /api/schedule/run/{job}", s.runScheduled)
 	mux.HandleFunc("GET /api/travel/plan", s.travelPlan)
 	mux.HandleFunc("POST /api/travel/generate", s.travelRun(false))
 	mux.HandleFunc("POST /api/travel/send", s.travelRun(true))
@@ -192,21 +191,6 @@ func (s *server) putSchedule(w http.ResponseWriter, r *http.Request) {
 		cfg.Schedule = in
 		return nil
 	}))
-}
-
-// runScheduled runs a scheduled job now, as its schedule would.
-func (s *server) runScheduled(w http.ResponseWriter, r *http.Request) {
-	sj, ok := scheduledJobs[r.PathValue("job")]
-	if !ok {
-		fail(w, http.StatusNotFound, errors.New("no such job"))
-		return
-	}
-	cfg, err := s.config()
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	s.start(w, r.PathValue("job"), sj.title, func() ([]File, error) { return nil, sj.run(cfg) })
 }
 
 // ---------------------------------------------------------------------------
