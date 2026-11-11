@@ -2,3 +2,6 @@ feed-my-accounting
 feed-my-accounting.log
 config.yaml
 buchhaltung
+feed-my-accounting-jobs.json
+config.yaml.bak*
+config.yaml.tmp

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-11-11
+
+### Added
+
+- **Web interface** (`feed-my-accounting serve`, `web.listen`, default `:8595`): register cards for Cron, Reisekosten, Kundenrechnung, Belege, Protokoll and Einstellungen; every run with its live output and PDFs; optional password (`web.password`).
+- **Built-in schedule** (`schedule`): cron expressions per job, run by `serve` — replaces the crontab. One job at a time; a job due while another runs is retried every minute for half an hour.
+- **Travel expense assignments** (`travel-expense.assignments`): date ranges given to a client explicitly, as day trips or **overnight** — every day counts, An-/Abreisetag and full day rates, mileage only for the drive there and back. The remaining workdays are still distributed equally; `onlyAssigned` keeps a client out of that.
+- **Meal allowance rates per client** (`mealDay`, `mealFullDay`, `mealTravelDay`), for trips abroad. Defaults remain 14 / 28 / 14 €.
+- **Blocked days** (`travel-expense.blocked`): vacation and the like, without travel.
+- **Harvest PDF upload**: hours and period read from an uploaded report, checked by hand, then the sevDesk draft — `harvest.CreateDraft` and `harvest.ParseReportPDF`.
+- `feed-my-accounting.service`, a systemd unit for the web interface.
+
+### Changed
+
+- travel-expense is split into `Plan`, `Generate` and `Send`; `Run` does all three. A month without travel days is logged as nothing to send instead of producing empty PDFs; a month without driving sends only the Verpflegungsmehraufwand PDF.
+- Saving from the web interface rewrites `config.yaml` without comments and keeps the previous file as `config.yaml.bak`.
+
 ## [1.5.0] - 2026-04-11
 
 ### Changed

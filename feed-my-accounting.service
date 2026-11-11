@@ -1,0 +1,18 @@
+# systemd unit for the web interface and its schedule. Install with:
+#   (set User and the paths to yours first)
+#   sudo cp feed-my-accounting.service /etc/systemd/system/
+#   sudo systemctl enable --now feed-my-accounting
+[Unit]
+Description=feed-my-accounting: travel expenses and invoices, web interface with schedule
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/feed-my-accounting
+ExecStart=/home/pi/feed-my-accounting/feed-my-accounting --config /home/pi/feed-my-accounting/config.yaml serve
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

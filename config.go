@@ -23,12 +23,51 @@ type Client struct {
 	Reason   string `yaml:"reason"`
 	Distance int    `yaml:"distance"` // one-way distance in km
 	Province string `yaml:"province"` // German state abbreviation (e.g., "BW", "BY")
+
+	// Meal allowance in EUR; empty for the German rates (14 / 28 / 14).
+	MealDay       float64 `yaml:"mealDay,omitempty"`       // day trip, more than 8 hours
+	MealFullDay   float64 `yaml:"mealFullDay,omitempty"`   // a full day away, overnight trips
+	MealTravelDay float64 `yaml:"mealTravelDay,omitempty"` // arrival or departure day
+	OnlyAssigned  bool    `yaml:"onlyAssigned,omitempty"`  // no days from the equal distribution
+}
+
+// DateRange is days from From to To (YYYY-MM-DD), inclusive; To empty for one day.
+type DateRange struct {
+	From string `yaml:"from" json:"from"`
+	To   string `yaml:"to,omitempty" json:"to"`
+	Note string `yaml:"note,omitempty" json:"note"`
+}
+
+// Assignment gives a date range to one client, by its id or name: as day trips, or overnight.
+type Assignment struct {
+	Client    string `yaml:"client" json:"client"`
+	From      string `yaml:"from" json:"from"`
+	To        string `yaml:"to,omitempty" json:"to"`
+	Overnight bool   `yaml:"overnight,omitempty" json:"overnight"`
+	Note      string `yaml:"note,omitempty" json:"note"`
 }
 
 type TravelExpenseConfig struct {
-	Employee         string   `yaml:"employee"`
-	Clients          []Client `yaml:"clients"`
-	ChristmasWeekOff *bool    `yaml:"christmasWeekOff,omitempty"` // default: true
+	Employee         string       `yaml:"employee"`
+	Clients          []Client     `yaml:"clients"`
+	ChristmasWeekOff *bool        `yaml:"christmasWeekOff,omitempty"` // default: true
+	Blocked          []DateRange  `yaml:"blocked,omitempty"`          // vacation and other days off
+	Assignments      []Assignment `yaml:"assignments,omitempty"`      // days given to a client explicitly
+}
+
+// ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
+// apple-invoice, vodafone-invoice or harvest-invoice.
+type ScheduleEntry struct {
+	Job     string `yaml:"job" json:"job"`
+	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+}
+
+// WebConfig is the web interface's: where it listens, and an optional password asked for by
+// the browser (HTTP basic auth, any user name).
+type WebConfig struct {
+	Listen   string `yaml:"listen,omitempty"`
+	Password string `yaml:"password,omitempty"`
 }
 
 type AppleInvoiceConfig struct {
@@ -48,7 +87,7 @@ type VodafoneInvoiceConfig struct {
 type HarvestInvoiceConfig struct {
 	CurrentMonthOnly *bool `yaml:"currentMonthOnly,omitempty"` // default: true
 	SkipExisting     *bool `yaml:"skipExisting,omitempty"`     // default: true
-	Filter struct {
+	Filter           struct {
 		Count   int    `yaml:"count"`
 		From    string `yaml:"from"`
 		Subject string `yaml:"subject"`
@@ -76,6 +115,8 @@ type Config struct {
 	AppleInvoice    AppleInvoiceConfig    `yaml:"apple-invoice"`
 	VodafoneInvoice VodafoneInvoiceConfig `yaml:"vodafone-invoice"`
 	HarvestInvoice  HarvestInvoiceConfig  `yaml:"harvest-invoice"`
+	Web             WebConfig             `yaml:"web,omitempty"`
+	Schedule        []ScheduleEntry       `yaml:"schedule,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -113,17 +154,49 @@ func loadConfig(filename, configPath string) (*Config, error) {
 		}
 	}
 
+	cfg, err := readConfig(path)
+	if err != nil {
+		return nil, err
+	}
+	applyDefaults(cfg)
+	return cfg, nil
+}
+
+// readConfig reads the configuration as written, without defaults: the web interface edits it.
+func readConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
-
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
+	return &cfg, nil
+}
 
-	// Apply defaults
+// saveConfig writes the configuration, readable only by its owner as it holds passwords. The
+// file it replaces is kept beside it as config.yaml.bak, as the web interface rewrites it
+// without its comments.
+func saveConfig(path string, cfg *Config) error {
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	if old, err := os.ReadFile(path); err == nil {
+		if err := os.WriteFile(path+".bak", old, 0o600); err != nil {
+			return fmt.Errorf("backing up config: %w", err)
+		}
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// applyDefaults fills in what the configuration leaves out.
+func applyDefaults(cfg *Config) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username
 	}
@@ -157,6 +230,7 @@ func loadConfig(filename, configPath string) (*Config, error) {
 	if cfg.HarvestInvoice.Filter.Subject == "" {
 		cfg.HarvestInvoice.Filter.Subject = "We\u2019ve exported your detailed time report"
 	}
-
-	return &cfg, nil
+	if cfg.Web.Listen == "" {
+		cfg.Web.Listen = ":8595"
+	}
 }

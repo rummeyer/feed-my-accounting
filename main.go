@@ -12,6 +12,8 @@
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
 //	apple-invoice             Fetch Apple invoice emails and send as PDFs
 //	vodafone-invoice          Download Vodafone invoices and send via email
+//	harvest-invoice           Create sevDesk invoice from Harvest monthly report
+//	serve                     Web interface on web.listen (default :8595)
 package main
 
 import (
@@ -32,7 +34,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.5.0"
+const version = "1.6.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -57,13 +59,18 @@ func setupLogging() (io.Closer, error) {
 		return nil, err
 	}
 	logOut = io.MultiWriter(os.Stderr, f)
-	apple.SetLogOutput(logOut)
-	vodafone.SetLogOutput(logOut)
-	harvest.SetLogOutput(logOut)
-	travelexpense.SetLogOutput(logOut)
-	email.SetLogOutput(logOut)
-	log.SetOutput(logOut)
+	setModuleLogs(logOut)
 	return f, nil
+}
+
+// setModuleLogs routes every module's log output to w.
+func setModuleLogs(w io.Writer) {
+	apple.SetLogOutput(w)
+	vodafone.SetLogOutput(w)
+	harvest.SetLogOutput(w)
+	travelexpense.SetLogOutput(w)
+	email.SetLogOutput(w)
+	log.SetOutput(w)
 }
 
 func main() {
@@ -92,6 +99,17 @@ func main() {
 		}
 	}
 
+	if configPath == "" {
+		found, err := findConfigFile("config.yaml")
+		if err != nil {
+			fmt.Fprintf(logOut, "Error loading config: %v\n", err)
+			os.Exit(1)
+		}
+		configPath = found
+	}
+	if abs, err := filepath.Abs(configPath); err == nil {
+		configPath = abs
+	}
 	cfg, err := loadConfig("config.yaml", configPath)
 	if err != nil {
 		fmt.Fprintf(logOut, "Error loading config: %v\n", err)
@@ -152,6 +170,12 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "serve":
+		if err := runServe(configPath); err != nil {
+			fmt.Fprintf(logOut, "serve error: %v\n", err)
+			os.Exit(1)
+		}
+
 	default:
 		fmt.Fprintf(logOut, "Unknown command: %q\n\n", subcommand)
 		printUsage()
@@ -160,19 +184,87 @@ func main() {
 }
 
 func runTravelExpense(cfg *Config, year int, month time.Month) error {
-	clients := make([]travelexpense.Client, len(cfg.TravelExpense.Clients))
-	for i, c := range cfg.TravelExpense.Clients {
+	tc, err := travelConfig(cfg)
+	if err != nil {
+		return err
+	}
+	return travelexpense.Run(tc, year, month)
+}
+
+// travelConfig turns the YAML's travel-expense section into the module's: dates parsed, and
+// assignments pointing at their client.
+func travelConfig(cfg *Config) (travelexpense.Config, error) {
+	te := cfg.TravelExpense
+	clients := make([]travelexpense.Client, len(te.Clients))
+	for i, c := range te.Clients {
 		clients[i] = travelexpense.Client{
 			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
 			Reason: c.Reason, Distance: c.Distance, Province: c.Province,
+			MealDay: c.MealDay, MealFullDay: c.MealFullDay, MealTravelDay: c.MealTravelDay,
+			OnlyAssigned: c.OnlyAssigned,
 		}
 	}
-	return travelexpense.Run(travelexpense.Config{
+	tc := travelexpense.Config{
 		Mail:             cfg.Mail,
-		Employee:         cfg.TravelExpense.Employee,
+		Employee:         te.Employee,
 		Clients:          clients,
-		ChristmasWeekOff: cfg.TravelExpense.ChristmasWeekOff,
-	}, year, month)
+		ChristmasWeekOff: te.ChristmasWeekOff,
+	}
+	for _, b := range te.Blocked {
+		from, to, err := parseRange(b.From, b.To)
+		if err != nil {
+			return tc, fmt.Errorf("travel-expense.blocked: %w", err)
+		}
+		tc.Blocked = append(tc.Blocked, travelexpense.BlockedRange{From: from, To: to, Note: b.Note})
+	}
+	for _, a := range te.Assignments {
+		from, to, err := parseRange(a.From, a.To)
+		if err != nil {
+			return tc, fmt.Errorf("travel-expense.assignments: %w", err)
+		}
+		client := findClient(te.Clients, a.Client)
+		if client < 0 {
+			return tc, fmt.Errorf("travel-expense.assignments: no client %q", a.Client)
+		}
+		tc.Assignments = append(tc.Assignments, travelexpense.Assignment{
+			Client: client, From: from, To: to, Overnight: a.Overnight, Note: a.Note,
+		})
+	}
+	return tc, nil
+}
+
+// parseRange reads YYYY-MM-DD dates; an empty to is the from day.
+func parseRange(from, to string) (time.Time, time.Time, error) {
+	f, err := time.Parse(time.DateOnly, from)
+	if err != nil {
+		return f, f, fmt.Errorf("date %q: want YYYY-MM-DD", from)
+	}
+	if to == "" {
+		return f, f, nil
+	}
+	t, err := time.Parse(time.DateOnly, to)
+	if err != nil {
+		return f, t, fmt.Errorf("date %q: want YYYY-MM-DD", to)
+	}
+	if t.Before(f) {
+		return f, t, fmt.Errorf("%s to %s: ends before it starts", from, to)
+	}
+	return f, t, nil
+}
+
+// findClient is the index of the client with this id, or else this name; -1 if none.
+func findClient(clients []Client, key string) int {
+	for i, c := range clients {
+		if c.ID == key {
+			return i
+		}
+	}
+	for i, c := range clients {
+		if strings.EqualFold(c.Name, key) {
+			return i
+		}
+	}
+	return -1
 }
 
 func runAppleInvoice(cfg *Config) error {
@@ -196,7 +288,11 @@ func runVodafoneInvoice(cfg *Config) error {
 }
 
 func runHarvestInvoice(cfg *Config) error {
-	return harvest.Run(harvest.Config{
+	return harvest.Run(harvestConfig(cfg))
+}
+
+func harvestConfig(cfg *Config) harvest.Config {
+	return harvest.Config{
 		Mail:             cfg.Mail,
 		CurrentMonthOnly: *cfg.HarvestInvoice.CurrentMonthOnly,
 		SkipExisting:     *cfg.HarvestInvoice.SkipExisting,
@@ -217,7 +313,7 @@ func runHarvestInvoice(cfg *Config) error {
 			Subject: cfg.HarvestInvoice.Filter.Subject,
 			From:    cfg.HarvestInvoice.Filter.From,
 		},
-	})
+	}
 }
 
 func parseMonthArg(args []string) (int, time.Month) {
@@ -245,6 +341,7 @@ Commands:
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
   harvest-invoice           Create sevDesk invoice from Harvest monthly report
+  serve                     Web interface on web.listen (default :8595)
 
 Flags:
   --config path             Path to config.yaml (default: auto-detect)

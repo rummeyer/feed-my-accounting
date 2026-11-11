@@ -2,6 +2,7 @@ package harvest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -106,20 +107,9 @@ func Run(cfg Config) error {
 	defer cancel()
 
 	// Guard: check if sevDesk already has an invoice for this client+period
-	sevdeskLoggedIn := false
-	if cfg.SkipExisting {
-		logger.Println("Checking sevDesk for existing invoice...")
-		exists, err := checkInvoiceExists(ctx, cfg.SevDesk, report.ClientName, report.PeriodFrom, report.PeriodTo)
-		if err != nil {
-			logger.Printf("WARNING: duplicate check failed: %v (continuing anyway)", err)
-		} else if exists {
-			logger.Printf("Skipping: sevDesk already has an invoice for %s (%s – %s)",
-				report.ClientName,
-				report.PeriodFrom.Format("02.01.2006"),
-				report.PeriodTo.Format("02.01.2006"))
-			return nil
-		}
-		sevdeskLoggedIn = true
+	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
+	if exists {
+		return nil
 	}
 
 	logger.Println("Logging into Harvest to download report PDF...")
@@ -145,6 +135,60 @@ func Run(cfg Config) error {
 	}
 
 	return nil
+}
+
+// ErrAlreadyInvoiced is a report sevDesk already has an invoice for: same client, a Rechnungsdatum
+// within its period.
+var ErrAlreadyInvoiced = errors.New("sevDesk already has an invoice for this client and period")
+
+// CreateDraft creates a sevDesk draft invoice from a report given directly — an uploaded Harvest
+// PDF, its hours and period checked by hand — rather than found in the inbox. With SkipExisting
+// it refuses a client and period sevDesk already has an invoice for.
+func CreateDraft(cfg Config, report *ReportData) error {
+	if cfg.SevDesk.ClientName != "" {
+		report.ClientName = cfg.SevDesk.ClientName
+	}
+	if report.ClientName == "" {
+		return errors.New("no client: set sevdesk.clientName in the settings")
+	}
+	if report.TotalHours <= 0 || report.PeriodFrom.IsZero() || report.PeriodTo.Before(report.PeriodFrom) {
+		return fmt.Errorf("need hours and a period: %.2f h, %s – %s", report.TotalHours,
+			report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"))
+	}
+	logger.Printf("Draft for %s: %.2f h, %s – %s", report.ClientName, report.TotalHours,
+		report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"))
+
+	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
+	defer cancel()
+	exists, loggedIn := alreadyInvoiced(ctx, cfg, report)
+	if exists {
+		return ErrAlreadyInvoiced
+	}
+	logger.Println("Creating sevDesk invoice...")
+	if err := createInvoice(ctx, cfg.SevDesk, report, loggedIn); err != nil {
+		return fmt.Errorf("creating sevDesk invoice: %w", err)
+	}
+	return nil
+}
+
+// alreadyInvoiced checks sevDesk for an invoice of the report's client and period, if
+// SkipExisting asks for it: whether there is one, and whether that left the browser logged in.
+// A failed check does not stop the run.
+func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exists, loggedIn bool) {
+	if !cfg.SkipExisting {
+		return false, false
+	}
+	logger.Println("Checking sevDesk for existing invoice...")
+	exists, err := checkInvoiceExists(ctx, cfg.SevDesk, report.ClientName, report.PeriodFrom, report.PeriodTo)
+	if err != nil {
+		logger.Printf("WARNING: duplicate check failed: %v (continuing anyway)", err)
+		return false, true
+	}
+	if exists {
+		logger.Printf("Skipping: sevDesk already has an invoice for %s (%s – %s)",
+			report.ClientName, report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"))
+	}
+	return exists, true
 }
 
 // downloadExportPDF logs into Harvest via headless Chrome and downloads the
@@ -218,4 +262,3 @@ func downloadExportPDF(ctx context.Context, creds HarvestLogin, exportURL string
 
 	return data, nil
 }
-

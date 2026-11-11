@@ -101,13 +101,21 @@ func buildKilometerEntry(dateString string, distanceKm int) string {
 }
 
 func buildMealAllowanceEntry(dateString string) string {
+	return buildMealEntry(dateString, "07:00 - 17:00", "8h - 24h", verpflegungRate)
+}
+
+// buildMealEntry is one day's meal allowance: "Verpflegungsmehraufwand (24h)" and its amount,
+// with the hours away for a day trip.
+func buildMealEntry(dateString, times, what string, amount float64) string {
 	var b strings.Builder
 
-	amountStr := "14,00 EUR"
-
-	b.WriteString(fmt.Sprintf("  %s  (07:00 - 17:00)\n", dateString))
-	b.WriteString(fmt.Sprintf("    Verpflegungsmehraufwand (8h - 24h)%s\n\n",
-		rightAlign(amountStr, 45-len("Verpflegungsmehraufwand (8h - 24h)"))))
+	label := fmt.Sprintf("Verpflegungsmehraufwand (%s)", what)
+	if times != "" {
+		b.WriteString(fmt.Sprintf("  %s  (%s)\n", dateString, times))
+	} else {
+		b.WriteString(fmt.Sprintf("  %s\n", dateString))
+	}
+	b.WriteString(fmt.Sprintf("    %s%s\n\n", label, rightAlign(formatAmount(amount)+" EUR", 45-len(label))))
 
 	return b.String()
 }
