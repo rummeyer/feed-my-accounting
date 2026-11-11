@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-11-11
+
+### Added
+
+- `web.access`: `home` (default) answers only the home network — private, loopback and link-local addresses — and gives everything else *403*; `proxy` answers only requests a reverse proxy such as Caddy passes on from `web.proxies` with HTTPS, and only with `web.password` set — never directly. Read afresh for every request; on the web interface under Einstellungen › Oberfläche, with a warning before switching to `proxy`.
+
 ## [1.8.0] - 2026-11-11
 
 ### Added
