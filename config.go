@@ -72,28 +72,16 @@ type ScheduleEntry struct {
 	Enabled bool   `yaml:"enabled" json:"enabled"`
 }
 
-// WebConfig is the web interface's: where it listens, who may reach it, and an optional
-// password asked for by the browser (HTTP basic auth, any user name).
+// WebConfig is the web interface's: where it listens, whether it answers the home network
+// only, and an optional password asked for by the browser (HTTP basic auth, any user name).
 type WebConfig struct {
 	Listen   string `yaml:"listen,omitempty"`
+	HomeOnly *bool  `yaml:"homeOnly,omitempty"` // default: true
 	Password string `yaml:"password,omitempty"`
-	// Access is who may reach it: "home" (the default) only the home network — private, loopback
-	// and link-local addresses; "proxy" only through a reverse proxy such as Caddy, with HTTPS
-	// and the password, never directly.
-	Access string `yaml:"access,omitempty"`
-	// Proxies are the addresses or networks the proxy connects from, for access "proxy".
-	Proxies []string `yaml:"proxies,omitempty"`
 }
 
-// Access modes of the web interface.
-const (
-	AccessHome  = "home"
-	AccessProxy = "proxy"
-)
-
-// defaultProxies are where a proxy on the same machine connects from: itself, or Docker's
-// networks, as a Caddy container does.
-var defaultProxies = []string{"127.0.0.1", "::1", "172.16.0.0/12"}
+// homeOnly says whether only the home network may reach the web interface: unless switched off.
+func (w WebConfig) homeOnly() bool { return w.HomeOnly == nil || *w.HomeOnly }
 
 type AppleInvoiceConfig struct {
 	Filter struct {
@@ -257,11 +245,5 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Web.Listen == "" {
 		cfg.Web.Listen = ":8595"
-	}
-	if cfg.Web.Access == "" {
-		cfg.Web.Access = AccessHome
-	}
-	if len(cfg.Web.Proxies) == 0 {
-		cfg.Web.Proxies = defaultProxies
 	}
 }

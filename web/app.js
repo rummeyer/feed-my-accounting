@@ -429,10 +429,9 @@ const PARTS = {
     ['Mail.From', 'Absender'], ['Mail.To', 'Empfänger'], ['Mail.CC', 'Kopie (z. B. sevDesk-Autobox)'],
   ]]],
   web: [['Oberfläche', [
-    ['Web.Access', 'Erreichbar', 'select', [['home', 'Nur im Heimnetz'], ['proxy', 'Nur über Caddy (HTTPS, Passwort nötig)']]],
+    ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
     ['Web.Password', 'Passwort für diese Seite', 'secret', 4],
     ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'],
-    ['Web.Proxies', 'Proxy-Adressen (bei „nur über Caddy“)', 'list', '127.0.0.1, ::1, 172.16.0.0/12'],
   ]]],
   travel: [['Kunden', [
     ['TravelExpense.Employee', 'Name (Lieferant im PDF)'],
@@ -491,25 +490,6 @@ function field(obj, [path, label, type, extra]) {
     bind(input, () => setPath(obj, path, input.checked));
     return el('label', 'check span', input, label);
   }
-  if (type === 'select') {
-    input = el('select');
-    input.append(...extra.map(([v, text]) => {
-      const o = el('option', '', text);
-      o.value = v;
-      return o;
-    }));
-    input.value = value || extra[0][0];
-    bind(input, () => setPath(obj, path, input.value));
-    return el('label', '', label, input);
-  }
-  if (type === 'list') {
-    input = el('input');
-    input.value = (value ?? []).join(', ');
-    input.placeholder = `Standard: ${extra}`;
-    input.autocomplete = 'off';
-    bind(input, () => setPath(obj, path, input.value.split(',').map((v) => v.trim()).filter(Boolean)));
-    return el('label', '', label, input);
-  }
   if (type === 'province') {
     input = el('select');
     input.append(...PROVINCES.map((p) => el('option', '', p)));
@@ -562,7 +542,6 @@ function bind(input, update) {
 async function loadSettings() {
   try {
     settings = await api('GET', '/api/settings');
-    settings.access = settings.config.Web?.Access || 'home';
   } catch (err) {
     for (const form of document.querySelectorAll('form.part')) form.replaceChildren(el('p', 'badge failed', err.message));
     return;
@@ -589,7 +568,7 @@ function renderSettings() {
     const note = el('span', 'muted');
     children.push(el('div', 'actions', el('button', 'strong', 'Speichern'), note));
     if (part === 'web') {
-      children.push(el('p', 'muted', 'Nur im Heimnetz: Die Seite antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost). Nur über Caddy: Sie antwortet nur Anfragen, die Caddy per HTTPS weiterreicht, und nur mit Passwort — direkt aufgerufen nie, auch nicht im Heimnetz. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
+      children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
     }
     if (part === 'mail') {
       children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Cron.`));
@@ -601,10 +580,6 @@ function renderSettings() {
 
 async function saveSettings(e, note) {
   e.preventDefault();
-  // Through the proxy only, this page is gone directly: say so before it is.
-  if (settings.config.Web?.Access === 'proxy' && settings.access !== 'proxy') {
-    if (!confirm('Danach ist die Oberfläche nur noch über Caddy erreichbar: mit HTTPS und Passwort, nicht mehr direkt — auch diese Seite hier nicht. Zurück nur, indem in config.yaml „access: home“ eingetragen wird.\n\nSo speichern?')) return;
-  }
   try {
     await api('PUT', '/api/settings', settings.config);
     overview = null;

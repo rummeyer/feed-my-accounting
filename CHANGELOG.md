@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-11-11
+
+### Changed
+
+- `web.access` and `web.proxies` give way to one switch, `web.homeOnly` (default: on), on the web interface *Nur im Heimnetz erreichbar*. The proxy mode is gone.
+
 ## [1.9.0] - 2026-11-11
 
 ### Added

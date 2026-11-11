@@ -77,19 +77,18 @@ func (s *server) handler() http.Handler {
 	return s.auth(mux)
 }
 
-// auth lets a request in only as web.access allows — from the home network, or only through the
-// proxy — and asks for web.password, if one is set, by HTTP basic auth; any user name will do.
-// Both are read afresh for every request: a change counts at once, and a lock-out is undone by
-// editing config.yaml.
+// auth lets in only the home network — private, loopback and link-local addresses — unless
+// web.homeOnly is switched off, and asks for web.password, if one is set, by HTTP basic auth;
+// any user name will do. Both are read afresh for every request, so a change counts at once.
 func (s *server) auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := loadConfig("", s.configPath)
+		cfg, err := readConfig(s.configPath)
 		if err != nil {
 			http.Error(w, "config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if status, why := admit(cfg.Web, r); status != 0 {
-			http.Error(w, why, status)
+		if cfg.Web.homeOnly() && !fromHome(r) {
+			http.Error(w, "only reachable from the home network", http.StatusForbidden)
 			return
 		}
 		if cfg.Web.Password != "" {
@@ -104,51 +103,15 @@ func (s *server) auth(next http.Handler) http.Handler {
 	})
 }
 
-// admit decides by web.access whether a request may come in: zero if so, else the status and why.
-func admit(web WebConfig, r *http.Request) (int, string) {
+// fromHome says whether a request comes from the home network: a private, loopback or
+// link-local address. Anything else is turned away, even if the port is open to the internet.
+func fromHome(r *http.Request) bool {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr
 	}
 	ip := net.ParseIP(host)
-	if ip == nil {
-		return http.StatusForbidden, "unknown client address"
-	}
-	switch web.Access {
-	case AccessProxy:
-		// Only what the proxy passes on, encrypted, with the password: never directly, even from
-		// the home network, so that nothing reaches it without the proxy in front.
-		if !inNetworks(ip, web.Proxies) {
-			return http.StatusForbidden, "only reachable through the proxy (web.access: proxy)"
-		}
-		if !strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
-			return http.StatusForbidden, "only reachable by HTTPS through the proxy (web.access: proxy)"
-		}
-		if web.Password == "" {
-			return http.StatusServiceUnavailable, "set web.password before making it reachable through a proxy"
-		}
-		return 0, ""
-	default:
-		if ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
-			return 0, ""
-		}
-		return http.StatusForbidden, "only reachable from the home network (web.access: home)"
-	}
-}
-
-// inNetworks says whether ip is one of the addresses or networks (CIDR) listed.
-func inNetworks(ip net.IP, list []string) bool {
-	for _, entry := range list {
-		entry = strings.TrimSpace(entry)
-		if _, network, err := net.ParseCIDR(entry); err == nil {
-			if network.Contains(ip) {
-				return true
-			}
-		} else if other := net.ParseIP(entry); other != nil && other.Equal(ip) {
-			return true
-		}
-	}
-	return false
+	return ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
 }
 
 func (s *server) config() (*Config, error) { return loadConfig("", s.configPath) }

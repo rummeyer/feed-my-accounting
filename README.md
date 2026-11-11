@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.9.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.9.1-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
@@ -158,16 +158,9 @@ journalctl -u feed-my-accounting -f
 
 ### Who may reach it
 
-The page holds the keys to your mail, Vodafone, Harvest and sevDesk accounts. `web.access` decides who gets to it — read afresh for every request, like the password:
+The page holds the keys to your mail, Vodafone, Harvest and sevDesk accounts, so by default it answers **the home network only** (`web.homeOnly`, on the web interface *Nur im Heimnetz erreichbar*): private addresses (`10.…`, `192.168.…`, `172.16–31.…`), localhost and local IPv6. Anything else gets *403*, even if the port is open to the internet by mistake. A VPN such as Tailscale uses addresses outside the private ranges (`100.64.…`) and is not let in. Switched off, it answers whoever reaches it.
 
-| `web.access` | Reachable |
-|---|---|
-| `home` (default) | Only from the home network: private addresses (`10.…`, `192.168.…`, `172.16–31.…`), localhost, IPv6 local. Anything else gets *403*, even if the port is open to the internet by mistake. |
-| `proxy` | Only through a reverse proxy such as Caddy: from the proxy's address (`web.proxies`, by default the machine itself and Docker's networks), with HTTPS (`X-Forwarded-Proto: https`), and only with `web.password` set. Never directly — not even from the home network — so nothing reaches it without the proxy in front. |
-
-`web.password` turns on HTTP basic auth: the browser asks, any user name will do. Over plain HTTP the password travels unencrypted, which is why `proxy` insists on HTTPS.
-
-Locked out — `proxy` without a proxy running? Set `access: home` in `config.yaml`; it counts with the next request. A VPN such as Tailscale uses addresses outside the private ranges (`100.64.…`) and is not the home network to `home`.
+`web.password` adds HTTP basic auth on top: the browser asks, any user name will do. Both are read afresh for every request.
 
 ## Configuration
 
@@ -267,9 +260,8 @@ harvest-invoice:
 
 web:                               # optional, for feed-my-accounting serve
   listen: ":8595"                  # default
-  access: home                     # home (default) or proxy: see "Who may reach it"
-  password: ""                     # optional: asked for by the browser; required for proxy
-  proxies: ["127.0.0.1", "::1", "172.16.0.0/12"]   # proxy: where it connects from (default)
+  homeOnly: true                   # default: answer the home network only
+  password: ""                     # optional: asked for by the browser
 
 schedule:                          # optional, run by feed-my-accounting serve
   - job: travel-expense            # travel-expense, apple-invoice, vodafone-invoice, harvest-invoice
