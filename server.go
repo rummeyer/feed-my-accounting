@@ -119,6 +119,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 		"employee": cfg.TravelExpense.Employee,
 		"clients":  clients,
 		"sevdesk":  cfg.HarvestInvoice.SevDesk.ClientName,
+		"mail":     map[string]string{"to": cfg.Mail.To, "cc": cfg.Mail.CC},
 		"running":  s.jobs.Running(),
 		"last":     last,
 	})

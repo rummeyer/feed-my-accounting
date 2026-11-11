@@ -85,6 +85,14 @@ async function loadOverview() {
   status.classList.toggle('busy', !!overview.running);
   status.textContent = overview.running ? overview.running.title : `bereit · ${overview.employee || ''}`;
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
+  for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
+}
+
+/** Where the mails go: Einstellungen › E-Mail, its recipient and any copy. */
+function mailTo() {
+  const m = overview?.mail;
+  if (!m?.to) return 'den Empfänger aus Einstellungen › E-Mail (noch keiner eingetragen)';
+  return m.cc ? `${m.to} (Kopie ${m.cc})` : m.to;
 }
 
 function lastText(job) {
@@ -328,7 +336,7 @@ $('travel-generate').addEventListener('click', () =>
   start('travel', 'POST', '/api/travel/generate', { month: monthKey() }));
 $('travel-send').addEventListener('click', () => {
   const t = plan?.totals ?? {};
-  if (!confirm(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} an die Buchhaltung senden?\n${t.days ?? 0} Reisetage, ${euro((t.meals ?? 0) + (t.mileage ?? 0))}`)) return;
+  if (!confirm(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro((t.meals ?? 0) + (t.mileage ?? 0))}`)) return;
   start('travel', 'POST', '/api/travel/send', { month: monthKey() });
 });
 

@@ -70,7 +70,8 @@
       <dl id="travel-totals" class="totals"></dl>
       <div class="actions">
         <button type="button" id="travel-generate">PDFs ansehen</button>
-        <button type="button" id="travel-send" class="strong">An die Buchhaltung senden</button>
+        <button type="button" id="travel-send" class="strong">Per Mail senden</button>
+        <span class="muted small">an <span data-mail-to></span></span>
       </div>
       <div class="console" data-console="travel" hidden></div>
 
@@ -131,14 +132,14 @@
     <!-- Belege -->
     <section id="tab-receipts" class="tab" hidden>
       <h2>Apple</h2>
-      <p class="muted">Rechnungs-Mails von Apple aus dem Postfach holen, als PDF an die Buchhaltung senden.</p>
+      <p class="muted">Rechnungs-Mails von Apple aus dem Postfach holen und als PDF senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="apple-invoice"></p>
       <div class="actions"><button type="button" data-run="apple">Apple-Rechnungen abholen</button></div>
       <div class="console" data-console="apple" hidden></div>
       <details class="part-box"><summary>Einstellungen Apple</summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
-      <p class="muted">Bei MeinVodafone anmelden, die Rechnungen für Mobilfunk und Kabel laden und an die Buchhaltung senden.</p>
+      <p class="muted">Bei MeinVodafone anmelden, die Rechnungen für Mobilfunk und Kabel laden und senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="vodafone-invoice"></p>
       <div class="actions"><button type="button" data-run="vodafone">Vodafone-Rechnungen abholen</button></div>
       <div class="console" data-console="vodafone" hidden></div>
