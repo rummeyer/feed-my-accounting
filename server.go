@@ -499,6 +499,7 @@ func secrets(cfg *Config) []*string {
 		&cfg.HarvestInvoice.Harvest.Password,
 		&cfg.HarvestInvoice.SevDesk.Password,
 		&cfg.Web.Password,
+		&cfg.HarvestInvoice.Harvest.Token,
 	}
 }
 
@@ -508,7 +509,7 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	set := make([]bool, 0, 5)
+	set := make([]bool, 0, 6)
 	for _, p := range secrets(cfg) {
 		set = append(set, *p != "")
 		*p = ""

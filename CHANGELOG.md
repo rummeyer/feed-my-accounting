@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.10.0] - 2026-11-11
 
+### Added
+
+- harvest-invoice: `harvest.token` (and optionally `harvest.accountId`) — with a Harvest personal access token, the hours come from the Harvest API v2: the time entries of the export mail's client in its period. No Harvest login, so no captcha. Works on the free plan. On the web interface under Kundenrechnung › Einstellungen. The PDF upload stays as it is.
+
 ### Changed
 
 - travel-expense: a client with assignments gets only its assigned days; the remaining workdays are shared by the clients without assignments in consecutive blocks of equal size, in the order they are listed, rather than alternating day by day. `onlyAssigned` is gone — the assignments say it.
@@ -21,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- harvest-invoice: the sevDesk login waits for the cookie banner, which comes seconds after the login form and kept it from taking input ("Element is not focusable").
+- harvest-invoice: the PDF download runs in a browser of its own that shows itself as the Chromium it is, keeps its Harvest login between runs and waits a minute; when it fails, the error names the page, a captcha and Harvest's message.
 - travel-expense abroad: a day trip of more than 8 hours takes the client's travel day rate when it has no day trip rate, and the other way round — the BMF's table has one rate for both. Only with neither does the inland rate apply; the web interface marks such days red, names the missing rate under the totals and frames the empty field.
 
 ## [1.9.1] - 2026-11-11

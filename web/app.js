@@ -551,6 +551,7 @@ const PARTS = {
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 3],
     BREAK,
     ['HarvestInvoice.Harvest.Username', 'Harvest-Benutzer'], ['HarvestInvoice.Harvest.Password', 'Harvest-Passwort', 'secret', 2],
+    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token (statt Anmeldung)', 'secret', 5],
     BREAK,
     ['HarvestInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
     ['HarvestInvoice.Filter.From', 'Absender-Domain', 'text', 'harvestapp.com'],

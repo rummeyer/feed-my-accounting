@@ -18,7 +18,7 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
 | **apple-invoice** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
-| **harvest-invoice** | IMAP inbox + Harvest | Downloads time report PDF, extracts hours, creates draft invoice in sevDesk | Direct browser automation |
+| **harvest-invoice** | IMAP inbox + Harvest | Reads the hours from the Harvest API (or the report PDF), creates draft invoice in sevDesk | Direct browser automation |
 
 ### How it all fits together
 
@@ -140,7 +140,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Belege** | Apple and Vodafone invoices on demand, each with its settings: the Apple mail filter, the Vodafone login. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
-| **Kundenrechnung** | Drop the Harvest PDF report in: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check as the cron run. *Aus Mail anlegen* runs harvest-invoice as before, and offers the report PDF it downloaded from Harvest for saving — on iCloud Drive, say — as the scheduled run does in the Protokoll. Below: the sevDesk client, article and reference, the Harvest and sevDesk logins, and the mail filter. |
+| **Kundenrechnung** | Drop the Harvest PDF report in: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check as the cron run. *Aus Mail anlegen* runs harvest-invoice as the schedule does: with a Harvest API token the hours come from the API; without, the report PDF is downloaded from Harvest and offered for saving — on iCloud Drive, say — with the run in the Protokoll. Below: the sevDesk client, article and reference, the Harvest and sevDesk logins, and the mail filter. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
 | **Einstellungen** | What all of them share: the mail account, and the web interface's address and password. |
 
@@ -251,6 +251,7 @@ harvest-invoice:
     from: "harvestapp.com"
     subject: "We\u2019ve exported your detailed time report"
   harvest:
+    token: "123456.pt.your-personal-access-token"   # Harvest API; or, for the PDF download:
     username: "harvest-login@example.com"
     password: "your-harvest-password"
   sevdesk:
@@ -469,7 +470,7 @@ var contractTypes = map[string]string{
 
 ## Module: harvest-invoice
 
-Fetches Harvest monthly time report emails from IMAP, downloads the PDF export via headless Chrome, extracts the total hours, and creates a draft invoice (Entwurf) in sevDesk via browser automation.
+Fetches Harvest monthly time report emails from IMAP, reads the total hours for the report's client and period from the Harvest API — or, without an API token, downloads the PDF export via headless Chrome and reads them from it — and creates a draft invoice (Entwurf) in sevDesk via browser automation.
 
 ### How it works
 
@@ -477,8 +478,8 @@ Fetches Harvest monthly time report emails from IMAP, downloads the PDF export v
 2. Parses the export email HTML to extract the download URL, date range, and client name
 3. **Guard: `currentMonthOnly`** — skips the report if the period is not the current month
 4. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the Leistungszeitraum; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
-5. Logs into Harvest via headless Chrome and downloads the PDF report
-6. Extracts the total hours from the PDF
+5. With `harvest.token`: sums the time entries of the report's client in the period from the Harvest API v2 (rounded hours, as Harvest's reports count them). Without: logs into Harvest via headless Chrome, downloads the PDF report and extracts the total hours from it
+6. Logs the hours
 7. Logs into sevDesk and creates a new E-Rechnung draft with:
    - **Rechnungsdatum** pre-filled as today's date by sevDesk
    - **Leistungszeitraum** set to the full report period (e.g. 01.04.2026 - 30.04.2026)
@@ -507,8 +508,10 @@ The client name in Harvest must match the client name in sevDesk (e.g. both `"Ac
 | `filter.count` | Number of recent emails to scan | `10` |
 | `filter.from` | Sender domain to match | `harvestapp.com` |
 | `filter.subject` | Subject line to match | `We\u2019ve exported your detailed time report` |
-| `harvest.username` | Harvest login email | required |
-| `harvest.password` | Harvest login password | required |
+| `harvest.token` | Personal access token for the Harvest API v2, from [id.getharvest.com/developers](https://id.getharvest.com/developers) — on every plan, the free one too. When set, the hours come from the API and no Harvest login happens | — |
+| `harvest.accountId` | Harvest account to read | the token's Harvest account |
+| `harvest.username` | Harvest login email, for the PDF download | required without `token` |
+| `harvest.password` | Harvest login password, for the PDF download | required without `token` |
 | `sevdesk.username` | sevDesk login email | required |
 | `sevdesk.password` | sevDesk login password | required |
 | `sevdesk.clientName` | Fixed client name for sevDesk (overrides name from Harvest email) | — |
@@ -528,10 +531,10 @@ Both checks are lightweight and exit early. No Harvest PDF download or sevDesk f
 
 ### Notes
 
+- Harvest's sign in has an hCaptcha that may turn an automated browser away ("There was an error verifying your request"). The API token avoids the sign in altogether. The PDF download runs in a browser of its own that shows itself as the Chromium it is and keeps its login in `~/.cache/feed-my-accounting/harvest-browser`
 - The PDF report is downloaded but **not** attached to the sevDesk invoice — attach it manually if needed
 - On the web interface the report can be uploaded instead: the hours (`157,00 Hours`) and the period (the first two dates as `dd.mm.yyyy`) are read from the PDF and can be corrected before the draft is created. The client is `sevdesk.clientName`
 - Chrome runs in headless mode with German locale (`de-DE`)
-- Both Harvest login and sevDesk automation share the same browser session
 - Date fields are set via the native date picker components (uib-datepicker and daterangepicker) to ensure Angular model consistency
 
 ---

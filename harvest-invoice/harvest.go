@@ -33,10 +33,13 @@ type Config struct {
 	Filter           FilterConfig  `yaml:"filter"`
 }
 
-// HarvestLogin holds credentials for the Harvest web login.
+// HarvestLogin holds credentials for Harvest: a personal access token for the API, which is
+// used when set; else the web login, which downloads the report PDF.
 type HarvestLogin struct {
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	Token     string `yaml:"token"`
+	AccountID string `yaml:"accountId"` // empty: the token's Harvest account
 }
 
 // FilterConfig defines which Harvest emails to look for.
@@ -91,6 +94,7 @@ func RunReport(cfg Config) (*ReportData, error) {
 	}
 
 	// Use fixed client name from config if set, otherwise use the one from the email
+	harvestClient := report.ClientName
 	if cfg.SevDesk.ClientName != "" {
 		report.ClientName = cfg.SevDesk.ClientName
 	}
@@ -121,19 +125,29 @@ func RunReport(cfg Config) (*ReportData, error) {
 		return nil, nil
 	}
 
-	logger.Println("Downloading the report PDF from Harvest...")
-	pdfData, err := downloadExportPDF(cfg.Harvest, report.ExportURL)
-	if err != nil {
-		return nil, fmt.Errorf("downloading PDF: %w", err)
-	}
-	report.PDFData = pdfData
-	logger.Printf("Downloaded PDF: %d bytes", len(pdfData))
+	if cfg.Harvest.Token != "" {
+		logger.Println("Reading the hours from the Harvest API...")
+		hours, entries, err := APIHours(cfg.Harvest, harvestClient, report.PeriodFrom, report.PeriodTo)
+		if err != nil {
+			return nil, err
+		}
+		report.TotalHours = hours
+		logger.Printf("%d time entries", entries)
+	} else {
+		logger.Println("Downloading the report PDF from Harvest...")
+		pdfData, err := downloadExportPDF(cfg.Harvest, report.ExportURL)
+		if err != nil {
+			return nil, fmt.Errorf("downloading PDF: %w", err)
+		}
+		report.PDFData = pdfData
+		logger.Printf("Downloaded PDF: %d bytes", len(pdfData))
 
-	totalHours, err := ParsePDFHours(pdfData)
-	if err != nil {
-		return report, fmt.Errorf("parsing PDF hours: %w", err)
+		totalHours, err := ParsePDFHours(pdfData)
+		if err != nil {
+			return report, fmt.Errorf("parsing PDF hours: %w", err)
+		}
+		report.TotalHours = totalHours
 	}
-	report.TotalHours = totalHours
 
 	logger.Printf("Total hours: %.2f", report.TotalHours)
 

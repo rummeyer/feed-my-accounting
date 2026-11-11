@@ -304,8 +304,10 @@ func harvestConfig(cfg *Config) harvest.Config {
 		CurrentMonthOnly: *cfg.HarvestInvoice.CurrentMonthOnly,
 		SkipExisting:     *cfg.HarvestInvoice.SkipExisting,
 		Harvest: harvest.HarvestLogin{
-			Username: cfg.HarvestInvoice.Harvest.Username,
-			Password: cfg.HarvestInvoice.Harvest.Password,
+			Username:  cfg.HarvestInvoice.Harvest.Username,
+			Password:  cfg.HarvestInvoice.Harvest.Password,
+			Token:     cfg.HarvestInvoice.Harvest.Token,
+			AccountID: cfg.HarvestInvoice.Harvest.AccountID,
 		},
 		SevDesk: harvest.SevDeskConfig{
 			Username:     cfg.HarvestInvoice.SevDesk.Username,
