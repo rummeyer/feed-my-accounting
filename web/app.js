@@ -403,6 +403,21 @@ loaders.log = loadLog;
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
+// The BMF's table of meal and overnight rates abroad, for the current year: a new one comes each
+// December, then this link moves on.
+const BMF_TABLE = {
+  year: 2026,
+  url: 'https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-12-05-steuerliche-behandlung-reisekosten-2026.html',
+};
+
+function bmfLink() {
+  const a = el('a', '', `BMF-Ländertabelle ${BMF_TABLE.year}`);
+  a.href = BMF_TABLE.url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  return a;
+}
+
 const PROVINCES = ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH'];
 // The settings as the config file has them, each where it is used: per part of the page, its
 // sections with field path, label, type. Only what all of them share is under Einstellungen.
@@ -543,7 +558,7 @@ function renderSettings() {
     for (const [title, fields] of PARTS[part]) {
       if (title) children.push(el('h2', '', title));
       if (title === 'Verpflegung Inland') {
-        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (14 / 28 / 14 €). Ändert sich das Gesetz, hier anpassen.'));
+        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (14 / 28 / 14 €). Ändert sich das Gesetz, hier anpassen. Die Sätze fürs Ausland: ', bmfLink(), '.'));
       }
       if (title === 'Kunden') children.push(renderClients(cfg));
       children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
@@ -576,7 +591,9 @@ async function saveSettings(e, note) {
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
-  const box = el('div', '', el('p', 'muted', 'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen (BMF-Ländertabelle).'));
+  const box = el('div', '', el('p', 'muted',
+    'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Im Ausland die Verpflegungspauschalen des Landes eintragen: ',
+    bmfLink(), ' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
       button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); }),
