@@ -52,6 +52,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { min-height: 100%; }
+/* Everything a step smaller, as the browser's zoom out to 90 % would have it. */
+html { zoom: 0.9; }
 body {
   margin: 0;
   background-color: var(--bg);
