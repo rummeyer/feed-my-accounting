@@ -249,6 +249,7 @@ async function loadTravel() {
     return;
   }
   if (!overview) await loadOverview();
+  takeLists();
   renderCalendar();
   renderTotals();
   renderRanges();
@@ -300,48 +301,125 @@ function renderRanges() {
     return o;
   }));
   select.value = chosen;
-  const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
-  const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
-  $('assignments').replaceChildren(...plan.assignments.map((a, i) => el('li', '',
-    el('span', 'when', span(a)),
-    el('span', 'grow', nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.note ? ` · ${a.note}` : ''),
-    button('entfernen', 'link', () => saveAssignments(plan.assignments.filter((_, j) => j !== i))))));
-  $('blocked').replaceChildren(...plan.blocked.map((b, i) => el('li', '',
-    el('span', 'when', span(b)), el('span', 'grow', b.note || ''),
-    button('entfernen', 'link', () => saveBlocked(plan.blocked.filter((_, j) => j !== i))))));
+  renderLists();
 }
 
-async function saveAssignments(list) {
-  try {
-    await api('PUT', '/api/travel/assignments', list);
-    loadTravel();
-  } catch (err) {
-    alert(err.message);
+// Zuordnungen and gesperrte Tage are edited as drafts: adding, changing and removing touch only
+// the list, the Speichern button below it saves it. Each list: its draft, the entry being
+// edited in the form, and whether the draft differs from what is saved.
+const lists = {
+  assignments: { draft: null, editing: -1, dirty: false, path: '/api/travel/assignments', form: 'assignment-form', add: 'Zuordnen' },
+  blocked: { draft: null, editing: -1, dirty: false, path: '/api/travel/blocked', form: 'blocked-form', add: 'Sperren' },
+};
+
+/** Takes the saved lists as drafts, unless one has changes not saved yet. */
+function takeLists() {
+  for (const [name, list] of Object.entries(lists)) {
+    if (!list.dirty) list.draft = structuredClone(plan[name]);
   }
 }
 
-async function saveBlocked(list) {
+function renderLists() {
+  const clients = overview?.clients ?? [];
+  const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
+  const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
+  const what = {
+    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.note ? ` · ${a.note}` : ''],
+    blocked: (b) => [b.note || ''],
+  };
+  for (const [name, list] of Object.entries(lists)) {
+    const saved = JSON.stringify(plan[name]);
+    list.dirty = JSON.stringify(list.draft) !== saved;
+    $(name).replaceChildren(...list.draft.map((entry, i) => el('li', [
+      list.editing === i && 'editing',
+      !plan[name].some((s) => JSON.stringify(s) === JSON.stringify(entry)) && 'changed',
+    ].filter(Boolean).join(' '),
+      el('span', 'when', span(entry)),
+      el('span', 'grow', ...what[name](entry)),
+      button('bearbeiten', 'link', () => editEntry(name, i)),
+      button('entfernen', 'link', () => {
+        list.draft.splice(i, 1);
+        if (list.editing === i) stopEditing(name);
+        else if (list.editing > i) list.editing--;
+        renderLists();
+      }))));
+    const form = $(list.form);
+    form.querySelector('button[type=submit]').textContent = list.editing >= 0 ? 'Übernehmen' : list.add;
+    form.querySelector('.cancel').hidden = list.editing < 0;
+    const save = $(`${name}-save`);
+    save.disabled = !list.dirty;
+    $(`${name}-note`).textContent = list.dirty ? 'Nicht gespeichert' : '';
+  }
+}
+
+/** Puts an entry back into its form, to change it and take it over. */
+function editEntry(name, i) {
+  const list = lists[name];
+  const e = list.draft[i];
+  list.editing = i;
+  if (name === 'assignments') {
+    $('a-client').value = e.client;
+    $('a-from').value = e.from;
+    $('a-to').value = e.to || '';
+    $('a-overnight').checked = !!e.overnight;
+    $('a-note').value = e.note || '';
+  } else {
+    $('b-from').value = e.from;
+    $('b-to').value = e.to || '';
+    $('b-note').value = e.note || '';
+  }
+  renderLists();
+  $(list.form).scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function stopEditing(name) {
+  lists[name].editing = -1;
+  $(lists[name].form).reset();
+}
+
+/** The form's entry, added to the draft or taking the place of the one being edited. */
+function takeForm(name, entry) {
+  const list = lists[name];
+  if (list.editing >= 0) list.draft[list.editing] = entry;
+  else list.draft.push(entry);
+  stopEditing(name);
+  renderLists();
+}
+
+async function saveList(name) {
+  const list = lists[name];
   try {
-    await api('PUT', '/api/travel/blocked', list);
-    loadTravel();
+    await api('PUT', list.path, list.draft);
+    list.dirty = false;
+    stopEditing(name);
+    await loadTravel();
+    $(`${name}-note`).textContent = 'Gespeichert, Kalender neu berechnet.';
   } catch (err) {
-    alert(err.message);
+    $(`${name}-note`).textContent = err.message;
   }
 }
 
 $('assignment-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  saveAssignments([...plan.assignments, {
+  takeForm('assignments', {
     client: $('a-client').value, from: $('a-from').value, to: $('a-to').value,
     overnight: $('a-overnight').checked, note: $('a-note').value.trim(),
-  }]);
-  e.target.reset();
+  });
 });
 
 $('blocked-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  saveBlocked([...plan.blocked, { from: $('b-from').value, to: $('b-to').value, note: $('b-note').value.trim() }]);
-  e.target.reset();
+  takeForm('blocked', { from: $('b-from').value, to: $('b-to').value, note: $('b-note').value.trim() });
+});
+
+for (const name of Object.keys(lists)) {
+  $(lists[name].form).querySelector('.cancel').addEventListener('click', () => { stopEditing(name); renderLists(); });
+  $(`${name}-save`).addEventListener('click', () => saveList(name));
+}
+
+// Leaving with changes not saved: the browser asks first.
+window.addEventListener('beforeunload', (e) => {
+  if (Object.values(lists).some((l) => l.dirty)) e.preventDefault();
 });
 
 $('travel-generate').addEventListener('click', () =>

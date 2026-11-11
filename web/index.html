@@ -76,7 +76,7 @@
       <div class="console" data-console="travel" hidden></div>
 
       <h2>Zuordnungen</h2>
-      <p class="muted">Tage, die ausdrücklich einem Kunden gehören. Tagesreisen: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag, mit An- und Abreisetag. Ein Kunde mit Zuordnungen bekommt nur diese Tage; alle übrigen Arbeitstage verteilen sich gleichmäßig auf die Kunden ohne Zuordnungen.</p>
+      <p class="muted">Tage, die ausdrücklich einem Kunden gehören. Tagesreisen: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag, mit An- und Abreisetag. Ein Kunde mit Zuordnungen bekommt nur diese Tage; alle übrigen Arbeitstage verteilen sich gleichmäßig auf die Kunden ohne Zuordnungen. Änderungen gelten erst mit „Zuordnungen speichern“.</p>
       <ul id="assignments" class="rows"></ul>
       <form id="assignment-form" class="inline-form">
         <select id="a-client" aria-label="Kunde" required></select>
@@ -85,17 +85,27 @@
         <label class="check"><input type="checkbox" id="a-overnight"> über Nacht</label>
         <input id="a-note" placeholder="Notiz, z. B. Miami" aria-label="Notiz">
         <button type="submit">Zuordnen</button>
+        <button type="button" class="link cancel" hidden>abbrechen</button>
       </form>
+      <div class="actions">
+        <button type="button" id="assignments-save" class="strong" disabled>Zuordnungen speichern</button>
+        <span id="assignments-note" class="muted"></span>
+      </div>
 
       <h2>Gesperrte Tage</h2>
-      <p class="muted">Urlaub, Krankheit, Fortbildung: an diesen Tagen wird nicht gereist. Gilt auch für den Cron-Lauf.</p>
+      <p class="muted">Urlaub, Krankheit, Fortbildung: an diesen Tagen wird nicht gereist. Gilt auch für den Cron-Lauf. Änderungen gelten erst mit „Gesperrte Tage speichern“.</p>
       <ul id="blocked" class="rows"></ul>
       <form id="blocked-form" class="inline-form">
         <input type="date" id="b-from" aria-label="von" required>
         <input type="date" id="b-to" aria-label="bis">
         <input id="b-note" placeholder="Notiz, z. B. Urlaub" aria-label="Notiz">
         <button type="submit">Sperren</button>
+        <button type="button" class="link cancel" hidden>abbrechen</button>
       </form>
+      <div class="actions">
+        <button type="button" id="blocked-save" class="strong" disabled>Gesperrte Tage speichern</button>
+        <span id="blocked-note" class="muted"></span>
+      </div>
 
       <form class="part" data-part="travel"></form>
     </section>
