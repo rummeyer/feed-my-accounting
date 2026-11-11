@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // ---------------------------------------------------------------------------
@@ -90,14 +91,19 @@ func buildClientHeader(c Client) string {
 func buildKilometerEntry(dateString string, distanceKm int) string {
 	var b strings.Builder
 
-	amount := float64(distanceKm) * kmRatePerKm
-	amountStr := formatAmount(amount) + " EUR"
-
 	b.WriteString(fmt.Sprintf("  %s\n", dateString))
-	b.WriteString(fmt.Sprintf("    Fahrkosten (%d km x 0,30 EUR)%s\n\n",
-		distanceKm, rightAlign(amountStr, 45-len(fmt.Sprintf("Fahrkosten (%d km x 0,30 EUR)", distanceKm)))))
+	b.WriteString(amountLine(4, fmt.Sprintf("Fahrkosten (%d km x 0,30 EUR)", distanceKm), float64(distanceKm)*kmRatePerKm))
+	b.WriteString("\n\n")
 
 	return b.String()
+}
+
+// amountLine is a label with its amount flush right at the document's edge, where the total
+// is, at least two spaces apart however long the label.
+func amountLine(indent int, label string, amount float64) string {
+	amountStr := formatAmount(amount) + " EUR"
+	pad := max(lineWidth-indent-utf8.RuneCountInString(label)-len(amountStr), 2)
+	return strings.Repeat(" ", indent) + label + strings.Repeat(" ", pad) + amountStr
 }
 
 func buildMealAllowanceEntry(dateString string) string {
@@ -109,13 +115,13 @@ func buildMealAllowanceEntry(dateString string) string {
 func buildMealEntry(dateString, times, what string, amount float64) string {
 	var b strings.Builder
 
-	label := fmt.Sprintf("Verpflegungsmehraufwand (%s)", what)
 	if times != "" {
 		b.WriteString(fmt.Sprintf("  %s  (%s)\n", dateString, times))
 	} else {
 		b.WriteString(fmt.Sprintf("  %s\n", dateString))
 	}
-	b.WriteString(fmt.Sprintf("    %s%s\n\n", label, rightAlign(formatAmount(amount)+" EUR", 45-len(label))))
+	b.WriteString(amountLine(4, fmt.Sprintf("Verpflegungsmehraufwand (%s)", what), amount))
+	b.WriteString("\n\n")
 
 	return b.String()
 }

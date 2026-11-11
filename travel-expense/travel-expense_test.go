@@ -504,3 +504,25 @@ func TestBuildMealEntryAbroad(t *testing.T) {
 		}
 	}
 }
+
+func TestAmountsLineUpWithTheTotal(t *testing.T) {
+	lastLine := func(entry string) string {
+		lines := strings.Split(strings.TrimRight(entry, "\n"), "\n")
+		return lines[len(lines)-1]
+	}
+	footer := strings.Split(buildDocumentFooter(581), "\n")[1]
+	for _, line := range []string{
+		lastLine(buildMealEntry("03.12.2026", "", "An-/Abreisetag", 44)),
+		lastLine(buildMealEntry("04.12.2026", "", "24h", 65)),
+		lastLine(buildMealAllowanceEntry("01.12.2026")),
+		lastLine(buildKilometerEntry("01.12.2026", 42)),
+		footer,
+	} {
+		if len(line) != lineWidth || !strings.HasSuffix(line, " EUR") {
+			t.Errorf("%q: %d wide, want %d, ending in EUR", line, len(line), lineWidth)
+		}
+		if strings.Contains(line, ")44") || strings.Contains(line, ")65") {
+			t.Errorf("amount runs into its label: %q", line)
+		}
+	}
+}
