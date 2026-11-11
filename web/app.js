@@ -114,9 +114,13 @@ function lastText(job) {
 
 let schedule = null;
 
+const scheduleJSON = () => JSON.stringify(schedule.entries.map(({ job, cron, enabled }) => ({ job, cron, enabled })));
+
 async function loadCron() {
+  if (schedule && scheduleJSON() !== schedule.saved) return; // changes not saved yet: kept
   try {
     schedule = await api('GET', '/api/schedule');
+    schedule.saved = scheduleJSON();
   } catch (err) {
     $('schedule').replaceChildren(el('p', 'badge failed', err.message));
     return;
@@ -151,7 +155,7 @@ function renderSchedule() {
     return el('div', `entry ${e.enabled ? '' : 'off'}`,
       el('div', 'entry-head',
         el('label', 'check', on, 'an'), job, cron,
-        button('entfernen', 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); })),
+        button('entfernen', 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
       el('div', 'entry-next small', next),
       el('div', 'entry-last small muted', e.last ? `zuletzt: ${lastText(e.last)}` : 'noch nicht über die Oberfläche gelaufen'));
   });
@@ -164,16 +168,7 @@ function renderSchedule() {
 $('schedule-add').addEventListener('click', () => {
   schedule.entries.push({ job: 'travel-expense', cron: '0 6 5 * *', enabled: false, next: [] });
   renderSchedule();
-});
-
-$('schedule-save').addEventListener('click', async () => {
-  try {
-    await api('PUT', '/api/schedule', schedule.entries.map(({ job, cron, enabled }) => ({ job, cron, enabled })));
-    $('schedule-note').textContent = 'Gespeichert.';
-    loadCron();
-  } catch (err) {
-    $('schedule-note').textContent = err.message;
-  }
+  refreshSave();
 });
 
 // ── Consoles: a job's live output where it was started ─────────────────────
@@ -305,7 +300,7 @@ function renderRanges() {
 }
 
 // Zuordnungen and gesperrte Tage are edited as drafts: adding, changing and removing touch only
-// the list, the Speichern button below it saves it. Each list: its draft, the entry being
+// the list, the Speichern button at the bottom saves it. Each list: its draft, the entry being
 // edited in the form, and whether the draft differs from what is saved.
 const lists = {
   assignments: { draft: null, editing: -1, dirty: false, path: '/api/travel/assignments', form: 'assignment-form', add: 'Zuordnen' },
@@ -346,10 +341,8 @@ function renderLists() {
     const form = $(list.form);
     form.querySelector('button[type=submit]').textContent = list.editing >= 0 ? 'Übernehmen' : list.add;
     form.querySelector('.cancel').hidden = list.editing < 0;
-    const save = $(`${name}-save`);
-    save.disabled = !list.dirty;
-    $(`${name}-note`).textContent = list.dirty ? 'Nicht gespeichert' : '';
   }
+  refreshSave();
 }
 
 /** Puts an entry back into its form, to change it and take it over. */
@@ -387,19 +380,6 @@ function takeForm(name, entry) {
   renderLists();
 }
 
-async function saveList(name) {
-  const list = lists[name];
-  try {
-    await api('PUT', list.path, list.draft);
-    list.dirty = false;
-    stopEditing(name);
-    await loadTravel();
-    $(`${name}-note`).textContent = 'Gespeichert, Kalender neu berechnet.';
-  } catch (err) {
-    $(`${name}-note`).textContent = err.message;
-  }
-}
-
 $('assignment-form').addEventListener('submit', (e) => {
   e.preventDefault();
   takeForm('assignments', {
@@ -415,7 +395,6 @@ $('blocked-form').addEventListener('submit', (e) => {
 
 for (const name of Object.keys(lists)) {
   $(lists[name].form).querySelector('.cancel').addEventListener('click', () => { stopEditing(name); renderLists(); });
-  $(`${name}-save`).addEventListener('click', () => saveList(name));
 }
 
 // Date ranges: "von" starts at today, "bis" only from the day after "von" on — empty for a
@@ -438,7 +417,7 @@ for (const [from, to] of [['a-from', 'a-to'], ['b-from', 'b-to']]) {
 
 // Leaving with changes not saved: the browser asks first.
 window.addEventListener('beforeunload', (e) => {
-  if (Object.values(lists).some((l) => l.dirty)) e.preventDefault();
+  if (unsaved().length) e.preventDefault();
 });
 
 $('travel-generate').addEventListener('click', () =>
@@ -648,8 +627,10 @@ function bind(input, update) {
 }
 
 async function loadSettings() {
+  if (settings && JSON.stringify(settings.config) !== settings.saved) return; // changes not saved yet: kept
   try {
     settings = await api('GET', '/api/settings');
+    settings.saved = JSON.stringify(settings.config);
   } catch (err) {
     for (const form of document.querySelectorAll('form.part')) form.replaceChildren(el('p', 'badge failed', err.message));
     return;
@@ -673,8 +654,6 @@ function renderSettings() {
       if (title === 'Kunden') children.push(renderClients(cfg));
       children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
     }
-    const note = el('span', 'muted');
-    children.push(el('div', 'actions', el('button', 'strong', 'Speichern'), note));
     if (part === 'web') {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
     }
@@ -682,25 +661,78 @@ function renderSettings() {
       children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Cron.`));
     }
     form.replaceChildren(...children);
-    form.onsubmit = (e) => saveSettings(e, note);
+    form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
   }
 }
 
-async function saveSettings(e, note) {
-  e.preventDefault();
-  try {
-    await api('PUT', '/api/settings', settings.config);
-    overview = null;
-    await loadSettings();
-    await loadOverview();
-    if (!$('tab-travel').hidden) loadTravel();
-    note.textContent = '';
-    for (const n of document.querySelectorAll('form.part .actions .muted')) n.textContent = '';
-    e.target.querySelector('.actions .muted').textContent = 'Gespeichert.';
-  } catch (err) {
-    note.textContent = err.message;
-  }
+// ── Saving: one button for everything, asked twice ─────────────────────────
+
+/** What has changed and is not saved yet, by name. */
+function unsaved() {
+  const parts = [];
+  if (settings && JSON.stringify(settings.config) !== settings.saved) parts.push('Einstellungen');
+  if (schedule && scheduleJSON() !== schedule.saved) parts.push('Zeitplan');
+  if (lists.assignments.dirty) parts.push('Zuordnungen');
+  if (lists.blocked.dirty) parts.push('Gesperrte Tage');
+  return parts;
 }
+
+let armed = null; // the timer while the button asks "sicher?"
+
+function refreshSave() {
+  const parts = unsaved();
+  const save = $('save-all');
+  save.disabled = parts.length === 0;
+  if (!parts.length) disarm();
+  $('save-note').textContent = parts.length ? `Nicht gespeichert: ${parts.join(', ')}` : '';
+}
+
+function disarm() {
+  clearTimeout(armed);
+  armed = null;
+  $('save-all').classList.remove('armed');
+  $('save-all').textContent = 'Speichern';
+}
+
+$('save-all').addEventListener('click', async () => {
+  if (!armed) {
+    $('save-all').classList.add('armed');
+    $('save-all').textContent = 'Speichern – sicher?';
+    armed = setTimeout(disarm, 4000);
+    return;
+  }
+  disarm();
+  const parts = unsaved();
+  $('save-all').disabled = true;
+  $('save-note').textContent = 'Speichere…';
+  try {
+    // The settings first: an assignment may name a client added just now.
+    if (parts.includes('Einstellungen')) await api('PUT', '/api/settings', settings.config);
+    if (parts.includes('Zeitplan')) await api('PUT', '/api/schedule', JSON.parse(scheduleJSON()));
+    for (const name of Object.keys(lists)) {
+      if (lists[name].dirty) {
+        await api('PUT', lists[name].path, lists[name].draft);
+        lists[name].dirty = false;
+        stopEditing(name);
+      }
+    }
+  } catch (err) {
+    $('save-note').textContent = `Nicht gespeichert: ${err.message}`;
+    $('save-all').disabled = false;
+    return;
+  }
+  settings = null;
+  schedule = null;
+  overview = null;
+  await loadOverview();
+  await Promise.all([loadSettings(), loadCron(), loadTravel()]);
+  refreshSave();
+  $('save-note').textContent = `Gespeichert: ${parts.join(', ')}.`;
+});
+
+// Every edit may change what is unsaved.
+document.addEventListener('input', () => setTimeout(refreshSave));
+document.addEventListener('change', () => setTimeout(refreshSave));
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
@@ -709,7 +741,7 @@ function renderClients(cfg) {
     bmfLink(), ' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
-      button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); }),
+      button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); refreshSave(); }),
       el('div', 'grid', ...CLIENT_FIELDS
         .filter(([key]) => key !== 'Province' || (c.Country || 'DE').toUpperCase() === 'DE')
         .map((f) => field(c, f)))));
@@ -717,6 +749,7 @@ function renderClients(cfg) {
   box.append(el('div', 'actions', button('Kunde hinzufügen', '', () => {
     cfg.TravelExpense.Clients.push({ Province: 'BW' });
     renderSettings();
+    refreshSave();
   })));
   return box;
 }

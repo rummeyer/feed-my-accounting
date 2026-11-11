@@ -269,3 +269,13 @@ details.part-box form.part { margin-top: 6px; }
 ul.rows li.changed .when::after { content: ' •'; color: var(--bad); }
 ul.rows li.editing { background: var(--cell); }
 button.link.cancel { font-size: 11px; }
+
+/* One save button for everything, at the bottom: red, and asking before it saves. */
+.savebar {
+  position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px;
+  background: var(--panel); border-top: 2px dotted var(--rule); padding: 14px 0; margin-top: 32px;
+}
+button.save { background: var(--bad); color: #fff; border-color: var(--bad); box-shadow: 2px 2px 0 var(--rule); padding: 12px 22px; }
+button.save:hover { color: #fff; filter: brightness(1.1); }
+button.save:disabled { background: var(--panel); color: var(--muted); border-color: var(--rule); filter: none; }
+button.save.armed { animation: blink 0.8s steps(1) infinite; }
