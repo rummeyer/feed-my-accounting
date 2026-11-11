@@ -299,7 +299,15 @@ function renderRanges() {
   if (chosen) select.value = chosen;
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
-  $('assignments').replaceChildren(...plan.assignments.map((a, i) => el('li', '',
+  // First the rule, read only: who gets every workday not assigned — changed under Kunden.
+  const shared = clients.filter((c) => !c.onlyAssigned).map((c) => c.name);
+  const rule = el('li', 'rule',
+    el('span', 'when', 'Standard'),
+    el('span', 'grow', shared.length === 0 ? 'kein Kunde — übrige Arbeitstage ohne Reise'
+      : shared.length === 1 ? `${shared[0]} · alle übrigen Arbeitstage`
+      : `${shared.join(' · ')} · übrige Arbeitstage gleichmäßig verteilt`),
+    el('span', 'muted small', 'bei Kunden ändern'));
+  $('assignments').replaceChildren(rule, ...plan.assignments.map((a, i) => el('li', '',
     el('span', 'when', span(a)),
     el('span', 'grow', nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.note ? ` · ${a.note}` : ''),
     button('entfernen', 'link', () => saveAssignments(plan.assignments.filter((_, j) => j !== i))))));
