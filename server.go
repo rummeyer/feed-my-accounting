@@ -137,13 +137,13 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 		clients = append(clients, map[string]any{"id": c.ID, "name": c.Name, "onlyAssigned": c.OnlyAssigned})
 	}
 	reply(w, map[string]any{
-		"version":  version,
-		"next":     nextRun(cfg, time.Now()),
-		"clients":  clients,
-		"sevdesk":  cfg.HarvestInvoice.SevDesk.ClientName,
-		"mail":     map[string]string{"to": cfg.Mail.To, "cc": cfg.Mail.CC},
-		"running":  s.jobs.Running(),
-		"last":     last,
+		"version": version,
+		"next":    nextRun(cfg, time.Now()),
+		"clients": clients,
+		"sevdesk": cfg.HarvestInvoice.SevDesk.ClientName,
+		"mail":    map[string]string{"to": cfg.Mail.To, "cc": cfg.Mail.CC},
+		"running": s.jobs.Running(),
+		"last":    last,
 	})
 }
 
