@@ -128,6 +128,25 @@ var scheduledJobs = map[string]scheduledJob{
 	"harvest-invoice":  {"Kundenrechnung aus Harvest-Mail", runHarvestInvoice},
 }
 
+// nextRun is the schedule's next run after now: its job and when; nil if nothing is scheduled.
+func nextRun(cfg *Config, now time.Time) map[string]string {
+	var job string
+	var at time.Time
+	for _, e := range cfg.Schedule {
+		spec, err := parseCron(e.Cron)
+		if !e.Enabled || err != nil {
+			continue
+		}
+		if t := spec.next(now); !t.IsZero() && (at.IsZero() || t.Before(at)) {
+			job, at = e.Job, t
+		}
+	}
+	if at.IsZero() {
+		return nil
+	}
+	return map[string]string{"job": job, "at": at.Format(time.RFC3339)}
+}
+
 // scheduler starts each enabled schedule entry's job when its time comes. A job due while
 // another runs is tried again every minute, for half an hour.
 func (s *server) scheduler() {

@@ -83,9 +83,18 @@ async function loadOverview() {
   $('version').textContent = overview.version;
   const status = $('status');
   status.classList.toggle('busy', !!overview.running);
-  status.textContent = overview.running ? overview.running.title : `bereit · ${overview.employee || ''}`;
+  status.textContent = overview.running ? overview.running.title : nextText(overview.next);
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
+}
+
+const SHORT = { 'travel-expense': 'Reisekosten', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': 'Kundenrechnung' };
+
+/** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
+function nextText(next) {
+  if (!next) return 'kein Lauf geplant';
+  const at = new Date(next.at).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `nächster Lauf: ${SHORT[next.job] || next.job} · ${at}`;
 }
 
 /** Where the mails go: Einstellungen › E-Mail, its recipient and any copy. */

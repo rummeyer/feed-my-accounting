@@ -138,7 +138,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 	}
 	reply(w, map[string]any{
 		"version":  version,
-		"employee": cfg.TravelExpense.Employee,
+		"next":     nextRun(cfg, time.Now()),
 		"clients":  clients,
 		"sevdesk":  cfg.HarvestInvoice.SevDesk.ClientName,
 		"mail":     map[string]string{"to": cfg.Mail.To, "cc": cfg.Mail.CC},

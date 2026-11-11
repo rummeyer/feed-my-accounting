@@ -52,3 +52,18 @@ func TestCronRejectsNonsense(t *testing.T) {
 		}
 	}
 }
+
+func TestNextRunIsTheSoonestEnabledEntry(t *testing.T) {
+	cfg := &Config{Schedule: []ScheduleEntry{
+		{Job: "travel-expense", Cron: "0 6 5 * *", Enabled: true},
+		{Job: "vodafone-invoice", Cron: "30 7 21 * *", Enabled: true},
+		{Job: "apple-invoice", Cron: "0 7 12 * *", Enabled: false}, // sooner, but off
+	}}
+	next := nextRun(cfg, at("2026-11-11 13:00"))
+	if next["job"] != "vodafone-invoice" || next["at"] != at("2026-11-21 07:30").Format(time.RFC3339) {
+		t.Errorf("next: %v", next)
+	}
+	if nextRun(&Config{}, at("2026-11-11 13:00")) != nil {
+		t.Error("nothing scheduled: nil")
+	}
+}
