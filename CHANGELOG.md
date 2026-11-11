@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-11-11
+
+### Added
+
+- Inland meal rates (`travel-expense.mealRates`: `day`, `fullDay`, `travelDay`), used by every client without rates of its own; on the web interface under *Verpflegung Inland*. Left out, they are the legal 14 / 28 / 14 €, so a change in the law is one edit rather than a new version.
+
 ## [1.7.1] - 2026-11-11
 
 ### Changed

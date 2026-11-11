@@ -13,10 +13,9 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	kmRatePerKm     = 0.30 // EUR per kilometer
-	verpflegungRate = 14.0 // 8h < 24h meal allowance
-	pdfLineHeight   = 5.0
-	pdfFontSize     = 11
+	kmRatePerKm   = 0.30 // EUR per kilometer
+	pdfLineHeight = 5.0
+	pdfFontSize   = 11
 
 	lineWidth  = 75
 	lineSingle = "---------------------------------------------------------------------------"
@@ -107,7 +106,7 @@ func amountLine(indent int, label string, amount float64) string {
 }
 
 func buildMealAllowanceEntry(dateString string) string {
-	return buildMealEntry(dateString, "07:00 - 17:00", "8h - 24h", verpflegungRate)
+	return buildMealEntry(dateString, "07:00 - 17:00", "8h - 24h", GermanRates.Day)
 }
 
 // buildMealEntry is one day's meal allowance: "Verpflegungsmehraufwand (24h)" and its amount,

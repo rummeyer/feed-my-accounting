@@ -412,6 +412,10 @@ const PARTS = {
   travel: [['Kunden', [
     ['TravelExpense.Employee', 'Name (Lieferant im PDF)'],
     ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
+  ]], ['Verpflegung Inland', [
+    ['TravelExpense.MealRates.Day', 'Tagesreise > 8 h (€)', 'money', 14],
+    ['TravelExpense.MealRates.FullDay', 'Ganzer Tag (€)', 'money', 28],
+    ['TravelExpense.MealRates.TravelDay', 'An-/Abreisetag (€)', 'money', 14],
   ]]],
   invoice: [['Einstellungen', [
     ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
@@ -487,8 +491,13 @@ function field(obj, [path, label, type, extra]) {
     input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
     if (type === 'money') {
       input.step = '0.01';
-      // Abroad the German rate is wrong: the country's own is wanted.
-      input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${extra}` : 'Satz des Landes';
+      if (path.startsWith('Meal')) {
+        // A client's own rate: else the inland one — abroad that is wrong, the country's is wanted.
+        const inland = getPath(settings.config, `TravelExpense.MealRates.${path.slice(4)}`) || extra;
+        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)` : 'Satz des Landes';
+      } else {
+        input.placeholder = `Standard: ${extra} (gesetzlich)`;
+      }
     }
     input.value = type === 'secret' ? '' : value || (type === 'number' || type === 'money' ? '' : value ?? '');
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
@@ -526,7 +535,10 @@ function renderSettings() {
     const children = [];
     for (const [title, fields] of PARTS[part]) {
       if (title) children.push(el('h2', '', title));
-      if (part === 'travel') children.push(renderClients(cfg));
+      if (title === 'Verpflegung Inland') {
+        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (14 / 28 / 14 €). Ändert sich das Gesetz, hier anpassen.'));
+      }
+      if (title === 'Kunden') children.push(renderClients(cfg));
       children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
     }
     const note = el('span', 'muted');

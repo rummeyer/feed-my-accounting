@@ -1,6 +1,6 @@
 # feed-my-accounting
 
-[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
@@ -192,6 +192,10 @@ mail:
 travel-expense:
   employee: Max Mustermann
   christmasWeekOff: true         # optional, default: true
+  mealRates:                     # optional: inland rates, default the legal 14 / 28 / 14
+    day: 14
+    fullDay: 28
+    travelDay: 14
   clients:
     - id: "1"
       name: Acme GmbH
@@ -316,13 +320,15 @@ Example: 3–9 December in Miami for Globex, overnight; every other workday with
 
 ### Meal allowance rates
 
-| Field | Day | Default |
-|-------|-----|---------|
-| `mealDay` | day trip, more than 8 hours away | 14 € |
-| `mealFullDay` | a full day away, overnight trips | 28 € |
-| `mealTravelDay` | the day of arrival or departure of an overnight trip | 14 € |
+Every client uses the **inland rates** under `mealRates`, unless it has rates of its own:
 
-The defaults are the German Verpflegungspauschalen. For trips abroad, set the BMF's Auslandspauschalen for the country (Auslandsreisekosten table of the year) on that client.
+| Inland (`mealRates`) | Client | Day | Default |
+|----------------------|--------|-----|---------|
+| `day` | `mealDay` | day trip, more than 8 hours away | 14 € |
+| `fullDay` | `mealFullDay` | a full day away, overnight trips | 28 € |
+| `travelDay` | `mealTravelDay` | the day of arrival or departure of an overnight trip | 14 € |
+
+The defaults are the German Verpflegungspauschalen by law. If the law changes, change `mealRates` — on the web interface under *Verpflegung Inland* — and every client without rates of its own follows. For trips abroad, set the BMF's Auslandspauschalen for the country (Auslandsreisekosten table of the year) on that client.
 
 ### Countries
 
@@ -375,7 +381,8 @@ A month without any travel day — all of it vacation, say — is logged as noth
 | `employee` | Employee name shown as Lieferant in PDF header for sevDesk OCR | — |
 | `christmasWeekOff` | Exclude Dec 24 and Dec 27–31 | `true` |
 | `clients` | List of client/trip configurations | required |
-| `clients[].mealDay`, `mealFullDay`, `mealTravelDay` | Meal allowance rates in EUR, see above | 14 / 28 / 14 |
+| `mealRates` | Inland meal rates in EUR: `day`, `fullDay`, `travelDay` | 14 / 28 / 14 |
+| `clients[].mealDay`, `mealFullDay`, `mealTravelDay` | The client's own meal rates in EUR, see above | `mealRates` |
 | `clients[].country` | ISO 3166 code: whose public holidays count | `DE` |
 | `clients[].onlyAssigned` | Only the days assigned to the client, none from the distribution | `false` |
 | `blocked` | Date ranges without travel: `from`, `to` (optional), `note` | — |

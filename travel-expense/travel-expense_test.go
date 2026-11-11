@@ -403,7 +403,7 @@ func decemberWithMiami() Config {
 		Clients: []Client{
 			{ID: "1", Name: "Acme GmbH", Distance: 15, Province: "BW"},
 			{ID: "2", Name: "Globex Inc.", Distance: 30, Country: "US", OnlyAssigned: true,
-				MealFullDay: 64, MealTravelDay: 43},
+				MealFullDay: 65, MealTravelDay: 44},
 		},
 		Assignments: []Assignment{{Client: 1, From: date(3), To: date(9), Overnight: true, Note: "Miami"}},
 	}
@@ -420,13 +420,13 @@ func TestPlanOvernightTripAndEqualDistribution(t *testing.T) {
 			t.Errorf("%d Dec: %+v", d, got)
 		}
 	}
-	if d := byDay(3); d.Meal != 43 || d.MealText != "An-/Abreisetag" || d.Mileage != 30*0.30 {
+	if d := byDay(3); d.Meal != 44 || d.MealText != "An-/Abreisetag" || d.Mileage != 30*0.30 {
 		t.Errorf("first day: %+v", d)
 	}
-	if d := byDay(6); d.Meal != 64 || d.MealText != "24h" || d.Mileage != 0 {
+	if d := byDay(6); d.Meal != 65 || d.MealText != "24h" || d.Mileage != 0 {
 		t.Errorf("Sunday away: %+v", d)
 	}
-	if d := byDay(9); d.Meal != 43 || d.Mileage != 30*0.30 {
+	if d := byDay(9); d.Meal != 44 || d.Mileage != 30*0.30 {
 		t.Errorf("last day: %+v", d)
 	}
 	// Every other workday to Acme, Globex only taking its assigned days.
@@ -454,7 +454,7 @@ func TestGenerateWithOvernightTrip(t *testing.T) {
 	if r.Days != travel+7 {
 		t.Errorf("days = %d", r.Days)
 	}
-	if want := float64(travel)*14 + 2*43 + 5*64; math.Abs(r.MealsEUR-want) > 1e-9 {
+	if want := float64(travel)*14 + 2*44 + 5*65; math.Abs(r.MealsEUR-want) > 1e-9 {
 		t.Errorf("meals = %.2f, want %.2f", r.MealsEUR, want)
 	}
 	if want := float64(travel)*15*0.30 + 2*30*0.30; math.Abs(r.MileageEUR-want) > 1e-9 {
@@ -559,5 +559,24 @@ func TestDayTripsAbroadSkipTheCountrysHolidays(t *testing.T) {
 		if d.Kind == DayTravel && d.Meal != 40 {
 			t.Errorf("the client's own rate: %+v", d)
 		}
+	}
+}
+
+func TestInlandRatesApplyToClientsWithoutTheirOwn(t *testing.T) {
+	cfg := decemberWithMiami()
+	cfg.InlandRates = MealRates{Day: 16} // the law changed the day rate, not the others
+	days := Plan(cfg, 2026, time.December)
+	if d := days[0]; d.Kind != DayTravel || d.Meal != 16 {
+		t.Errorf("1 Dec, Acme without own rates: %+v", d)
+	}
+	if d := days[3]; d.Kind != DayAway || d.Meal != 65 {
+		t.Errorf("4 Dec, Globex with its own rate: %+v", d)
+	}
+	trip := Config{Clients: []Client{{Name: "Hamburg", Province: "HH"}},
+		InlandRates: MealRates{FullDay: 30},
+		Assignments: []Assignment{{Client: 0, From: date(14), To: date(16), Overnight: true}}}
+	plan := Plan(trip, 2026, time.December)
+	if plan[13].Meal != 14 || plan[14].Meal != 30 || plan[15].Meal != 14 {
+		t.Errorf("inland overnight trip: %v %v %v", plan[13].Meal, plan[14].Meal, plan[15].Meal)
 	}
 }

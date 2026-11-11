@@ -84,18 +84,36 @@ type Client struct {
 	OnlyAssigned bool
 }
 
-// German meal allowance rates (Verpflegungspauschalen).
-const (
-	defaultMealDay       = 14.0 // more than 8 hours away
-	defaultMealFullDay   = 28.0 // 24 hours away
-	defaultMealTravelDay = 14.0 // day of arrival or departure of an overnight trip
-)
+// MealRates are meal allowance rates in EUR (Verpflegungspauschalen).
+type MealRates struct {
+	Day       float64 // a day trip, more than 8 hours away
+	FullDay   float64 // a full day, 24 hours away
+	TravelDay float64 // the day of arrival or departure of an overnight trip
+}
 
-func (c Client) mealDay() float64       { return orDefault(c.MealDay, defaultMealDay) }
-func (c Client) mealFullDay() float64   { return orDefault(c.MealFullDay, defaultMealFullDay) }
-func (c Client) mealTravelDay() float64 { return orDefault(c.MealTravelDay, defaultMealTravelDay) }
+// GermanRates are the German rates by law, as of 2026: what the inland rates are unless the
+// configuration says otherwise.
+var GermanRates = MealRates{Day: 14, FullDay: 28, TravelDay: 14}
 
-// missingRates names the rates the days need that the client leaves to the German defaults.
+// inlandRates are the configured inland rates, the legal ones where left out.
+func (cfg *Config) inlandRates() MealRates {
+	return MealRates{
+		Day:       orDefault(cfg.InlandRates.Day, GermanRates.Day),
+		FullDay:   orDefault(cfg.InlandRates.FullDay, GermanRates.FullDay),
+		TravelDay: orDefault(cfg.InlandRates.TravelDay, GermanRates.TravelDay),
+	}
+}
+
+// The client's rates: its own where it has them, else the inland ones.
+func (c Client) mealDay(inland MealRates) float64 { return orDefault(c.MealDay, inland.Day) }
+func (c Client) mealFullDay(inland MealRates) float64 {
+	return orDefault(c.MealFullDay, inland.FullDay)
+}
+func (c Client) mealTravelDay(inland MealRates) float64 {
+	return orDefault(c.MealTravelDay, inland.TravelDay)
+}
+
+// missingRates names the rates the days need that the client leaves to the inland ones.
 func (c Client) missingRates(days []Day) string {
 	var missing []string
 	need := map[string]bool{}
@@ -161,6 +179,9 @@ type Config struct {
 	ChristmasWeekOff *bool
 	Blocked          []BlockedRange
 	Assignments      []Assignment
+	// InlandRates are the German meal rates for every client without its own; zero for the
+	// legal ones (GermanRates).
+	InlandRates MealRates
 }
 
 func (c *Config) christmasWeekOffEnabled() bool {
@@ -296,6 +317,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 	}
 	calendars := getClientCalendars(cfg.Clients)
 	christmas := cfg.christmasWeekOffEnabled()
+	inland := cfg.inlandRates()
 	var shared []int // the clients sharing the unassigned workdays
 	for i, c := range cfg.Clients {
 		if !c.OnlyAssigned {
@@ -309,7 +331,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 		day := Day{Date: date, Client: -1}
 		assigned := assignmentOn(cfg.Assignments, date)
 		if assigned != nil && assigned.Overnight && cfg.validClient(assigned.Client) {
-			days = append(days, awayDay(cfg.Clients[assigned.Client], *assigned, day))
+			days = append(days, awayDay(cfg.Clients[assigned.Client], *assigned, day, inland))
 			continue
 		}
 		// Whose holidays count: the assigned client's, else the next one's in turn.
@@ -342,7 +364,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 		default:
 			cl := cfg.Clients[client]
 			day.Kind, day.Client = DayTravel, client
-			day.Times, day.Meal, day.MealText = "07:00 - 17:00", cl.mealDay(), "8h - 24h"
+			day.Times, day.Meal, day.MealText = "07:00 - 17:00", cl.mealDay(inland), "8h - 24h"
 			day.Mileage = float64(cl.Distance) * kmRatePerKm
 			if assigned != nil {
 				day.Assigned, day.Note = true, assigned.Note
@@ -357,7 +379,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 
 // awayDay is a day of an overnight trip: the travel day rate on its first and last day, with the
 // drive there or back; the full day rate between. A trip of one day is a day trip.
-func awayDay(c Client, a Assignment, day Day) Day {
+func awayDay(c Client, a Assignment, day Day, inland MealRates) Day {
 	to := a.To
 	if to.IsZero() {
 		to = a.From
@@ -366,11 +388,11 @@ func awayDay(c Client, a Assignment, day Day) Day {
 	day.Kind, day.Client, day.Assigned, day.Note = DayAway, a.Client, true, a.Note
 	switch {
 	case first && last:
-		day.Times, day.Meal, day.MealText = "07:00 - 17:00", c.mealDay(), "8h - 24h"
+		day.Times, day.Meal, day.MealText = "07:00 - 17:00", c.mealDay(inland), "8h - 24h"
 	case first || last:
-		day.Meal, day.MealText = c.mealTravelDay(), "An-/Abreisetag"
+		day.Meal, day.MealText = c.mealTravelDay(inland), "An-/Abreisetag"
 	default:
-		day.Meal, day.MealText = c.mealFullDay(), "24h"
+		day.Meal, day.MealText = c.mealFullDay(inland), "24h"
 	}
 	if first || last {
 		day.Mileage = float64(c.Distance) * kmRatePerKm
@@ -473,7 +495,7 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 		}
 		logger.Printf("Client %q: %d day(s)", client.Name, len(days))
 		if missing := client.missingRates(days); client.Abroad() && missing != "" {
-			logger.Printf("WARNING: %q is abroad (%s) but has no %s: the German rate is used", client.Name, normalCountry(client.Country), missing)
+			logger.Printf("WARNING: %q is abroad (%s) but has no %s: the inland rate is used", client.Name, normalCountry(client.Country), missing)
 		}
 		mealBlocks = append(mealBlocks, buildClientHeader(client))
 		drives := false

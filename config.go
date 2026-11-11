@@ -25,7 +25,7 @@ type Client struct {
 	Country  string `yaml:"country,omitempty"`  // ISO 3166 code, default DE: whose public holidays count
 	Province string `yaml:"province,omitempty"` // German state abbreviation (e.g., "BW", "BY"), Germany only
 
-	// Meal allowance in EUR; empty for the German rates (14 / 28 / 14).
+	// Meal allowance in EUR; empty for the inland rates (mealRates).
 	MealDay       float64 `yaml:"mealDay,omitempty"`       // day trip, more than 8 hours
 	MealFullDay   float64 `yaml:"mealFullDay,omitempty"`   // a full day away, overnight trips
 	MealTravelDay float64 `yaml:"mealTravelDay,omitempty"` // arrival or departure day
@@ -48,8 +48,16 @@ type Assignment struct {
 	Note      string `yaml:"note,omitempty" json:"note"`
 }
 
+// MealRates are the meal allowance rates in EUR; zero for the legal German ones.
+type MealRates struct {
+	Day       float64 `yaml:"day,omitempty"`       // day trip, more than 8 hours: 14
+	FullDay   float64 `yaml:"fullDay,omitempty"`   // a full day away: 28
+	TravelDay float64 `yaml:"travelDay,omitempty"` // arrival or departure day: 14
+}
+
 type TravelExpenseConfig struct {
 	Employee         string       `yaml:"employee"`
+	MealRates        MealRates    `yaml:"mealRates,omitempty"` // inland rates, for clients without their own
 	Clients          []Client     `yaml:"clients"`
 	ChristmasWeekOff *bool        `yaml:"christmasWeekOff,omitempty"` // default: true
 	Blocked          []DateRange  `yaml:"blocked,omitempty"`          // vacation and other days off
