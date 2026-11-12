@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- *Sicher?* blinks again, on *Speichern* and *Löschen*, until it is clicked or gives up after 4 seconds.
+- *Sicher?* blinks again, on *Speichern* and *Löschen* — red and grey by turns, the button staying — until it is clicked or gives up after 4 seconds.
 
 ## [1.17.0] - 2026-11-12
 
