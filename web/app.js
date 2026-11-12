@@ -98,7 +98,7 @@ async function loadOverview() {
   const status = $('status');
   status.classList.toggle('busy', !!overview.running);
   status.textContent = overview.running ? overview.running.title : nextText(overview.next);
-  $('employee').hidden = !overview.employee;
+  $('userbar').hidden = !overview.employee;
   $('employee').textContent = `Mitarbeiter: ${overview.employee}`;
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();

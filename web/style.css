@@ -340,7 +340,12 @@ ul.rows.staff li { align-items: center; }
 ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* The employee selected, and beside it the next run. */
-#employee { border-right: 1px solid var(--rule); padding-right: 16px; }
+/* Above the page, centred: the employee, and Abmelden beside it, a rule between. */
+.userbar {
+  display: flex; justify-content: center; align-items: center; gap: 14px; margin: -22px 0 16px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+}
+.userbar #logout:not([hidden]) { border-left: 1px solid var(--rule); padding-left: 14px; }
 
 /* The company's logo in the settings: as the work log shows it, on white. */
 /* The logo's card, as sevDesk has it: empty, a button and room to drop a file; with a logo, a
@@ -378,7 +383,8 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* An employee's password beside the name; the logout beside the employee at the top. */
 ul.rows.staff li input.password { width: 15em; flex: none; }
-#logout { padding: 0; font-size: 11px; letter-spacing: 2px; }
+#logout, #logout:hover { padding: 0; font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+#logout:hover { color: var(--headline); }
 /* The login: the masthead, and a small form beneath it. */
 main.login { max-width: 560px; }
 .login-form { display: grid; gap: 14px; max-width: 360px; margin: 10px auto 30px; }

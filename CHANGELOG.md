@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Web interface: the employee — and *Abmelden*, once logged in — sits centred above the page, no longer in its corner.
+
 ### Added
 
 - Web interface: **logging in**. Every employee can have a password (Einstellungen › Mitarbeiter, kept as a bcrypt hash in `staff.logins`); as soon as one has, the page asks for a login — at home just the employee, from outside the employee and their password. Sessions of 30 days in a cookie scripts cannot read, Secure over HTTPS, SameSite strict; five failed logins lock an address for 15 minutes; changing calls only from the page itself; security headers (CSP, no framing). *Abmelden* at the top.

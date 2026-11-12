@@ -9,10 +9,13 @@
   <script src="theme.js"></script>
 </head>
 <body>
+  <!-- Who works here, above the page: the employee, and Abmelden once logged in. -->
+  <div class="userbar" id="userbar" hidden>
+    <span id="employee"></span>
+    <button type="button" id="logout" class="link" hidden>Abmelden</button>
+  </div>
   <main>
     <div class="switch-row">
-      <span id="employee" hidden></span>
-      <button type="button" id="logout" class="link" hidden>Abmelden</button>
       <span id="status" class="status">…</span>
       <button class="theme-switch" id="theme" type="button" aria-label="Hell, dunkel oder wie das System">
         <svg class="theme-icon theme-icon-auto" width="14" height="14" viewBox="0 0 7 7" aria-hidden="true"><path fill="currentColor" d="M2 0h3v1h1v1h1v3H6v1H5v1H2V6H1V5H0V2h1V1h1zM3.5 1v5H5V5h1V2H5V1z"/></svg>
