@@ -72,15 +72,16 @@
       <div class="console" data-console="travel" hidden></div>
 
       <h2>Zuordnungen</h2>
-      <p class="muted">Tage, die fest einem Kunden gehören. Tagesreise: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag samt An- und Abreise, jede Nacht mit der Übernachtungspauschale des Kunden — nicht bei „Hotel mit Rechnung“, nicht für die Nacht im Flugzeug bei „Rückflug über Nacht“. Kunden mit Zuordnungen bekommen nur diese Tage; die übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnung in gleich großen Blöcken, in Listenreihenfolge. Gilt erst nach „Speichern“ unten.</p>
+      <p class="muted">Tage, die fest einem Kunden gehören. Tagesreise: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag samt An- und Abreise, jede Nacht mit der Übernachtungspauschale des Kunden — nicht bei „Hotel“, nicht für die Nacht im Flugzeug bei „Nachtflug“. Kunden mit Zuordnungen bekommen nur diese Tage; die übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnung in gleich großen Blöcken, in Listenreihenfolge. Gilt erst nach „Speichern“ unten.</p>
       <ul id="assignments" class="rows"></ul>
       <form id="assignment-form" class="inline-form">
         <select id="a-client" aria-label="Kunde" required></select>
         <input type="date" id="a-from" aria-label="von" required>
         <input type="date" id="a-to" aria-label="bis">
-        <label class="check"><input type="checkbox" id="a-overnight"> über Nacht</label>
-        <label class="check" id="a-hotel-label" title="Hotelrechnung vorhanden: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> Hotel mit Rechnung</label>
-        <label class="check" id="a-flight-label" title="Nacht im Flugzeug vor dem Ankunftstag: keine Übernachtungspauschale"><input type="checkbox" id="a-flight"> Rückflug über Nacht</label>
+        <label class="check"><input type="checkbox" id="a-overnight"> <span data-icon="moon" title="über Nacht"></span>über Nacht</label>
+        <label class="check" id="a-hotel-label" title="Hotelrechnung vorhanden: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> <span data-icon="bed" title="Hotel"></span>Hotel</label>
+        <label class="check" id="a-flight-label" title="Rückflug über Nacht, die Nacht vor dem Ankunftstag im Flugzeug: keine Übernachtungspauschale"><input type="checkbox" id="a-flight"> <span data-icon="plane" title="Nachtflug"></span>Nachtflug</label>
+        <span class="break"></span>
         <input id="a-note" placeholder="Notiz, z. B. Miami" aria-label="Notiz">
         <button type="submit">Zuordnen</button>
         <button type="button" class="link cancel" hidden>abbrechen</button>

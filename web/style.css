@@ -231,6 +231,10 @@ ul.rows li { display: flex; align-items: baseline; gap: 12px; padding: 6px 0; bo
 ul.rows li .grow { flex: 1; }
 ul.rows li .when { color: var(--headline); }
 .inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* Zuordnungen: the trip on the first line, its note and the button on the second. */
+.inline-form .break { flex-basis: 100%; height: 0; }
+#a-client { width: 170px; }
+#a-note { width: 320px; }
 
 /* Invoice. */
 .drop {

@@ -382,13 +382,32 @@ const GRIDS = {
     '                ',
     '                ',
   ],
+  // The night flight home: a plane seen from above, nose to the right.
+  plane: [
+    '                ',
+    '      #         ',
+    '      ##        ',
+    '       ##       ',
+    '       ###      ',
+    '##      ###     ',
+    '###     ####    ',
+    ' ##############.',
+    ' ##############.',
+    '###     ####    ',
+    '##      ###     ',
+    '       ###      ',
+    '       ##       ',
+    '      ##        ',
+    '      #         ',
+    '                ',
+  ],
 };
 const SHADES = { '#': 1, '+': 0.55, '.': 0.28 };
 
 // The moon on a day away, 8 × 8 and solid, a marker in the corner: rectangles x y width height.
 const MOON = [[2, 0, 4, 1], [1, 1, 3, 1], [0, 2, 3, 4], [1, 6, 3, 1], [2, 7, 4, 1], [6, 6, 1, 1]];
 
-/** A pixel icon, its meaning as its title: meal, car and bed of GRIDS, or the moon. */
+/** A pixel icon, its meaning as its title: meal, car, bed and plane of GRIDS, or the moon. */
 function icon(name, title) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
@@ -423,6 +442,9 @@ function icon(name, title) {
   });
   return svg;
 }
+
+// The page's own icons, as the Zuordnungen' checkboxes have them: <span data-icon="moon" title="…">.
+for (const s of document.querySelectorAll('[data-icon]')) s.replaceWith(icon(s.dataset.icon, s.title));
 
 /** An amount after its icon: "🍴 44,00 €". */
 const amount = (name, title, eur) => el('span', 'amount', icon(name, title), euro(eur));
@@ -523,7 +545,7 @@ function renderLists() {
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   const what = {
-    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel mit Rechnung' : '', a.overnight && a.nightFlight ? ' · Rückflug über Nacht' : '', a.note ? ` · ${a.note}` : ''],
+    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel' : '', a.overnight && a.nightFlight ? ' · Nachtflug' : '', a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
   };
   for (const [name, list] of Object.entries(lists)) {
@@ -600,7 +622,7 @@ $('assignment-form').addEventListener('submit', (e) => {
 });
 
 /**
- * "Hotel mit Rechnung" and "Rückflug über Nacht" are for overnight trips only: their nights at
+ * "Hotelrechnung" and "Nachtflug" are for overnight trips only: their nights at
  * the flat rate, but for a hotel invoice, and for the night on the plane home.
  */
 function syncHotel() {

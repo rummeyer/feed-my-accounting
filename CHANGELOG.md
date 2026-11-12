@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Zuordnungen: *Hotel mit Rechnung* is *Hotel*, *Rückflug über Nacht* *Nachtflug*, each with its pixel icon — moon, bed and a new plane. The trip on one line, note and *Zuordnen* beneath it.
+
 ## [1.15.0] - 2026-11-12
 
 Security fixes from a check of the page on the internet: a Docker container is no longer at home, and the login gives away less. **Caddy in Docker needs the new proxy token** — see *Behind Caddy with HTTPS* in the README; without it, every visitor through it is asked for a password, at home too.
