@@ -26,7 +26,7 @@ import (
 
 const (
 	sessionCookie = "fma_session"
-	sessionTTL    = 30 * 24 * time.Hour
+	sessionIdle   = time.Hour        // a session ends after this long without a request
 	maxFailures   = 5                // failed logins from one address before it waits
 	lockedFor     = 15 * time.Minute // how long it waits
 )
@@ -50,6 +50,13 @@ func newSessions(path string) *sessions {
 	if data, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(data, &s.m)
 	}
+	// None lasts longer than sessionIdle from now: those of the 30 days sessions had before 1.15.
+	for h, got := range s.m {
+		if limit := time.Now().Add(sessionIdle); got.Expires.After(limit) {
+			got.Expires = limit
+			s.m[h] = got
+		}
+	}
 	return s
 }
 
@@ -67,22 +74,32 @@ func (s *sessions) start(name string) (string, error) {
 	token := base64.RawURLEncoding.EncodeToString(b)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.m[tokenHash(token)] = session{Name: name, Expires: time.Now().Add(sessionTTL)}
+	s.m[tokenHash(token)] = session{Name: name, Expires: time.Now().Add(sessionIdle)}
 	return token, s.save()
 }
 
 // who is the employee the token's session is for; empty if there is none, or it has expired.
-func (s *sessions) who(token string) string {
+// With touch, a request of the employee's: the session lasts sessionIdle from now — saved at
+// most once a minute, renewed says when.
+func (s *sessions) who(token string, touch bool) (name string, renewed bool) {
 	if token == "" {
-		return ""
+		return "", false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	got, ok := s.m[tokenHash(token)]
-	if !ok || time.Now().After(got.Expires) {
-		return ""
+	h := tokenHash(token)
+	got, ok := s.m[h]
+	now := time.Now()
+	if !ok || now.After(got.Expires) {
+		return "", false
 	}
-	return got.Name
+	if touch && got.Expires.Sub(now) < sessionIdle-time.Minute {
+		got.Expires = now.Add(sessionIdle)
+		s.m[h] = got
+		_ = s.save()
+		return got.Name, true
+	}
+	return got.Name, false
 }
 
 func (s *sessions) end(token string) {
@@ -222,7 +239,35 @@ func (s *server) loggedIn(r *http.Request) string {
 	if err != nil {
 		return ""
 	}
-	return s.sessions.who(cookie.Value)
+	name, _ := s.sessions.who(cookie.Value, false)
+	return name
+}
+
+// background are the calls the page makes by itself, every few seconds: they do not keep a
+// session alive, or an open tab would never log out.
+var background = map[string]bool{"/api/overview": true}
+
+// active is loggedIn for a request of the employee's: the session renewed for another
+// sessionIdle, and its cookie with it.
+func (s *server) active(w http.ResponseWriter, r *http.Request) string {
+	cookie, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return ""
+	}
+	name, renewed := s.sessions.who(cookie.Value, !background[r.URL.Path])
+	if renewed {
+		http.SetCookie(w, sessionCookieFor(r, cookie.Value))
+	}
+	return name
+}
+
+// sessionCookieFor is the session's cookie — not for the page's scripts, over HTTPS only when
+// the browser talks HTTPS, only sent from this site's pages — lasting as the session does.
+func sessionCookieFor(r *http.Request, token string) *http.Cookie {
+	return &http.Cookie{
+		Name: sessionCookie, Value: token, Path: "/", MaxAge: int(sessionIdle.Seconds()),
+		HttpOnly: true, Secure: overHTTPS(r), SameSite: http.SameSiteStrictMode,
+	}
 }
 
 // session says whether logging in is needed, whether with a password, for whom it could be,
@@ -286,18 +331,14 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	s.startSession(w, r, in.Name)
 }
 
-// startSession logs the employee in: a session, and its cookie — not for the page's scripts, over
-// HTTPS only when the browser talks HTTPS, and only sent from this site's pages.
+// startSession logs the employee in: a session, and its cookie.
 func (s *server) startSession(w http.ResponseWriter, r *http.Request, name string) {
 	token, err := s.sessions.start(name)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/", MaxAge: int(sessionTTL.Seconds()),
-		HttpOnly: true, Secure: overHTTPS(r), SameSite: http.SameSiteStrictMode,
-	})
+	http.SetCookie(w, sessionCookieFor(r, token))
 	reply(w, map[string]string{"user": name})
 }
 
@@ -338,7 +379,7 @@ func (s *server) auth(next http.Handler) http.Handler {
 		if r.URL.Path == "/login" {
 			r.URL.Path = "/login.html"
 		}
-		if required && !open[r.URL.Path] && s.loggedIn(r) == "" {
+		if required && !open[r.URL.Path] && s.active(w, r) == "" {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				fail(w, http.StatusUnauthorized, errors.New("nicht angemeldet"))
 			} else {

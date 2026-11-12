@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	harvest "feed-my-accounting/harvest-invoice"
 )
@@ -275,5 +276,35 @@ func TestMailboxPasswordsKept(t *testing.T) {
 	cfg, _ := readConfig(s.configPath)
 	if len(cfg.Mail.Mailboxes) != 1 || cfg.Mail.Mailboxes[0].Password != "postfach-geheim" {
 		t.Errorf("mailboxes after saving empty: %+v", cfg.Mail.Mailboxes)
+	}
+}
+
+func TestSessionEndsWhenIdle(t *testing.T) {
+	s := newSessions(filepath.Join(t.TempDir(), "sessions.json"))
+	token, err := s.start("Max Mustermann")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := tokenHash(token)
+
+	// A request half an hour before the end renews it for another sessionIdle.
+	s.m[h] = session{Name: "Max Mustermann", Expires: time.Now().Add(30 * time.Minute)}
+	if name, renewed := s.who(token, true); name != "Max Mustermann" || !renewed {
+		t.Fatalf("who = %q, renewed %v", name, renewed)
+	}
+	if left := time.Until(s.m[h].Expires); left < sessionIdle-time.Minute {
+		t.Errorf("renewed for %v only", left)
+	}
+
+	// The page's own polling does not.
+	s.m[h] = session{Name: "Max Mustermann", Expires: time.Now().Add(30 * time.Minute)}
+	if _, renewed := s.who(token, false); renewed {
+		t.Error("renewed without touch")
+	}
+
+	// Past its end, no one.
+	s.m[h] = session{Name: "Max Mustermann", Expires: time.Now().Add(-time.Second)}
+	if name, _ := s.who(token, true); name != "" {
+		t.Errorf("expired session still %q", name)
 	}
 }

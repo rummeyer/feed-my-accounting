@@ -163,7 +163,7 @@ Every employee can have a **password** (Einstellungen › Mitarbeiter, at least 
 
 <p align="center"><img src="docs/login.png" alt="The login page from outside: the employee chosen from a list, Max Mustermann, and the password field beneath, with Anmelden" width="480"></p>
 
-As long as no employee has a password, the page answers the home network only, whatever `web.homeOnly` says. A session lasts 30 days, in a cookie the page's scripts cannot read, sent over HTTPS only when the browser talks HTTPS, and only from this site's pages; the Pi keeps the sessions' hashes, not their tokens, in `feed-my-accounting-sessions.json`, so a restart logs no one out. A new password ends the employee's other sessions. Five failed logins from one address lock it for 15 minutes. Calls that change something are taken only from the page itself, and the page loads only its own scripts and cannot be framed.
+As long as no employee has a password, the page answers the home network only, whatever `web.homeOnly` says. A session ends after an hour without a request — the page's own polling does not count, so an open tab logs out too and shows the login — and each request renews it; it is in a cookie the page's scripts cannot read, sent over HTTPS only when the browser talks HTTPS, and only from this site's pages; the Pi keeps the sessions' hashes, not their tokens, in `feed-my-accounting-sessions.json`, so a restart logs no one out. A new password ends the employee's other sessions. Five failed logins from one address lock it for 15 minutes. Calls that change something are taken only from the page itself, and the page loads only its own scripts and cannot be framed.
 
 ### Behind Caddy with HTTPS
 

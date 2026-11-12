@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Web interface: a session ends after an hour without a request, not after 30 days; every request renews it, and its cookie with it. The page's polling for the next run does not count: a tab left open logs out too, and shows the login. Sessions from before are cut to an hour.
+
 ## [1.14.0] - 2026-11-12
 
 Receipts from Anthropic, from several mailboxes and any month, to look at before they are sent — Vodafone's too; a schedule that knows the last workday; a warning when Harvest has too few hours.
