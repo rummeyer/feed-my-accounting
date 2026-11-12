@@ -262,6 +262,9 @@ ul.rows li .when { color: var(--headline); }
 .jobs li:not(.detail):hover .title { color: var(--headline); }
 .jobs li.detail { display: block; cursor: default; padding: 0 0 12px; }
 .jobs li.detail .console { margin-top: 0; }
+/* Title and status stand in the entry above already. */
+.jobs li.detail .console .head { display: none; }
+.jobs li.detail .console pre { margin-top: 0; }
 .jobs li.on { background: var(--cell); }
 
 /* Settings. */
