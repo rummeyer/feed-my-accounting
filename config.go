@@ -72,8 +72,7 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// anthropic-invoice, apple-invoice,
-// vodafone-invoice or harvest-invoice.
+// anthropic-invoice, apple-invoice, vodafone-invoice or harvest-invoice.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab

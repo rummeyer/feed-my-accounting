@@ -41,7 +41,7 @@
     <!-- Cron -->
     <section id="tab-cron" class="tab">
       <h2>Zeitplan</h2>
-      <p class="muted">Die Läufe, die von selbst kommen, solange die Oberfläche läuft. Zeitplan als Cron-Ausdruck: Minute Stunde Tag Monat Wochentag, z. B. <code>0 7 5 * *</code> für den 5. jeden Monats um 7:00. Dazu wie bei Quartz: <code>L</code> der letzte Tag des Monats, <code>L-2</code> zwei Tage davor, <code>15W</code> der Werktag am nächsten zum 15., <code>LW</code> der letzte Werktag — Werktage wie bei den Reisekosten, ohne Feiertage, gesperrte Tage und, wenn frei, die Weihnachtswoche — <code>5L</code> der letzte Freitag, <code>1#2</code> der zweite Montag; Namen wie <code>MON-FRI</code> und <code>JAN</code>; <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>. Von Hand startet jeder Lauf auf seiner Seite: Belege, Reisekosten, Kundenrechnung.</p>
+      <p class="muted">Läuft, solange die Oberfläche läuft. Cron: Minute Stunde Tag Monat Wochentag, z. B. <code>0 7 5 * *</code> = am 5. um 7:00. Dazu: <code>L</code> letzter Tag, <code>L-2</code> zwei Tage davor, <code>15W</code> Werktag am nächsten zum 15., <code>LW</code> letzter Werktag (ohne Feiertage, gesperrte Tage und, wenn frei, die Weihnachtswoche), <code>5L</code> letzter Freitag, <code>1#2</code> zweiter Montag, Namen wie <code>MON-FRI</code> und <code>JAN</code>, <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>.</p>
       <div id="schedule" class="schedule"></div>
       <div class="actions">
         <button type="button" id="schedule-add">Eintrag hinzufügen</button>
@@ -72,22 +72,22 @@
       <div class="console" data-console="travel" hidden></div>
 
       <h2>Zuordnungen</h2>
-      <p class="muted">Tage, die ausdrücklich einem Kunden gehören. Tagesreisen: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag, mit An- und Abreisetag, und jede Nacht dazwischen mit der Übernachtungspauschale des Kunden — außer mit „Hotel mit Rechnung“, und ohne die Nacht im Flugzeug bei „Rückflug über Nacht“. Ein Kunde mit Zuordnungen bekommt nur diese Tage; alle übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnungen in zusammenhängenden, gleich großen Blöcken, in der Reihenfolge der Kundenliste. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Änderungen gelten erst mit „Speichern“ unten.</p>
+      <p class="muted">Tage, die fest einem Kunden gehören. Tagesreise: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag samt An- und Abreise, jede Nacht mit der Übernachtungspauschale des Kunden — nicht bei „Hotel mit Rechnung“, nicht für die Nacht im Flugzeug bei „Rückflug über Nacht“. Kunden mit Zuordnungen bekommen nur diese Tage; die übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnung in gleich großen Blöcken, in Listenreihenfolge. Gilt erst nach „Speichern“ unten.</p>
       <ul id="assignments" class="rows"></ul>
       <form id="assignment-form" class="inline-form">
         <select id="a-client" aria-label="Kunde" required></select>
         <input type="date" id="a-from" aria-label="von" required>
         <input type="date" id="a-to" aria-label="bis">
         <label class="check"><input type="checkbox" id="a-overnight"> über Nacht</label>
-        <label class="check" id="a-hotel-label" title="Die Nächte haben eine Hotelrechnung: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> Hotel mit Rechnung</label>
-        <label class="check" id="a-flight-label" title="Der Rückflug geht über die Nacht vor dem Ankunftstag, aus den USA etwa: für diese Nacht keine Übernachtungspauschale"><input type="checkbox" id="a-flight"> Rückflug über Nacht</label>
+        <label class="check" id="a-hotel-label" title="Hotelrechnung vorhanden: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> Hotel mit Rechnung</label>
+        <label class="check" id="a-flight-label" title="Nacht im Flugzeug vor dem Ankunftstag: keine Übernachtungspauschale"><input type="checkbox" id="a-flight"> Rückflug über Nacht</label>
         <input id="a-note" placeholder="Notiz, z. B. Miami" aria-label="Notiz">
         <button type="submit">Zuordnen</button>
         <button type="button" class="link cancel" hidden>abbrechen</button>
       </form>
 
       <h2>Gesperrte Tage</h2>
-      <p class="muted">Urlaub, Krankheit, Fortbildung: an diesen Tagen wird nicht gereist. Gilt auch für den geplanten Lauf. Änderungen gelten erst mit „Speichern“ unten.</p>
+      <p class="muted">Urlaub, Krankheit, Fortbildung: keine Reisetage, auch im Zeitplan. Gilt erst nach „Speichern“ unten.</p>
       <ul id="blocked" class="rows"></ul>
       <form id="blocked-form" class="inline-form">
         <input type="date" id="b-from" aria-label="von" required>
@@ -103,7 +103,7 @@
     <!-- Kundenrechnung -->
     <section id="tab-invoice" class="tab" hidden>
       <h2>Aus Harvest</h2>
-      <p class="muted">Die Stunden des Kunden im Monat über die Harvest-API holen und den Entwurf in sevDesk anlegen — er wird nie verschickt, und nie doppelt angelegt. Dazu der Zeitnachweis als PDF, wie Harvests „Detailed time report“: zum Herunterladen hier und im Protokoll, bis zum Neustart des Servers. „Nur Zeitnachweis“ macht nur das PDF. Braucht den Harvest-API-Token, unten unter „Einstellungen Kundenrechnung“.</p>
+      <p class="muted">Stunden des Monats über die Harvest-API holen und den Entwurf in sevDesk anlegen — nie verschickt, nie doppelt. Dazu der Zeitnachweis als PDF, hier und im Protokoll bis zum Neustart. „Nur Zeitnachweis“: nur das PDF. Braucht den Harvest-API-Token (Einstellungen Kundenrechnung).</p>
       <div class="actions">
         <input id="harvest-month" class="month" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
         <button type="button" id="harvest-run">Aus Harvest anlegen</button>
@@ -114,7 +114,7 @@
       <details class="part-box"><summary>Einstellungen Kundenrechnung</summary><form class="part" data-part="invoice"></form></details>
 
       <details class="part-box"><summary>Zeitnachweis hochladen</summary>
-        <p class="muted">Statt über die API: Zeitnachweis als PDF ablegen, aus Harvest oder von hier. Das Tool liest Stunden und Leistungszeitraum und zeigt sie an — korrigierbar, bevor du den Entwurf in sevDesk anlegst.</p>
+        <p class="muted">Statt über die API: Zeitnachweis als PDF ablegen, aus Harvest oder von hier. Stunden und Leistungszeitraum werden angezeigt — korrigierbar, bevor du den Entwurf in sevDesk anlegst.</p>
         <form id="upload-form" class="drop">
           <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)">
           <span id="drop-text">PDF hierher ziehen oder auswählen</span>
@@ -137,7 +137,7 @@
     <!-- Belege -->
     <section id="tab-receipts" class="tab" hidden>
       <h2>Anthropic</h2>
-      <p class="muted">Die Belege eines Monats von Anthropic aus dem Postfach holen — erst aus dem Posteingang, dann aus dem Ordner „Rechnungen“ — das Receipt-PDF jeder Mail: ansehen, oder senden an <span data-mail-to></span>.</p>
+      <p class="muted">Receipt-PDFs des Monats, erst aus dem Posteingang, dann aus „Rechnungen“: ansehen oder senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="anthropic-invoice"></p>
       <div class="actions">
         <input class="month receipt-month" data-for="anthropic" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
@@ -148,7 +148,7 @@
       <details class="part-box"><summary>Einstellungen Anthropic</summary><form class="part" data-part="anthropic"></form></details>
 
       <h2>Apple</h2>
-      <p class="muted">Die Rechnungs-Mails eines Monats von Apple aus dem Postfach holen — erst aus dem Posteingang, dann aus dem Ordner „Rechnungen“ — als PDF: ansehen, oder senden an <span data-mail-to></span>.</p>
+      <p class="muted">Rechnungs-Mails des Monats als PDF, erst aus dem Posteingang, dann aus „Rechnungen“: ansehen oder senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="apple-invoice"></p>
       <div class="actions">
         <input class="month receipt-month" data-for="apple" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
@@ -159,7 +159,7 @@
       <details class="part-box"><summary>Einstellungen Apple</summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
-      <p class="muted">Bei MeinVodafone anmelden, die aktuellen Rechnungen für Mobilfunk und Kabel laden: ansehen, oder senden an <span data-mail-to></span>.</p>
+      <p class="muted">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone: ansehen oder senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="vodafone-invoice"></p>
       <div class="actions">
         <!-- Vodafone has the current month's only: shown, not to be chosen. -->

@@ -889,7 +889,7 @@ function renderSettings() {
     for (const [title, fields] of PARTS[part]) {
       if (title) children.push(el('h2', '', title));
       if (title === 'Pauschalen Inland') {
-        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (Verpflegung 14 / 28 / 14 €, Übernachtung ohne Hotelrechnung 20 €). Ändert sich das Gesetz, hier anpassen. Die Sätze fürs Ausland, Verpflegung und Übernachtung: ', bmfLink(), '.'));
+        children.push(el('p', 'muted', 'Für Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (Verpflegung 14 / 28 / 14 €, Übernachtung ohne Hotelrechnung 20 €). Auslandssätze: ', bmfLink(), '.'));
       }
       if (title === 'Kunden') children.push(renderClients(cfg));
       if (title === 'Mitarbeiter') children.push(renderStaff(cfg));
@@ -897,11 +897,11 @@ function renderSettings() {
       if (title === 'Firma') children.push(renderLogo());
     }
     if (part === 'web') {
-      children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie auch von außen — durch Caddy etwa —, aber nur, wenn ein Mitarbeiter ein Passwort hat, und dann nur nach der Anmeldung mit Passwort. Hinter Caddy zählt die Adresse des Besuchers, nicht die von Caddy.'));
+      children.push(el('p', 'muted', 'Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers.'));
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mail') {
-      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
+      children.push(el('p', 'muted', `Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen.`));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
@@ -1064,7 +1064,7 @@ function renderLogo() {
 
   card.append(empty, filled, input);
   return el('div', 'logo-box',
-    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos.'),
+    el('p', 'muted', 'Oben rechts im Zeitnachweis, Größe und Lage wie auf den sevDesk-Rechnungen — am besten dieselbe Datei. Ohne Logo: der Firmenname, ohne den der Name des Harvest-Kontos.'),
     card);
 }
 
@@ -1105,7 +1105,7 @@ function renderMailboxes(cfg) {
   }));
   return el('div', '',
     el('h2', '', 'Weitere Postfächer'),
-    el('p', 'muted', 'Postfächer, in denen auch Belege ankommen — Anthropics an eine andere Adresse etwa. Sie werden nach dem obigen durchsucht, jedes erst im Posteingang, dann in den Ordnern der Belege; gesendet wird weiter vom obigen. Der IMAP-Server leer: der obige.'),
+    el('p', 'muted', 'Weitere Postfächer mit Belegen, etwa Anthropic an eine andere Adresse. Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.'),
     boxes.length ? list : el('p', 'muted', 'Keine.'),
     el('div', 'actions', button('Postfach hinzufügen', '', () => { boxes.push({ Username: '' }); changed(); })));
 }
@@ -1170,8 +1170,8 @@ function renderStaff(cfg) {
     inputs[inputs.length - 1]?.focus();
   });
   return el('div', '',
-    el('p', 'muted', 'Der ausgewählte Mitarbeiter steht als Lieferant auf den Reisekosten, und seine Stunden aus Harvest ergeben Zeitnachweis und Kundenrechnung — den Namen so schreiben wie in Harvest. Oben rechts steht, wer ausgewählt ist.'),
-    el('p', 'muted', 'Mit Passwort meldet sich der Mitarbeiter an dieser Seite an — mindestens 8 Zeichen, gespeichert nur als Hash. Hat einer eines, fragt die Seite jeden nach der Anmeldung, auch im Heimnetz; hat keiner eines, antwortet sie nur im Heimnetz.'),
+    el('p', 'muted', 'Der ausgewählte Mitarbeiter ist Lieferant der Reisekosten; seine Harvest-Stunden ergeben Zeitnachweis und Kundenrechnung — Name wie in Harvest.'),
+    el('p', 'muted', 'Passwort: mindestens 8 Zeichen, nur als Hash gespeichert. Hat einer eines, fragt die Seite nach der Anmeldung (im Heimnetz ohne Passwort); hat keiner eines, antwortet sie nur im Heimnetz.'),
     staff.Names.length ? list : el('p', 'muted', 'Noch niemand eingetragen.'),
     el('div', 'actions', add));
 }
@@ -1179,7 +1179,7 @@ function renderStaff(cfg) {
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
   const box = el('div', '', el('p', 'muted',
-    'Die Kunden der Reisekosten. In Deutschland zählen die Feiertage des Bundeslands, sonst die des Landes. Kunden außerhalb Europas bekommen nur Tage über Zuordnungen, nie aus der gleichmäßigen Verteilung. Im Ausland die Verpflegungspauschalen des Landes eintragen: ',
+    'Feiertage: in Deutschland die des Bundeslands, sonst die des Landes. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Im Ausland die Pauschalen des Landes eintragen: ',
     bmfLink(), ' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).'));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
