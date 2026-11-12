@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-11-12
+
+Receipts from Anthropic, from several mailboxes and any month, to look at before they are sent — Vodafone's too; a schedule that knows the last workday; a warning when Harvest has too few hours.
+
 ### Added
 
 - **anthropic-invoice**: Anthropic's receipt emails — the inbox first, then the folder *Rechnungen* — and the receipt PDF each brings, named `11_2026_Rechnung_Anthropic_12112026.pdf` by the email's date, sent like Apple's and Vodafone's. On the web interface first under Belege, in the schedule as *Anthropic-Belege abholen*, and part of `all`.
@@ -18,11 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Schedule: `W` and `LW` count workdays as the Reisekosten do — no public holidays, blocked days or, when off, the Christmas week. `LW` in December 2026, the 31st blocked, is the 30th.
 - Sender filters take several domains, comma-separated. Anthropic's default is `mail.anthropic.com, stripe.com`: receipts from Anthropic Ireland come through Stripe.
 - apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once. It scans the latest 50 emails of each folder by default, not 10.
-
-- Protokoll: a run's output opens under its entry, a second click closes it. 50 runs are kept, not 100, the oldest going first. Files gone with a restart are listed by name, not as links; a page left open across a restart turns its dead links into text when shown again.
-
 - harvest-invoice: a warning in the log when the month has fewer hours than its workdays × 8 — workdays as the Reisekosten count them, without holidays and blocked days — with the link to the time entries in Harvest, its address from the API (`https://rummeyer.harvestapp.com/time`). Web addresses in the log are links.
 
+### Changed
+
+- Protokoll: a run's output opens under its entry, a second click closes it. 50 runs are kept, not 100, the oldest going first. Files gone with a restart are listed by name, not as links; a page left open across a restart turns its dead links into text when shown again.
 - harvest-invoice: the work log without an invoice number — with *Nur Zeitnachweis*, or none found in sevDesk — is `11_2026_Rechnung_WorkLog.pdf`, not `11_2026_WorkLog.pdf`.
 
 ### Fixed
