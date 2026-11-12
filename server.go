@@ -773,7 +773,13 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		logins[name] = true
 	}
 	cfg.Staff.Logins = nil
-	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "path": s.configPath, "countries": travelexpense.Countries})
+	// Which further mailbox has a password, not the passwords.
+	mailboxes := make([]bool, len(cfg.Mail.Mailboxes))
+	for i := range cfg.Mail.Mailboxes {
+		mailboxes[i] = cfg.Mail.Mailboxes[i].Password != ""
+		cfg.Mail.Mailboxes[i].Password = ""
+	}
+	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "mailboxes": mailboxes, "path": s.configPath, "countries": travelexpense.Countries})
 }
 
 func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
@@ -820,6 +826,17 @@ func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 			s.sessions.endFor(name, "")
 		}
 		in.Staff.Passwords, in.Staff.NoLogin = nil, nil
+		// A further mailbox's password left empty: the one saved for that address.
+		for i, m := range in.Mail.Mailboxes {
+			if m.Password != "" {
+				continue
+			}
+			for _, old := range cfg.Mail.Mailboxes {
+				if strings.EqualFold(old.Username, m.Username) {
+					in.Mail.Mailboxes[i].Password = old.Password
+				}
+			}
+		}
 		*cfg = in
 		return nil
 	}))

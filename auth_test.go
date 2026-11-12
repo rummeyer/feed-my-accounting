@@ -256,3 +256,24 @@ func TestOldPasswordMoves(t *testing.T) {
 		t.Errorf("after moving: %+v", cfg)
 	}
 }
+
+func TestMailboxPasswordsKept(t *testing.T) {
+	s := testServer(t, false, true)
+	save := func(body string) {
+		if w := call(s, "PUT", "/api/settings", home, body); w.Code != http.StatusOK {
+			t.Fatalf("saving: %d %s", w.Code, w.Body)
+		}
+	}
+	save(`{"Mail":{"Mailboxes":[{"Username":"max@example.de","Password":"postfach-geheim"}]}}`)
+	// Sent back to the page: whether there is one, not the password.
+	w := call(s, "GET", "/api/settings", home, "")
+	if strings.Contains(w.Body.String(), "postfach-geheim") || !strings.Contains(w.Body.String(), `"mailboxes":[true]`) {
+		t.Errorf("settings: %s", w.Body)
+	}
+	// Saved again with the field empty: kept.
+	save(`{"Mail":{"Mailboxes":[{"Username":"max@example.de"}]}}`)
+	cfg, _ := readConfig(s.configPath)
+	if len(cfg.Mail.Mailboxes) != 1 || cfg.Mail.Mailboxes[0].Password != "postfach-geheim" {
+		t.Errorf("mailboxes after saving empty: %+v", cfg.Mail.Mailboxes)
+	}
+}

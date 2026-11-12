@@ -903,6 +903,7 @@ function renderSettings() {
     if (part === 'web') {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie auch von außen — durch Caddy etwa —, aber nur, wenn ein Mitarbeiter ein Passwort hat, und dann nur nach der Anmeldung mit Passwort. Hinter Caddy zählt die Adresse des Besuchers, nicht die von Caddy.'));
     }
+    if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mail') {
       children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
     }
@@ -1069,6 +1070,48 @@ function renderLogo() {
   return el('div', 'logo-box',
     el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos.'),
     card);
+}
+
+/**
+ * Further mailboxes the receipts come to — Anthropic's to another address, say — searched after
+ * the main one, by IMAP only: the mail still goes out from the main one. A password left empty is
+ * the one saved.
+ */
+function renderMailboxes(cfg) {
+  cfg.Mail ??= {};
+  cfg.Mail.Mailboxes ??= [];
+  const boxes = cfg.Mail.Mailboxes;
+  const changed = () => { renderSettings(); refreshSave(); };
+  const list = el('ul', 'rows staff mailboxes', ...boxes.map((box, i) => {
+    const user = el('input', 'grow');
+    user.value = box.Username ?? '';
+    user.placeholder = 'Adresse, z. B. max@example.de';
+    user.autocomplete = 'off';
+    user.setAttribute('aria-label', 'Adresse');
+    user.addEventListener('input', () => { box.Username = user.value.trim(); refreshSave(); });
+    const password = el('input', 'password');
+    password.type = 'password';
+    password.autocomplete = 'new-password';
+    password.placeholder = settings.mailboxes?.[i] ? 'gespeichert — neu eingeben' : 'Passwort';
+    password.value = box.Password ?? '';
+    password.setAttribute('aria-label', 'Passwort');
+    password.addEventListener('input', () => { box.Password = password.value; refreshSave(); });
+    const host = el('input', 'password');
+    host.value = box.IMAPHost ?? '';
+    host.placeholder = `IMAP: ${cfg.Mail.IMAPHost || 'wie oben'}`;
+    host.setAttribute('aria-label', 'IMAP-Server');
+    host.addEventListener('input', () => { box.IMAPHost = host.value.trim(); refreshSave(); });
+    return el('li', '', user, password, host, button('entfernen', 'link', () => {
+      boxes.splice(i, 1);
+      settings.mailboxes?.splice(i, 1);
+      changed();
+    }));
+  }));
+  return el('div', '',
+    el('h2', '', 'Weitere Postfächer'),
+    el('p', 'muted', 'Postfächer, in denen auch Belege ankommen — Anthropics an eine andere Adresse etwa. Sie werden nach dem obigen durchsucht, jedes erst im Posteingang, dann in den Ordnern der Belege; gesendet wird weiter vom obigen. Der IMAP-Server leer: der obige.'),
+    boxes.length ? list : el('p', 'muted', 'Keine.'),
+    el('div', 'actions', button('Postfach hinzufügen', '', () => { boxes.push({ Username: '' }); changed(); })));
 }
 
 /**

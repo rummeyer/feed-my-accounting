@@ -245,6 +245,10 @@ mail:
   from: "user@example.com"       # optional, falls back to username
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
+  mailboxes:                     # optional: further accounts receipts come to, searched after this one
+    - username: "max@example.de"
+      password: "the-other-password"
+      # imapHost, imapPort: optional, default this one's
 
 travel-expense:
   christmasWeekOff: true         # optional, default: true
@@ -461,7 +465,7 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 
 Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5691-3003*, from `invoice+statements@mail.anthropic.com` — and sends the receipt PDF each brings, not the invoice beside it, in one email.
 
-1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are; the same receipt found in both counts once, the inbox's
+1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same receipt found twice counts once, the first
 2. Takes the current month's emails — on the web interface any month's, to look at or to send
 3. Names each receipt by its email's date, as the other receipts are: `11_2026_Rechnung_Anthropic_12112026.pdf`; a second of the same day `…_12112026_2.pdf`
 4. Sends them via SMTP — nothing if there are none

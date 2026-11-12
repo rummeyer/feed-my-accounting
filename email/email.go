@@ -37,6 +37,40 @@ type MailConfig struct {
 	From     string `yaml:"from"`
 	To       string `yaml:"to"`
 	CC       string `yaml:"cc"`
+	// Mailboxes are further accounts the receipts may come to, searched after this one's: by
+	// IMAP only, the mail goes out from this one.
+	Mailboxes []Mailbox `yaml:"mailboxes,omitempty"`
+}
+
+// Mailbox is a further account to search, its server this one's unless it says otherwise.
+type Mailbox struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	IMAPHost string `yaml:"imapHost,omitempty"`
+	IMAPPort int    `yaml:"imapPort,omitempty"`
+}
+
+// accounts are the accounts to search: this one first, then the further mailboxes, each on this
+// one's server where it names none.
+func (c MailConfig) accounts() []MailConfig {
+	main := c
+	main.Mailboxes = nil
+	all := []MailConfig{main}
+	for _, m := range c.Mailboxes {
+		if strings.TrimSpace(m.Username) == "" {
+			continue
+		}
+		a := c
+		a.Username, a.Password, a.Mailboxes = m.Username, m.Password, nil
+		if m.IMAPHost != "" {
+			a.IMAPHost = m.IMAPHost
+		}
+		if m.IMAPPort != 0 {
+			a.IMAPPort = m.IMAPPort
+		}
+		all = append(all, a)
+	}
+	return all
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +149,24 @@ func FetchEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 }
 
 func fetch(cfg MailConfig, filter IMAPFilter, attachments bool) ([]Message, error) {
+	var all []Message
+	for i, account := range cfg.accounts() {
+		got, err := fetchAccount(account, filter, attachments)
+		if err != nil {
+			// The main account failing fails the run; a further mailbox only says so.
+			if i == 0 {
+				return nil, err
+			}
+			logger.Printf("WARNING: mailbox %s: %v", account.Username, err)
+			continue
+		}
+		all = append(all, got...)
+	}
+	return all, nil
+}
+
+// fetchAccount is the matching emails of one account, in every folder of the filter.
+func fetchAccount(cfg MailConfig, filter IMAPFilter, attachments bool) ([]Message, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.IMAPHost, cfg.IMAPPort)
 	c, err := client.DialTLS(addr, &tls.Config{ServerName: cfg.IMAPHost})
 	if err != nil {
@@ -125,7 +177,7 @@ func fetch(cfg MailConfig, filter IMAPFilter, attachments bool) ([]Message, erro
 	if err := c.Login(cfg.Username, cfg.Password); err != nil {
 		return nil, fmt.Errorf("IMAP login: %w", err)
 	}
-	logger.Println("Logged in to IMAP server")
+	logger.Printf("Logged in to IMAP server as %s", cfg.Username)
 
 	folders := filter.Folders
 	if len(folders) == 0 {
