@@ -242,7 +242,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 			return tc, fmt.Errorf("travel-expense.assignments: no client %q", a.Client)
 		}
 		tc.Assignments = append(tc.Assignments, travelexpense.Assignment{
-			Client: client, From: from, To: to, Overnight: a.Overnight, Hotel: a.Hotel, Note: a.Note,
+			Client: client, From: from, To: to, Overnight: a.Overnight, Hotel: a.Hotel, NightFlight: a.NightFlight, Note: a.Note,
 		})
 	}
 	return tc, nil

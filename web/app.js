@@ -346,7 +346,7 @@ function renderLists() {
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   const what = {
-    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel mit Rechnung' : '', a.note ? ` · ${a.note}` : ''],
+    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel mit Rechnung' : '', a.overnight && a.nightFlight ? ' · Rückflug über Nacht' : '', a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
   };
   for (const [name, list] of Object.entries(lists)) {
@@ -383,6 +383,7 @@ function editEntry(name, i) {
     $('a-to').value = e.to || '';
     $('a-overnight').checked = !!e.overnight;
     $('a-hotel').checked = !!e.hotel;
+    $('a-flight').checked = !!e.nightFlight;
     syncHotel();
     $('a-note').value = e.note || '';
   } else {
@@ -415,14 +416,18 @@ $('assignment-form').addEventListener('submit', (e) => {
   takeForm('assignments', {
     client: $('a-client').value, from: $('a-from').value, to: $('a-to').value,
     overnight: $('a-overnight').checked, hotel: $('a-overnight').checked && $('a-hotel').checked,
+    nightFlight: $('a-overnight').checked && $('a-flight').checked,
     note: $('a-note').value.trim(),
   });
   syncHotel();
 });
 
-/** "Hotel mit Rechnung" is for overnight trips only: their nights at the flat rate, unless ticked. */
+/**
+ * "Hotel mit Rechnung" and "Rückflug über Nacht" are for overnight trips only: their nights at
+ * the flat rate, but for a hotel invoice, and for the night on the plane home.
+ */
 function syncHotel() {
-  $('a-hotel-label').hidden = !$('a-overnight').checked;
+  for (const id of ['a-hotel-label', 'a-flight-label']) $(id).hidden = !$('a-overnight').checked;
 }
 $('a-overnight').addEventListener('change', syncHotel);
 syncHotel();

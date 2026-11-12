@@ -175,7 +175,10 @@ type Assignment struct {
 	// Hotel says the nights of an overnight trip have a hotel invoice, accounted on its own: no
 	// flat rate for them.
 	Hotel bool
-	Note  string
+	// NightFlight says the trip home is a flight through the night, before the day of arrival:
+	// that night is spent on the plane, not at a hotel — from the USA to Germany, say.
+	NightFlight bool
+	Note        string
 }
 
 func (a Assignment) contains(date time.Time) bool {
@@ -485,7 +488,8 @@ func travelDay(day Day, c Client, client int, inland MealRates) Day {
 
 // awayDay is a day of an overnight trip: the travel day rate on its first and last day, with the
 // drive there or back; the full day rate between. A trip of one day is a day trip. Every day but
-// the last starts a night, at the flat rate unless there is a hotel invoice for it.
+// the last starts a night, at the flat rate unless there is a hotel invoice for it; with a night
+// flight home, not the one before the last day either.
 func awayDay(c Client, a Assignment, day Day, inland MealRates, lodging float64) Day {
 	to := a.To
 	if to.IsZero() {
@@ -511,7 +515,8 @@ func awayDay(c Client, a Assignment, day Day, inland MealRates, lodging float64)
 	if first || last {
 		day.Mileage = float64(c.Distance) * kmRatePerKm
 	}
-	if !last && !a.Hotel {
+	onPlane := a.NightFlight && day.Date.AddDate(0, 0, 1).Equal(to)
+	if !last && !a.Hotel && !onPlane {
 		day.Lodging = c.lodging(lodging)
 		day.LodgingMissing = c.Abroad() && c.Lodging == 0
 	}

@@ -3,6 +3,7 @@ package travelexpense
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -501,6 +502,23 @@ func TestPlanLodging(t *testing.T) {
 		if got := days[d-1].Lodging; got != want {
 			t.Errorf("%d Dec: lodging %.2f, want %.2f", d, got, want)
 		}
+	}
+
+	// Flying home through the night of the 8th: five nights, the 3rd to the 7th.
+	flight := decemberWithMiami()
+	flight.Assignments[0].NightFlight = true
+	var nights []int
+	for _, d := range Plan(flight, 2026, time.December) {
+		if d.Lodging > 0 {
+			nights = append(nights, d.Date.Day())
+		}
+	}
+	if fmt.Sprint(nights) != "[3 4 5 6 7]" {
+		t.Errorf("with a night flight home, nights from %v; want the 3rd to the 7th", nights)
+	}
+	// The meals stay: the 8th is a full day away, the 9th the day of arrival.
+	if d := Plan(flight, 2026, time.December); d[7].Meal != 65 || d[8].Meal != 44 {
+		t.Errorf("meals with a night flight: 8th %.2f, 9th %.2f", d[7].Meal, d[8].Meal)
 	}
 
 	// With a hotel invoice: no flat rate.

@@ -49,7 +49,9 @@ type Assignment struct {
 	To        string `yaml:"to,omitempty" json:"to"`
 	Overnight bool   `yaml:"overnight,omitempty" json:"overnight"`
 	Hotel     bool   `yaml:"hotel,omitempty" json:"hotel"` // the nights have a hotel invoice: no flat rate
-	Note      string `yaml:"note,omitempty" json:"note"`
+	// The flight home goes through the night before the day of arrival: no flat rate for it.
+	NightFlight bool   `yaml:"nightFlight,omitempty" json:"nightFlight"`
+	Note        string `yaml:"note,omitempty" json:"note"`
 }
 
 // MealRates are the meal allowance rates in EUR; zero for the legal German ones.

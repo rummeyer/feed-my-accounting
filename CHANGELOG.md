@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- travel-expense: **Übernachtungspauschale** — the flat rate for each night of an overnight assignment without a hotel invoice, as a third PDF. Every day of the trip but the last starts a night, in the month it starts in. The rate is the client's `lodging` — abroad the BMF's for the place, Miami 256 € — else the inland `lodgingRate`, 20 € by law. An assignment with `hotel` (*Hotel mit Rechnung*) has none. The calendar shows each night's rate, the totals the nights and their sum.
+- travel-expense: **Übernachtungspauschale** — the flat rate for each night of an overnight assignment without a hotel invoice, as a third PDF. Every day of the trip but the last starts a night, in the month it starts in. The rate is the client's `lodging` — abroad the BMF's for the place, Miami 256 € — else the inland `lodgingRate`, 20 € by law. An assignment with `hotel` (*Hotel mit Rechnung*) has none; one with `nightFlight` (*Rückflug über Nacht*, from the USA say) none for the night on the plane before the day of arrival. The calendar shows each night's rate, the totals the nights and their sum.
 
 ### Changed
 
