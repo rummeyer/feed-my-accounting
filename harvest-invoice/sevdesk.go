@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -227,8 +228,9 @@ func findInvoice(ctx context.Context, clientName string, from, to time.Time) (*i
 		if datum.IsZero() || datum.Before(fromDay) || datum.After(toDay) {
 			continue
 		}
-		logger.Printf("Found invoice: %s (%s, Datum %s, Nr. %q) — cells %q",
-			clientName, row.Status, row.Datum, row.number(), row.Cells)
+		row.next = nextNumber(rows)
+		logger.Printf("Found invoice: %s (%s, Datum %s, Nr. %q, next %q) — cells %q",
+			clientName, row.Status, row.Datum, row.number(), row.next, row.Cells)
 		return &row, nil
 	}
 
@@ -242,14 +244,26 @@ type invoiceRow struct {
 	Datum  string   // e.g. "10.04.26" or "27.02.26"
 	Text   string   // full row text for client name matching
 	Cells  []string // each cell's text, the invoice number among them
+	// For a draft, which may have no number yet: the one after the highest of the invoices that
+	// are not drafts, as many digits long — "0203" after "0202".
+	next string
 }
 
-// numberCell is an invoice number as the list shows it: "0202", or with a prefix, "RE-0202".
+// numberCell is an invoice number as a cell of its own: "0202", or with a prefix, "RE-0202".
 var numberCell = regexp.MustCompile(`^(?:[A-Za-z]{1,6}[-_ /]?)?(\d{3,})$`)
 
-// number is the invoice's number, its digits — "0202" — from the cell that holds it, the status
-// and the date aside; empty if no cell looks like one.
+// numberNamed is the invoice number as sevDesk's list writes it beneath the client:
+// "S-Management Services GmbH\nRechnung Nr. 0203" (12.11.2026).
+var numberNamed = regexp.MustCompile(`Rechnung(?:s)?[ -]?(?:Nr|nummer)\.?:?\s*(?:[A-Za-z]{1,6}[-_ /]?)?(\d{3,})`)
+
+// number is the invoice's number, its digits — "0202" — named as such, or in a cell that holds
+// only it, the status and the date aside; empty if there is none: a draft may have none yet.
 func (r invoiceRow) number() string {
+	for _, cell := range r.Cells {
+		if m := numberNamed.FindStringSubmatch(cell); m != nil {
+			return m[1]
+		}
+	}
 	for i, cell := range r.Cells {
 		if i == 0 || i == 4 {
 			continue
@@ -261,10 +275,50 @@ func (r invoiceRow) number() string {
 	return ""
 }
 
+// nextNumber is the number after the highest of the invoices that are not drafts, as many digits
+// long; empty if none of them has one. Drafts are left out: their number is not theirs yet.
+func nextNumber(rows []invoiceRow) string {
+	highest, width := -1, 0
+	for _, r := range rows {
+		if strings.EqualFold(strings.TrimSpace(r.Status), "Entwurf") {
+			continue
+		}
+		if n, err := strconv.Atoi(r.number()); err == nil && n > highest {
+			highest, width = n, len(r.number())
+		}
+	}
+	if highest < 0 {
+		return ""
+	}
+	return fmt.Sprintf("%0*d", width, highest+1)
+}
+
 // readInvoiceList extracts all invoice rows from the currently displayed
 // Rechnungen page. sevDesk uses Angular UI Grid with div[role="row"] elements
 // containing div[role="gridcell"] children.
 func readInvoiceList(ctx context.Context) ([]invoiceRow, error) {
+	// The table fills in after the page: read until it has rows, and as many twice in a row
+	// (12.11.2026: read at once, it had none, and an invoice there already was made again).
+	var rows []invoiceRow
+	count := -1
+	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(time.Second) {
+		read, err := readInvoiceRows(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(read) > 0 && len(read) == count {
+			return read, nil
+		}
+		rows, count = read, len(read)
+	}
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("the Rechnungen list showed no invoices within 30 s: not loaded? (a sevDesk without any invoice yet: switch off \"Nicht doppelt anlegen\")")
+	}
+	return rows, nil
+}
+
+// readInvoiceRows reads the rows the Rechnungen table shows now.
+func readInvoiceRows(ctx context.Context) ([]invoiceRow, error) {
 	var listJSON string
 	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
 		const rows = [];

@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- harvest-invoice: the duplicate check waits for sevDesk's Rechnungen list to fill in — read at once, it showed no invoices, and a draft there already could be made again — and a check that fails stops the run instead of going on to make the invoice.
+- harvest-invoice: the work log's invoice number is read as sevDesk's list writes it beneath the client, "Rechnung Nr. 0203"; a draft without one takes the number after the highest of the invoices that are not drafts. After saving, the list is opened again until it shows the new draft.
 - harvest-invoice: the sevDesk login waits for the cookie banner, which comes seconds after the login form and kept it from taking input ("Element is not focusable").
 - travel-expense abroad: a day trip of more than 8 hours takes the client's travel day rate when it has no day trip rate, and the other way round — the BMF's table has one rate for both. Only with neither does the inland rate apply; the web interface marks such days red, names the missing rate under the totals and frames the empty field.
 

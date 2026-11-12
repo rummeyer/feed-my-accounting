@@ -98,6 +98,9 @@ func TestInvoiceNumber(t *testing.T) {
 		cells []string
 		want  string
 	}{
+		// As sevDesk's list showed a new draft on 12.11.2026: the number beneath the client.
+		{[]string{"Entwurf", "-", "-", "S-Management Services GmbH\nRechnung Nr. 0203", "12.11.26", "10.275,00\u00a0€", "12.227,25\u00a0€", ""}, "0203"},
+		{[]string{"Offen", "-", "-", "Acme GmbH\nRechnungs-Nr.: RE-0204", "12.11.26"}, "0204"},
 		{[]string{"Entwurf", "0203", "S-Management Services GmbH", "", "12.11.26", "10.275,00 €"}, "0203"},
 		{[]string{"Offen", "RE-0202", "S-Management Services GmbH", "", "03.11.26"}, "0202"},
 		{[]string{"Bezahlt", "RE 1001", "Acme GmbH", "", "01.10.26"}, "1001"},
@@ -108,6 +111,26 @@ func TestInvoiceNumber(t *testing.T) {
 	} {
 		if got := (invoiceRow{Cells: c.cells}).number(); got != c.want {
 			t.Errorf("number of %q = %q, want %q", c.cells, got, c.want)
+		}
+	}
+}
+
+func TestNextNumber(t *testing.T) {
+	row := func(status, number string) invoiceRow {
+		return invoiceRow{Status: status, Cells: []string{status, number, "-", "Acme GmbH", "01.10.26"}}
+	}
+	for _, c := range []struct {
+		name string
+		rows []invoiceRow
+		want string
+	}{
+		{"after the highest", []invoiceRow{row("Bezahlt", "0200"), row("Offen", "0202"), row("Bezahlt", "0201")}, "0203"},
+		{"drafts left out", []invoiceRow{row("Offen", "0202"), row("Entwurf", "-"), row("Entwurf", "0207")}, "0203"},
+		{"with a prefix", []invoiceRow{row("Offen", "RE-0999")}, "1000"},
+		{"none", []invoiceRow{row("Entwurf", "-")}, ""},
+	} {
+		if got := nextNumber(c.rows); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
 		}
 	}
 }
