@@ -390,3 +390,6 @@ main.login { max-width: 560px; }
 .login-form { display: grid; gap: 14px; max-width: 360px; margin: 10px auto 30px; }
 .login-form label { display: grid; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
 .login-form .error { color: var(--bad); margin: 0; }
+
+/* A month field that only shows, Vodafone's. */
+input.month:disabled { opacity: .55; cursor: default; }

@@ -161,7 +161,11 @@
       <h2>Vodafone</h2>
       <p class="muted">Bei MeinVodafone anmelden, die Rechnungen für Mobilfunk und Kabel laden und senden an <span data-mail-to></span>.</p>
       <p class="last" data-last="vodafone-invoice"></p>
-      <div class="actions"><button type="button" data-run="vodafone">Vodafone-Rechnungen abholen</button></div>
+      <div class="actions">
+        <!-- Vodafone has the current month's only: shown, not to be chosen. -->
+        <input class="month receipt-month" data-for="vodafone" disabled aria-label="Monat (nur der laufende)" title="MeinVodafone hat nur die aktuelle Rechnung">
+        <button type="button" data-run="vodafone">Vodafone-Rechnungen abholen</button>
+      </div>
       <div class="console" data-console="vodafone" hidden></div>
       <details class="part-box"><summary>Einstellungen Vodafone</summary><form class="part" data-part="vodafone"></form></details>
     </section>
