@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-11-12
+
+The web interface in English too, and a calmer Zuordnungen form: short words with pixel icons, on one line.
+
 ### Added
 
 - Web interface in **English** too: *DE | EN* at the top right, as on rummeyer.com — the browser's language at first, `?lang=en` in the address, then the one chosen. The login page as well, and the server's messages. Run names from before are shown in English too. The PDFs and mails stay German.
@@ -15,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The theme switch with rummeyer.com's pixel icons — sun, moon, half disc — its first click always away from what is on screen.
 - Zuordnungen: *über Nacht* is *Übernachtung*, *Hotel mit Rechnung* *Hotel*, *Rückflug über Nacht* *Nachtflug*, each with its pixel icon — moon, bed and a new plane; day trips with the car. An entry shows *Hotel* or *Übernachtung*, not both. In the calendar's legend the moon is *Übernachtung* and the bed *Übernachtungspauschale*. On one line with a short note; with an overnight trip's checkboxes, note and *Zuordnen* go beneath; the entries show the icons too.
+- The top row: the next run on the left, *DE | EN* and the theme switch on the right.
+- Zeitplan: no heading under its own tab, and the text starts with the cron syntax.
+- Einstellungen: *Weitere Postfächer* without the Anthropic example; in English *Other mailboxes*.
 
 ## [1.15.0] - 2026-11-12
 
