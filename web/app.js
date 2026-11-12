@@ -547,8 +547,10 @@ function renderLists() {
   const what = {
     // With the form's icons: moon, bed, plane; the car for day trips.
     assignments: (a) => [nameOf(a.client),
-      ...(a.overnight ? [' · ', icon('moon', 'Übernachtung'), 'Übernachtung'] : [' · ', icon('car', 'Tagesreisen'), 'Tagesreisen']),
-      ...(a.overnight && a.hotel ? [' · ', icon('bed', 'Hotel'), 'Hotel'] : []),
+      // Overnight with a hotel invoice: Hotel says it, Übernachtung beside it would say it twice.
+      ...(!a.overnight ? [' · ', icon('car', 'Tagesreisen'), 'Tagesreisen']
+        : a.hotel ? [' · ', icon('bed', 'Hotel'), 'Hotel']
+          : [' · ', icon('moon', 'Übernachtung'), 'Übernachtung']),
       ...(a.overnight && a.nightFlight ? [' · ', icon('plane', 'Nachtflug'), 'Nachtflug'] : []),
       a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
