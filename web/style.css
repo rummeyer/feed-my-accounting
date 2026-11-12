@@ -253,7 +253,8 @@ ul.rows li .when { color: var(--headline); }
   margin: 10px 0 0; max-height: 360px; overflow: auto; white-space: pre-wrap; word-break: break-word;
   font-size: 12.5px; line-height: 1.45; letter-spacing: 0;
 }
-.console .files { margin-top: 10px; display: flex; gap: 14px; flex-wrap: wrap; }
+/* One file a line: several Belege of a run, one under the other. */
+.console .files { margin-top: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .badge { font-family: var(--mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
 .badge.ok { color: var(--ok); }
 .badge.failed { color: var(--bad); }
