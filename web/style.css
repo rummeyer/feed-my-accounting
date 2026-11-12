@@ -101,6 +101,8 @@ main {
   font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
   color: var(--muted); margin: -16px 0 24px; text-transform: uppercase;
 }
+/* The next run on the left, the language and theme switches on the right. */
+.switch-row .status { margin-right: auto; }
 .status.busy { color: var(--headline); }
 .status.busy::before { content: '■ '; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
