@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-11-12
+
 ### Added
 
 - Protokoll: *Verlauf* and *Löschen* where the other tabs have *Speichern*, asking *Sicher?* first, as *Speichern* does: the runs and their files gone, one running goes on.
+
+### Fixed
+
+- Einstellungen › Mitarbeiter: the rows in fixed columns — name and password field in the same place in every row, whether a password is set or not; the placeholders fit.
 
 ## [1.16.1] - 2026-11-12
 

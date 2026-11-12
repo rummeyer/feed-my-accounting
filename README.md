@@ -4,7 +4,7 @@
   <img src="docs/logo.png" alt="feed-my-accounting: a suitcase packed with a boarding pass and the Vodafone, Apple, Harvest and sevDesk invoices, on a pixel world map with a flight path" width="640">
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.16.1-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.17.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 A single command that closes your books for the month.
