@@ -82,9 +82,13 @@ func WorkLog(company string, from, to time.Time, entries []Entry) ([]byte, error
 	return doc.Bytes()
 }
 
-// WorkLogName is the work log's file name: "10_2026_WorkLog.pdf".
-func WorkLogName(from time.Time) string {
-	return from.Format("01_2006") + "_WorkLog.pdf"
+// WorkLogName is the work log's file name: "10_2026_WorkLog.pdf", or with the number of the
+// invoice it goes with, "10_2026_Rechnung_0202_WorkLog.pdf".
+func WorkLogName(from time.Time, invoice string) string {
+	if invoice == "" {
+		return from.Format("01_2006") + "_WorkLog.pdf"
+	}
+	return from.Format("01_2006") + "_Rechnung_" + invoice + "_WorkLog.pdf"
 }
 
 // logHead is the report's title, the company, and the summary of the period: its totals, and

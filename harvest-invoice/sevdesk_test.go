@@ -92,3 +92,22 @@ func TestDuplicateMatchLogic(t *testing.T) {
 		}
 	}
 }
+
+func TestInvoiceNumber(t *testing.T) {
+	for _, c := range []struct {
+		cells []string
+		want  string
+	}{
+		{[]string{"Entwurf", "0203", "S-Management Services GmbH", "", "12.11.26", "10.275,00 €"}, "0203"},
+		{[]string{"Offen", "RE-0202", "S-Management Services GmbH", "", "03.11.26"}, "0202"},
+		{[]string{"Bezahlt", "RE 1001", "Acme GmbH", "", "01.10.26"}, "1001"},
+		// The status and the date are never the number, nor are amounts or names.
+		{[]string{"Entwurf", "", "S-Management Services GmbH", "", "12.11.26", "10.275,00 €"}, ""},
+		{[]string{"1234", "", "", "", "5678"}, ""},
+		{nil, ""},
+	} {
+		if got := (invoiceRow{Cells: c.cells}).number(); got != c.want {
+			t.Errorf("number of %q = %q, want %q", c.cells, got, c.want)
+		}
+	}
+}

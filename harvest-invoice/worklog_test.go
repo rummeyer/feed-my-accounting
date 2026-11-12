@@ -46,8 +46,11 @@ func TestWorkLog(t *testing.T) {
 			t.Errorf("work log without %q", want)
 		}
 	}
-	if got := WorkLogName(day(1)); got != "10_2026_WorkLog.pdf" {
+	if got := WorkLogName(day(1), ""); got != "10_2026_WorkLog.pdf" {
 		t.Errorf("name %q", got)
+	}
+	if got := WorkLogName(day(1), "0202"); got != "10_2026_Rechnung_0202_WorkLog.pdf" {
+		t.Errorf("name with invoice %q", got)
 	}
 }
 

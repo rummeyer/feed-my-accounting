@@ -48,16 +48,38 @@ func Run(cfg Config) (*pdfdoc.Document, error) {
 	defer cancel()
 
 	// Guard: check if sevDesk already has an invoice for this client+period
-	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
-	if exists {
-		return log, nil
+	existing, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
+	if existing != nil {
+		return withNumber(log, report.PeriodFrom, existing), nil
 	}
 
 	logger.Println("Creating sevDesk invoice...")
 	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
 		return log, fmt.Errorf("creating sevDesk invoice: %w", err)
 	}
-	return log, nil
+	// The new draft's number, from the list, as the guard reads it.
+	created, err := findInvoice(ctx, report.ClientName, report.PeriodFrom, report.PeriodTo)
+	if err != nil {
+		logger.Printf("The new draft's number not found: %v", err)
+	}
+	return withNumber(log, report.PeriodFrom, created), nil
+}
+
+// withNumber is the work log named after the invoice it goes with: "11_2026_Rechnung_0203_WorkLog.pdf".
+// Without an invoice, or a number on it, it keeps its name.
+func withNumber(log *pdfdoc.Document, from time.Time, invoice *invoiceRow) *pdfdoc.Document {
+	number := ""
+	if invoice != nil {
+		number = invoice.number()
+	}
+	if number == "" {
+		logger.Printf("Work log stays %s: no invoice number found in sevDesk's list", log.Filename)
+		return log
+	}
+	named := *log
+	named.Filename = WorkLogName(from, number)
+	logger.Printf("Work log named after invoice %s: %s", number, named.Filename)
+	return &named
 }
 
 // WorkLogOnly makes the month's work log, and nothing in sevDesk.
@@ -110,7 +132,7 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("making the work log: %w", err)
 	}
-	log := &pdfdoc.Document{Filename: WorkLogName(from), Data: data}
+	log := &pdfdoc.Document{Filename: WorkLogName(from, ""), Data: data}
 	logger.Printf("Work log: %s, %d KB", log.Filename, (len(data)+1023)/1024)
 	return report, log, nil
 }
@@ -138,8 +160,8 @@ func CreateDraft(cfg Config, report *ReportData) error {
 
 	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
 	defer cancel()
-	exists, loggedIn := alreadyInvoiced(ctx, cfg, report)
-	if exists {
+	existing, loggedIn := alreadyInvoiced(ctx, cfg, report)
+	if existing != nil {
 		return ErrAlreadyInvoiced
 	}
 	logger.Println("Creating sevDesk invoice...")
@@ -150,21 +172,21 @@ func CreateDraft(cfg Config, report *ReportData) error {
 }
 
 // alreadyInvoiced checks sevDesk for an invoice of the report's client and period, if
-// SkipExisting asks for it: whether there is one, and whether that left the browser logged in.
+// SkipExisting asks for it: the one there is, if any, and whether that left the browser logged in.
 // A failed check does not stop the run.
-func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exists, loggedIn bool) {
+func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (existing *invoiceRow, loggedIn bool) {
 	if !cfg.SkipExisting {
-		return false, false
+		return nil, false
 	}
 	logger.Println("Checking sevDesk for existing invoice...")
-	exists, err := checkInvoiceExists(ctx, cfg.SevDesk, report.ClientName, report.PeriodFrom, report.PeriodTo)
+	existing, err := checkInvoiceExists(ctx, cfg.SevDesk, report.ClientName, report.PeriodFrom, report.PeriodTo)
 	if err != nil {
 		logger.Printf("WARNING: duplicate check failed: %v (continuing anyway)", err)
-		return false, true
+		return nil, true
 	}
-	if exists {
+	if existing != nil {
 		logger.Printf("Skipping: sevDesk already has an invoice for %s (%s – %s)",
 			report.ClientName, report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"))
 	}
-	return exists, true
+	return existing, true
 }

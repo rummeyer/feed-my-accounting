@@ -15,6 +15,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -194,19 +195,24 @@ func waitForSelector(ctx context.Context, sel string, timeout time.Duration) err
 // This is a heuristic: since there's at most one invoice per client per
 // month, matching client name + date-in-range is sufficient. The check covers
 // all statuses (Entwurf, Offen, Bezahlt, etc.).
-func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, clientName string, from, to time.Time) (bool, error) {
+func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, clientName string, from, to time.Time) (*invoiceRow, error) {
 	if err := sevdeskLogin(ctx, cfg.Username, cfg.Password); err != nil {
-		return false, fmt.Errorf("sevDesk login: %w", err)
+		return nil, fmt.Errorf("sevDesk login: %w", err)
 	}
+	return findInvoice(ctx, clientName, from, to)
+}
 
+// findInvoice is the client's invoice with a Rechnungsdatum within from to to in the Rechnungen
+// list, logged in already; nil if there is none.
+func findInvoice(ctx context.Context, clientName string, from, to time.Time) (*invoiceRow, error) {
 	logger.Println("Navigating to Rechnungen...")
 	if err := navigateToInvoiceList(ctx); err != nil {
-		return false, fmt.Errorf("navigating to invoices: %w", err)
+		return nil, fmt.Errorf("navigating to invoices: %w", err)
 	}
 
 	rows, err := readInvoiceList(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	logger.Printf("Found %d invoices in list", len(rows))
 
@@ -221,20 +227,38 @@ func checkInvoiceExists(ctx context.Context, cfg SevDeskConfig, clientName strin
 		if datum.IsZero() || datum.Before(fromDay) || datum.After(toDay) {
 			continue
 		}
-		logger.Printf("Found existing invoice: %s (%s, Datum %s)",
-			clientName, row.Status, row.Datum)
-		return true, nil
+		logger.Printf("Found invoice: %s (%s, Datum %s, Nr. %q) — cells %q",
+			clientName, row.Status, row.Datum, row.number(), row.Cells)
+		return &row, nil
 	}
 
 	logger.Println("No matching invoice found in list")
-	return false, nil
+	return nil, nil
 }
 
 // invoiceRow holds the parsed data from a single row in the invoice list.
 type invoiceRow struct {
-	Status string // e.g. "Entwurf", "Offen", "Bezahlt"
-	Datum  string // e.g. "10.04.26" or "27.02.26"
-	Text   string // full row text for client name matching
+	Status string   // e.g. "Entwurf", "Offen", "Bezahlt"
+	Datum  string   // e.g. "10.04.26" or "27.02.26"
+	Text   string   // full row text for client name matching
+	Cells  []string // each cell's text, the invoice number among them
+}
+
+// numberCell is an invoice number as the list shows it: "0202", or with a prefix, "RE-0202".
+var numberCell = regexp.MustCompile(`^(?:[A-Za-z]{1,6}[-_ /]?)?(\d{3,})$`)
+
+// number is the invoice's number, its digits — "0202" — from the cell that holds it, the status
+// and the date aside; empty if no cell looks like one.
+func (r invoiceRow) number() string {
+	for i, cell := range r.Cells {
+		if i == 0 || i == 4 {
+			continue
+		}
+		if m := numberCell.FindStringSubmatch(strings.TrimSpace(cell)); m != nil {
+			return m[1]
+		}
+	}
+	return ""
 }
 
 // readInvoiceList extracts all invoice rows from the currently displayed
@@ -252,6 +276,7 @@ func readInvoiceList(ctx context.Context) ([]invoiceRow, error) {
 				status: cellTexts[0] || '',
 				datum:  cellTexts[4] || '',
 				text:   row.innerText.trim().substring(0, 300),
+				cells:  cellTexts.map(c => c.substring(0, 80)),
 			});
 		}
 		return JSON.stringify(rows);
@@ -262,9 +287,10 @@ func readInvoiceList(ctx context.Context) ([]invoiceRow, error) {
 	}
 
 	var raw []struct {
-		Status string `json:"status"`
-		Datum  string `json:"datum"`
-		Text   string `json:"text"`
+		Status string   `json:"status"`
+		Datum  string   `json:"datum"`
+		Text   string   `json:"text"`
+		Cells  []string `json:"cells"`
 	}
 	if err := json.Unmarshal([]byte(listJSON), &raw); err != nil {
 		return nil, fmt.Errorf("parsing invoice list: %w", err)
@@ -272,7 +298,7 @@ func readInvoiceList(ctx context.Context) ([]invoiceRow, error) {
 
 	rows := make([]invoiceRow, len(raw))
 	for i, r := range raw {
-		rows[i] = invoiceRow{Status: r.Status, Datum: r.Datum, Text: r.Text}
+		rows[i] = invoiceRow{Status: r.Status, Datum: r.Datum, Text: r.Text, Cells: r.Cells}
 	}
 	return rows, nil
 }

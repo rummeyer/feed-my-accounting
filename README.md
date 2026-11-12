@@ -472,7 +472,7 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
 ### How it works
 
 1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) by the selected employee (`staff.current`, named as in Harvest; without one, everyone's) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them
-2. Makes the month's **work log** (`10_2026_WorkLog.pdf`), laid out as Harvest's *Detailed time report*: the period, its hours and uninvoiced billable hours, then a table by day — client, project with the times and the note beneath, task, person, hours — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
+2. Makes the month's **work log**, laid out as Harvest's *Detailed time report*: the period, its hours and uninvoiced billable hours, then a table by day — client, project with the times and the note beneath, task, person, hours — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
 3. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the month; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
 4. Logs into sevDesk and creates a new E-Rechnung draft with:
    - **Rechnungsdatum** pre-filled as today's date by sevDesk
@@ -484,7 +484,7 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
 
 The Harvest API needs a personal access token from [id.getharvest.com/developers](https://id.getharvest.com/developers) — on every plan, the free one too. sevDesk is used through its web interface with headless Chrome — no sevDesk API token needed.
 
-The work log is made before the sevDesk check, so it comes even when the draft exists already. Uploaded again, it is read like Harvest's own report.
+The work log is made before the sevDesk check, so it comes even when the draft exists already. It is named after the invoice it goes with, `10_2026_Rechnung_0202_WorkLog.pdf`, its number read off sevDesk's Rechnungen list — the existing invoice's, or the new draft's once saved; without one found, and with *Nur Stundenbericht*, `10_2026_WorkLog.pdf`. Uploaded again, it is read like Harvest's own report.
 
 On the web interface a Harvest PDF report can be uploaded instead: the hours (`157,00 Hours`) and the period (the first two dates as `dd.mm.yyyy`) are read from the PDF and can be corrected before the draft is created. The client is `sevdesk.clientName`.
 
