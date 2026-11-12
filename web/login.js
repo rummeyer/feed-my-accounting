@@ -3,9 +3,20 @@
 // The login: an employee and their password. Without anyone having a password, or logged in
 // already, straight on to the page.
 const $ = (id) => document.getElementById(id);
+const LANG = document.documentElement.dataset.lang === 'en' ? 'en' : 'de';
+
+// The language switch, as on the page: loads the login anew in the other one.
+for (const link of document.querySelectorAll('[data-lang-link]')) {
+  link.setAttribute('aria-current', String(link.dataset.langLink === LANG));
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (link.dataset.langLink !== LANG) location.href = `?lang=${link.dataset.langLink}`;
+  });
+}
+if (LANG === 'en') document.title = 'Log in · feed-my-accounting';
 
 (async () => {
-  const session = await fetch('/api/session').then((r) => r.json()).catch(() => null);
+  const session = await fetch('/api/session', { headers: { 'X-Lang': LANG } }).then((r) => r.json()).catch(() => null);
   if (session && (!session.required || session.user)) {
     location.replace('/');
     return;
@@ -35,7 +46,7 @@ $('login').addEventListener('submit', async (e) => {
   $('error').hidden = true;
   const res = await fetch('/api/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Lang': LANG },
     body: JSON.stringify({ name: $('name').value, password: $('password').value }),
   });
   if (res.ok) {
@@ -43,7 +54,7 @@ $('login').addEventListener('submit', async (e) => {
     return;
   }
   const data = await res.json().catch(() => ({}));
-  $('error').textContent = data.error || `Anmelden ging nicht: HTTP ${res.status}`;
+  $('error').textContent = data.error || (LANG === 'en' ? `Logging in failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
   $('error').hidden = false;
   $('password').select();
 });

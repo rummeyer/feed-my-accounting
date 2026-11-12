@@ -2,6 +2,19 @@
 
 const $ = (id) => document.getElementById(id);
 
+// The language lang.js chose, German or English: T(de, en) is the text in it. The page's own
+// texts are there in both, the other hidden; what is made here goes through T.
+const LANG = document.documentElement.dataset.lang === 'en' ? 'en' : 'de';
+const T = (de, en) => (LANG === 'en' ? en : de);
+const LOCALE = T('de-DE', 'en-GB');
+
+// The page's attributes in English: data-en-title, data-en-placeholder, data-en-aria-label.
+if (LANG === 'en') {
+  for (const name of ['title', 'placeholder', 'aria-label']) {
+    for (const node of document.querySelectorAll(`[data-en-${name}]`)) node.setAttribute(name, node.getAttribute(`data-en-${name}`));
+  }
+}
+
 /** Makes an element: el('li', 'row', child, 'text', …); falsy children are left out. */
 function el(tag, className, ...children) {
   const node = document.createElement(tag);
@@ -23,7 +36,8 @@ async function api(method, path, body) {
   const isForm = body instanceof FormData;
   const res = await fetch(path, {
     method,
-    headers: body && !isForm ? { 'Content-Type': 'application/json' } : {},
+    // The server answers in the page's language: its messages, that is.
+    headers: { 'X-Lang': LANG, ...(body && !isForm ? { 'Content-Type': 'application/json' } : {}) },
     body: isForm ? body : body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
@@ -38,7 +52,7 @@ async function api(method, path, body) {
   const session = await api('GET', '/api/session').catch(() => null);
   if (!session?.user) return;
   $('logout').hidden = false;
-  $('logout').title = `Angemeldet als ${session.user}`;
+  $('logout').title = T(`Angemeldet als ${session.user}`, `Logged in as ${session.user}`);
   $('logout').addEventListener('click', async () => {
     await api('POST', '/api/logout').catch(() => {});
     location.href = '/login';
@@ -47,28 +61,63 @@ async function api(method, path, body) {
 
 const euro = (v) => `${(v ?? 0).toFixed(2).replace('.', ',')} €`;
 const dmy = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
-const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTHS = T(['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+  ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
 const never = (iso) => !iso || iso.startsWith('0001');
 
 function ago(iso) {
   if (never(iso)) return '';
   const s = Math.round((Date.now() - new Date(iso)) / 1000);
-  if (s < 60) return 'gerade eben';
-  if (s < 3600) return `vor ${Math.round(s / 60)} min`;
-  if (s < 86400) return `vor ${Math.round(s / 3600)} h`;
-  return new Date(iso).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
+  if (s < 60) return T('gerade eben', 'just now');
+  if (s < 3600) return T(`vor ${Math.round(s / 60)} min`, `${Math.round(s / 60)} min ago`);
+  if (s < 86400) return T(`vor ${Math.round(s / 3600)} h`, `${Math.round(s / 3600)} h ago`);
+  return new Date(iso).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// ── Theme, as on rummeyer.com: auto → light → dark ─────────────────────────
+// ── Theme and language, as on rummeyer.com ─────────────────────────────────
+
+// Three states in a ring, the first click always away from what is on screen: on a light system
+// auto → dark → light → auto, on a dark one auto → light → dark → auto.
+function nextTheme(pref) {
+  const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  const away = systemDark ? 'light' : 'dark';
+  if (pref === 'auto') return away;
+  if (pref === away) return systemDark ? 'dark' : 'light';
+  return 'auto';
+}
+
+function labelTheme() {
+  const pref = document.documentElement.dataset.themePref || 'auto';
+  const name = T({ light: 'Hell-Modus', dark: 'Dunkel-Modus', auto: 'System-Modus' }, { light: 'light mode', dark: 'dark mode', auto: 'system mode' })[pref];
+  $('theme').title = name;
+  $('theme').setAttribute('aria-label', T(`Zwischen hell, dunkel und System wechseln (aktuell ${name})`, `Switch between light, dark and system mode (currently ${name})`));
+}
 
 $('theme').addEventListener('click', () => {
   const root = document.documentElement;
-  const next = { auto: 'light', light: 'dark', dark: 'auto' }[root.dataset.themePref || 'auto'];
+  const next = nextTheme(root.dataset.themePref || 'auto');
   root.dataset.themePref = next;
+  // Auto is the key's absence: following the system, not a snapshot of what it said that day.
+  try {
+    if (next === 'auto') localStorage.removeItem('theme');
+    else localStorage.setItem('theme', next);
+  } catch { /* private window */ }
   if (next === 'auto') delete root.dataset.theme;
   else root.dataset.theme = next;
-  try { localStorage.setItem('theme', next); } catch { /* private window */ }
+  labelTheme();
 });
+labelTheme();
+
+// The language: the page loads anew in it — what it made itself is in the language it was made
+// in. Changes not saved yet: the browser asks first, as on leaving.
+for (const link of document.querySelectorAll('[data-lang-link]')) {
+  link.setAttribute('aria-current', String(link.dataset.langLink === LANG));
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (link.dataset.langLink === LANG) return;
+    location.href = `?lang=${link.dataset.langLink}${location.hash}`;
+  });
+}
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
@@ -91,39 +140,67 @@ async function loadOverview() {
   try {
     overview = await api('GET', '/api/overview');
   } catch (err) {
-    $('status').textContent = 'nicht erreichbar';
+    $('status').textContent = T('nicht erreichbar', 'not reachable');
     return;
   }
   $('version').textContent = overview.version;
   const status = $('status');
   status.classList.toggle('busy', !!overview.running);
-  status.textContent = overview.running ? overview.running.title : nextText(overview.next);
+  status.textContent = overview.running ? title(overview.running.title) : nextText(overview.next);
   $('userbar').hidden = !overview.employee;
-  $('employee').textContent = `Mitarbeiter: ${overview.employee}`;
+  $('employee').textContent = `${T('Mitarbeiter', 'Employee')}: ${overview.employee}`;
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': 'Reisekosten', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': 'Kundenrechnung' };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
-  if (!next) return 'kein Lauf geplant';
-  const at = new Date(next.at).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  return `nächster Lauf: ${SHORT[next.job] || next.job} · ${at}`;
+  if (!next) return T('kein Lauf geplant', 'no run planned');
+  const at = new Date(next.at).toLocaleString(LOCALE, { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `${T('nächster Lauf', 'next run')}: ${SHORT[next.job] || next.job} · ${at}`;
 }
 
 /** Where the mails go: Einstellungen › E-Mail, its recipient and any copy. */
 function mailTo() {
   const m = overview?.mail;
-  if (!m?.to) return 'den Empfänger aus Einstellungen › E-Mail (noch keiner eingetragen)';
-  return m.cc ? `${m.to} (Kopie ${m.cc})` : m.to;
+  if (!m?.to) return T('den Empfänger aus Einstellungen › E-Mail (noch keiner eingetragen)', 'the recipient from Settings › E-mail (none entered yet)');
+  return m.cc ? `${m.to} (${T('Kopie', 'copy')} ${m.cc})` : m.to;
 }
+
+/** A run's state in words. */
+const STATUS = () => T({ running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen' }, { running: 'running', ok: 'done', failed: 'failed' });
 
 function lastText(job) {
   if (!job) return '';
-  const how = { ok: 'erledigt', failed: 'fehlgeschlagen', running: 'läuft' }[job.status] || job.status;
-  return `${job.title} — ${how}, ${ago(job.ended || job.started)}${job.error ? `: ${job.error}` : ''}`;
+  const how = STATUS()[job.status] || job.status;
+  return `${title(job.title)} — ${how}, ${ago(job.ended || job.started)}${job.error ? `: ${job.error}` : ''}`;
+}
+
+// The server names runs in German, kept so in the log: in English, the names it gives.
+const TITLES = [
+  [/^Reisekosten senden \(laufender Monat\)/, 'Send travel expenses (current month)'],
+  [/^Anthropic-Belege abholen/, 'Fetch Anthropic receipts'],
+  [/^Apple-Rechnungen abholen/, 'Fetch Apple invoices'],
+  [/^Vodafone-Rechnungen abholen/, 'Fetch Vodafone invoices'],
+  [/^Kundenrechnung aus Harvest \(laufender Monat\)/, 'Invoice from Harvest (current month)'],
+  [/^Reisekosten (\S+) erzeugen/, 'Travel expenses $1, view'],
+  [/^Reisekosten (\S+) senden/, 'Travel expenses $1, send'],
+  [/^Anthropic-Belege (\S+) ansehen/, 'Anthropic receipts $1, view'],
+  [/^Anthropic-Belege (\S+) senden/, 'Anthropic receipts $1, send'],
+  [/^(Apple|Vodafone)-Rechnungen (\S+) ansehen/, '$1 invoices $2, view'],
+  [/^(Apple|Vodafone)-Rechnungen (\S+) senden/, '$1 invoices $2, send'],
+  [/^Kundenrechnung (\S+) aus Harvest/, 'Invoice $1 from Harvest'],
+  [/^Zeitnachweis (\S+) aus Harvest/, 'Work log $1 from Harvest'],
+  [/^Stundenbericht (\S+) aus Harvest/, 'Work log $1 from Harvest'], // its name before 1.10
+  [/^Rechnungsentwurf /, 'Invoice draft '],
+  [/ · Zeitplan$/, ' · schedule'],
+];
+function title(t) {
+  if (LANG !== 'en' || !t) return t;
+  for (const [de, en] of TITLES) t = t.replace(de, en);
+  return t;
 }
 
 // ── Cron ───────────────────────────────────────────────────────────────────
@@ -145,13 +222,13 @@ async function loadCron() {
 }
 loaders.cron = loadCron;
 
-const when = (iso) => new Date(iso).toLocaleString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const when = (iso) => new Date(iso).toLocaleString(LOCALE, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 function renderSchedule() {
   const rows = schedule.entries.map((e, i) => {
     const job = el('select');
-    job.append(...Object.entries(schedule.jobs).map(([name, title]) => {
-      const o = el('option', '', title);
+    job.append(...Object.entries(schedule.jobs).map(([name, jobTitle]) => {
+      const o = el('option', '', title(jobTitle));
       o.value = name;
       return o;
     }));
@@ -166,14 +243,14 @@ function renderSchedule() {
     on.checked = e.enabled;
     on.addEventListener('change', () => { e.enabled = on.checked; });
     const next = e.error ? el('span', 'badge failed', e.error)
-      : e.enabled ? el('span', '', 'nächste: ', e.next.map(when).join(' · ') || '—')
-      : el('span', 'muted', 'aus — nächste wären ', e.next.slice(0, 1).map(when).join('') || '—');
+      : e.enabled ? el('span', '', T('nächste: ', 'next: '), e.next.map(when).join(' · ') || '—')
+      : el('span', 'muted', T('aus — nächste wären ', 'off — next would be '), e.next.slice(0, 1).map(when).join('') || '—');
     return el('div', `entry ${e.enabled ? '' : 'off'}`,
       el('div', 'entry-head',
-        el('label', 'check', on, 'an'), job, cron,
-        button('entfernen', 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
+        el('label', 'check', on, T('an', 'on')), job, cron,
+        button(T('entfernen', 'remove'), 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
       el('div', 'entry-next small', next),
-      el('div', 'entry-last small muted', e.last ? `zuletzt: ${lastText(e.last)}` : 'noch nicht über die Oberfläche gelaufen'));
+      el('div', 'entry-last small muted', e.last ? `${T('zuletzt', 'last')}: ${lastText(e.last)}` : T('noch nicht über die Oberfläche gelaufen', 'not yet run from the web interface')));
   });
   const output = el('div', 'console');
   output.dataset.console = 'cron';
@@ -223,15 +300,14 @@ function linked(text) {
 function renderJob(box, job) {
   const pre = el('pre', '', ...linked((job.output ?? []).join('\n') || '…'));
   const files = (job.files ?? []).map((f) => {
-    if (f.gone) return el('span', 'muted', `${f.name} (nicht mehr verfügbar)`);
+    if (f.gone) return el('span', 'muted', `${f.name} (${T('nicht mehr verfügbar', 'no longer available')})`);
     const a = el('a', '', `${f.name} (${Math.round(f.size / 1024)} KB)`);
     a.href = `/api/jobs/${job.id}/files/${encodeURIComponent(f.name)}`;
     a.target = '_blank';
     return a;
   });
   box.replaceChildren(...[
-    el('div', 'head', el('span', 'title', job.title), el('span', `badge ${job.status}`,
-      { running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen' }[job.status] || job.status)),
+    el('div', 'head', el('span', 'title', title(job.title)), el('span', `badge ${job.status}`, STATUS()[job.status] || job.status)),
     pre,
     job.error && el('p', 'badge failed', job.error),
     files.length > 0 && el('div', 'files', ...files),
@@ -244,7 +320,7 @@ document.addEventListener('visibilitychange', async () => {
   if (document.hidden) return;
   for (const a of document.querySelectorAll('.console .files a')) {
     const ok = await fetch(a.href, { method: 'HEAD' }).then((r) => r.ok, () => true);
-    if (!ok) a.replaceWith(el('span', 'muted', `${a.textContent.replace(/ \(\d+ KB\)$/, '')} (nicht mehr verfügbar)`));
+    if (!ok) a.replaceWith(el('span', 'muted', `${a.textContent.replace(/ \(\d+ KB\)$/, '')} (${T('nicht mehr verfügbar', 'no longer available')})`));
   }
 });
 
@@ -260,7 +336,8 @@ async function start(name, method, path, body, onDone) {
 
 // Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
-const NAMES = { anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' };
+const NAMES = T({ anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' },
+  { anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices' });
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
@@ -274,7 +351,7 @@ for (const b of document.querySelectorAll('[data-view]')) {
 for (const b of document.querySelectorAll('[data-send]')) {
   b.addEventListener('click', () => {
     const kind = b.dataset.send;
-    if (!confirm(`${NAMES[kind]} ${monthOf(kind)} senden an ${mailTo()}?`)) return;
+    if (!confirm(T(`${NAMES[kind]} ${monthOf(kind)} senden an ${mailTo()}?`, `Send ${NAMES[kind]} ${monthOf(kind)} to ${mailTo()}?`))) return;
     start(kind, 'POST', `/api/${kind}/send`, { month: monthOf(kind) });
   });
 }
@@ -321,7 +398,8 @@ async function loadTravel() {
 }
 loaders.travel = () => { loadTravel(); loadSettings(); };
 
-const KIND_TEXT = { weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' };
+const KIND_TEXT = T({ weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' },
+  { weekend: '', holiday: 'holiday', christmas: 'Christmas', blocked: 'blocked', home: 'no client' });
 
 // Pixel icons, 16 × 16, each centred in its square: what an amount is for — fork and knife, a
 // car, a bed. Drawn by pixel,
@@ -450,7 +528,7 @@ for (const s of document.querySelectorAll('[data-icon]')) s.replaceWith(icon(s.d
 const amount = (name, title, eur) => el('span', 'amount', icon(name, title), euro(eur));
 
 function renderCalendar() {
-  const cells = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div', 'wd', d));
+  const cells = T(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d) => el('div', 'wd', d));
   const first = (new Date(`${plan.month}-01T00:00:00`).getDay() + 6) % 7;
   for (let i = 0; i < first; i++) cells.push(el('div', 'day pad'));
   const today = new Date().toISOString().slice(0, 10);
@@ -459,30 +537,39 @@ function renderCalendar() {
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
     // What the day is worth, each amount after its icon: meals, the drive, the night.
     const eur = d.meal || d.mileage || d.lodging ? el('span', 'eur',
-      d.meal && amount('meal', 'Verpflegung', d.meal),
-      d.mileage && amount('car', 'Kilometergeld', d.mileage),
-      d.lodging && amount('bed', 'Übernachtung', d.lodging)) : null;
-    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', icon('moon', 'Übernachtung')), who,
+      d.meal && amount('meal', W.meals, d.meal),
+      d.mileage && amount('car', W.mileage, d.mileage),
+      d.lodging && amount('bed', W.night, d.lodging)) : null;
+    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', icon('moon', W.overnight)), who,
       d.client && d.note && el('span', 'note muted', d.note), eur);
-    cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
-      d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
-      d.lodgingMissing && `Satz „${RATE_NAMES.lodging}“ des Kunden fehlt — Inlandssatz ${euro(d.lodging)}`].filter(Boolean).join(' · ');
+    cell.title = [dmy(d.date), d.client, d.mealText && `${W.meals} ${mealText(d.mealText)}`, d.lodging && `${W.night} ${euro(d.lodging)}`, d.note,
+      d.missing && T(`Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`, `The client's rate “${RATE_NAMES[d.missing]}” is missing — inland rate ${euro(d.meal)}`),
+      d.lodgingMissing && T(`Satz „${RATE_NAMES.lodging}“ des Kunden fehlt — Inlandssatz ${euro(d.lodging)}`, `The client's rate “${RATE_NAMES.lodging}” is missing — inland rate ${euro(d.lodging)}`)].filter(Boolean).join(' · ');
     cells.push(cell);
   }
   $('calendar').replaceChildren(...cells);
   // The legend: each client in its colour.
   $('legend-clients').replaceChildren(...(plan.clients ?? []).map((name, i) => el('span', `k ${colourOf(i + 1)}`, name)));
   $('legend-icons').replaceChildren(
-    el('span', '', icon('moon', 'Übernachtung'), 'Übernachtung'),
-    el('span', '', icon('meal', 'Verpflegung'), 'Verpflegung'),
-    el('span', '', icon('car', 'Kilometergeld'), 'Kilometergeld'),
-    el('span', '', icon('bed', 'Übernachtungspauschale'), 'Übernachtungspauschale'));
+    el('span', '', icon('moon', W.overnight), W.overnight),
+    el('span', '', icon('meal', W.meals), W.meals),
+    el('span', '', icon('car', W.mileage), W.mileage),
+    el('span', '', icon('bed', W.allowance), W.allowance));
 }
+
+/** The words for what a travel day is worth, and how it is spent. */
+const W = T(
+  { overnight: 'Übernachtung', meals: 'Verpflegung', mileage: 'Kilometergeld', night: 'Übernachtung', allowance: 'Übernachtungspauschale', days: 'Tagesreisen' },
+  { overnight: 'Overnight', meals: 'Meals', mileage: 'Mileage', night: 'Night', allowance: 'Overnight allowance', days: 'Day trips' });
+
+/** The day's meal rate as the server names it: "8h - 24h", "24h", "An-/Abreisetag". */
+const mealText = (text) => (text === 'An-/Abreisetag' ? T(text, 'arrival/departure day') : text);
 
 /** A client's colour class, by its place in the list from 1: six colours, then again. */
 const colourOf = (no) => `c${((no - 1) % 6) + 1}`;
 
-const RATE_NAMES = { mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag', lodging: 'Übernachtung' };
+const RATE_NAMES = T({ mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag', lodging: 'Übernachtung' },
+  { mealDay: 'Day trip > 8 h', mealFullDay: 'Full day', mealTravelDay: 'Arrival/departure day', lodging: 'Night' });
 
 /** What the month's expenses come to: meals, mileage and nights. */
 const totalOf = (t) => (t.meals ?? 0) + (t.mileage ?? 0) + (t.lodging ?? 0);
@@ -492,20 +579,20 @@ function renderTotals() {
   // Clients abroad falling back to the inland rate: named once each, under the totals.
   const missing = new Map();
   for (const d of plan.days) {
-    if (d.missing) missing.set(`${d.client}|${d.missing}`, `${d.client}: Satz „${RATE_NAMES[d.missing]}“ fehlt — es gilt der Inlandssatz ${euro(d.meal)}`);
-    if (d.lodgingMissing) missing.set(`${d.client}|lodging`, `${d.client}: Satz „${RATE_NAMES.lodging}“ fehlt — es gilt der Inlandssatz ${euro(d.lodging)}`);
+    if (d.missing) missing.set(`${d.client}|${d.missing}`, T(`${d.client}: Satz „${RATE_NAMES[d.missing]}“ fehlt — es gilt der Inlandssatz ${euro(d.meal)}`, `${d.client}: rate “${RATE_NAMES[d.missing]}” missing — the inland rate applies, ${euro(d.meal)}`));
+    if (d.lodgingMissing) missing.set(`${d.client}|lodging`, T(`${d.client}: Satz „${RATE_NAMES.lodging}“ fehlt — es gilt der Inlandssatz ${euro(d.lodging)}`, `${d.client}: rate “${RATE_NAMES.lodging}” missing — the inland rate applies, ${euro(d.lodging)}`));
   }
   const per = Object.entries(plan.perClient).map(([name, n]) => `${name} ${n}`).join(' · ');
   $('travel-totals').replaceChildren(...[
-    el('div', '', el('dt', '', 'Reisetage'), el('dd', '', String(t.days ?? 0))),
-    el('div', '', el('dt', '', icon('meal', 'Verpflegung'), 'Verpflegung'), el('dd', '', euro(t.meals))),
-    el('div', '', el('dt', '', icon('car', 'Kilometergeld'), 'Kilometer'), el('dd', '', euro(t.mileage))),
-    t.nights > 0 && el('div', '', el('dt', '', icon('bed', 'Übernachtung'), 'Übernachtung'), el('dd', '', euro(t.lodging))),
-    el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro(totalOf(t)))),
-    per && el('div', 'whole', el('dt', '', 'Je Kunde'), el('dd', 'muted', per)),
-    missing.size > 0 && el('div', 'whole warn', el('dt', '', 'Satz fehlt'),
+    el('div', '', el('dt', '', T('Reisetage', 'Travel days')), el('dd', '', String(t.days ?? 0))),
+    el('div', '', el('dt', '', icon('meal', W.meals), W.meals), el('dd', '', euro(t.meals))),
+    el('div', '', el('dt', '', icon('car', W.mileage), T('Kilometer', 'Mileage')), el('dd', '', euro(t.mileage))),
+    t.nights > 0 && el('div', '', el('dt', '', icon('bed', W.night), T('Übernachtung', 'Nights')), el('dd', '', euro(t.lodging))),
+    el('div', '', el('dt', '', T('Gesamt', 'Total')), el('dd', '', euro(totalOf(t)))),
+    per && el('div', 'whole', el('dt', '', T('Je Kunde', 'Per client')), el('dd', 'muted', per)),
+    missing.size > 0 && el('div', 'whole warn', el('dt', '', T('Satz fehlt', 'Rate missing')),
       el('dd', '', ...[...missing.values()].flatMap((text, i) => (i ? [el('br'), text] : [text])), el('br'),
-        'Beim Kunden eintragen: ', bmfLink())),
+        T('Beim Kunden eintragen: ', 'Enter it with the client: '), bmfLink())),
   ].filter(Boolean));
 }
 
@@ -514,7 +601,7 @@ function renderRanges() {
   const select = $('a-client');
   const chosen = select.value;
   // No client chosen to begin with: an assignment is made on purpose, not by default.
-  const none = el('option', '', 'Kunde wählen…');
+  const none = el('option', '', T('Kunde wählen…', 'Choose client…'));
   none.value = '';
   select.replaceChildren(none, ...clients.map((c) => {
     const o = el('option', '', c.name);
@@ -529,8 +616,8 @@ function renderRanges() {
 // the list, the Speichern button at the bottom saves it. Each list: its draft, the entry being
 // edited in the form, and whether the draft differs from what is saved.
 const lists = {
-  assignments: { draft: null, editing: -1, dirty: false, path: '/api/travel/assignments', form: 'assignment-form', add: 'Zuordnen' },
-  blocked: { draft: null, editing: -1, dirty: false, path: '/api/travel/blocked', form: 'blocked-form', add: 'Sperren' },
+  assignments: { draft: null, editing: -1, dirty: false, path: '/api/travel/assignments', form: 'assignment-form', add: T('Zuordnen', 'Assign') },
+  blocked: { draft: null, editing: -1, dirty: false, path: '/api/travel/blocked', form: 'blocked-form', add: T('Sperren', 'Block') },
 };
 
 /** Takes the saved lists as drafts, unless one has changes not saved yet. */
@@ -548,10 +635,10 @@ function renderLists() {
     // With the form's icons: moon, bed, plane; the car for day trips.
     assignments: (a) => [nameOf(a.client),
       // Overnight with a hotel invoice: Hotel says it, Übernachtung beside it would say it twice.
-      ...(!a.overnight ? [' · ', icon('car', 'Tagesreisen'), 'Tagesreisen']
+      ...(!a.overnight ? [' · ', icon('car', W.days), W.days]
         : a.hotel ? [' · ', icon('bed', 'Hotel'), 'Hotel']
-          : [' · ', icon('moon', 'Übernachtung'), 'Übernachtung']),
-      ...(a.overnight && a.nightFlight ? [' · ', icon('plane', 'Nachtflug'), 'Nachtflug'] : []),
+          : [' · ', icon('moon', W.overnight), W.overnight]),
+      ...(a.overnight && a.nightFlight ? [' · ', icon('plane', T('Nachtflug', 'Night flight')), T('Nachtflug', 'Night flight')] : []),
       a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
   };
@@ -564,15 +651,15 @@ function renderLists() {
     ].filter(Boolean).join(' '),
       el('span', 'when', span(entry)),
       el('span', 'grow', ...what[name](entry)),
-      button('bearbeiten', 'link', () => editEntry(name, i)),
-      button('entfernen', 'link', () => {
+      button(T('bearbeiten', 'edit'), 'link', () => editEntry(name, i)),
+      button(T('entfernen', 'remove'), 'link', () => {
         list.draft.splice(i, 1);
         if (list.editing === i) stopEditing(name);
         else if (list.editing > i) list.editing--;
         renderLists();
       }))));
     const form = $(list.form);
-    form.querySelector('button[type=submit]').textContent = list.editing >= 0 ? 'Übernehmen' : list.add;
+    form.querySelector('button[type=submit]').textContent = list.editing >= 0 ? T('Übernehmen', 'Apply') : list.add;
     form.querySelector('.cancel').hidden = list.editing < 0;
   }
   refreshSave();
@@ -674,7 +761,8 @@ $('travel-generate').addEventListener('click', () =>
   start('travel', 'POST', '/api/travel/generate', { month: monthKey() }));
 $('travel-send').addEventListener('click', () => {
   const t = plan?.totals ?? {};
-  if (!confirm(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro(totalOf(t))}`)) return;
+  if (!confirm(T(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro(totalOf(t))}`,
+    `Send the travel expenses of ${MONTHS[month.getMonth()]} ${month.getFullYear()} to ${mailTo()}?\n${t.days ?? 0} travel days, ${euro(totalOf(t))}`))) return;
   start('travel', 'POST', '/api/travel/send', { month: monthKey() });
 });
 
@@ -692,7 +780,7 @@ drop.addEventListener('drop', (e) => {
 $('report').addEventListener('change', () => { if ($('report').files[0]) sendReport($('report').files[0]); });
 
 async function sendReport(file) {
-  $('drop-text').textContent = `${file.name} wird gelesen…`;
+  $('drop-text').textContent = T(`${file.name} wird gelesen…`, `Reading ${file.name}…`);
   const form = new FormData();
   form.append('report', file);
   try {
@@ -701,12 +789,12 @@ async function sendReport(file) {
     $('drop-text').textContent = err.message;
     return;
   }
-  $('drop-text').textContent = `${file.name}: ${String(upload.hours).replace('.', ',')} Stunden gelesen`;
+  $('drop-text').textContent = T(`${file.name}: ${String(upload.hours).replace('.', ',')} Stunden gelesen`, `${file.name}: ${upload.hours} hours read`);
   $('d-hours').value = upload.hours;
   const now = new Date();
   $('d-from').value = upload.from || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   $('d-to').value = upload.to || new Date(now.getFullYear(), now.getMonth() + 1, 0, 12).toISOString().slice(0, 10);
-  $('d-client').value = upload.client || '— in den Einstellungen setzen —';
+  $('d-client').value = upload.client || T('— in den Einstellungen setzen —', '— set it in the settings —');
   $('d-product').value = upload.product;
   $('d-reference').value = upload.reference;
   $('draft-form').hidden = false;
@@ -715,7 +803,8 @@ async function sendReport(file) {
 $('draft-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const hours = Number($('d-hours').value);
-  if (!confirm(`Rechnungsentwurf in sevDesk anlegen?\n${upload.client}: ${String(hours).replace('.', ',')} Stunden, ${dmy($('d-from').value)} – ${dmy($('d-to').value)}`)) return;
+  if (!confirm(T(`Rechnungsentwurf in sevDesk anlegen?\n${upload.client}: ${String(hours).replace('.', ',')} Stunden, ${dmy($('d-from').value)} – ${dmy($('d-to').value)}`,
+    `Create the invoice draft in sevDesk?\n${upload.client}: ${hours} hours, ${dmy($('d-from').value)} – ${dmy($('d-to').value)}`))) return;
   start('invoice', 'POST', '/api/harvest/draft', { id: upload.id, hours, from: $('d-from').value, to: $('d-to').value });
 });
 
@@ -731,9 +820,9 @@ async function loadLog() {
   $('no-jobs').hidden = jobs.length > 0;
   $('jobs').replaceChildren(...jobs.flatMap((job) => {
     const li = el('li', '',
-      el('span', 'when', new Date(job.started).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })),
-      el('span', 'grow title', job.title),
-      el('span', `badge ${job.status}`, { running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen' }[job.status] || job.status));
+      el('span', 'when', new Date(job.started).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })),
+      el('span', 'grow title', title(job.title)),
+      el('span', `badge ${job.status}`, STATUS()[job.status] || job.status));
     li.addEventListener('click', () => {
       $('jobs').querySelector('li.detail')?.remove();
       for (const other of $('jobs').children) other.classList.remove('on');
@@ -762,7 +851,7 @@ loaders.log = loadLog;
  */
 function bmfLink() {
   const year = plan?.month ? Number(plan.month.slice(0, 4)) : new Date().getFullYear();
-  const a = el('a', '', 'BMF-Ländertabelle');
+  const a = el('a', '', T('BMF-Ländertabelle', "BMF's table of countries"));
   a.href = `/api/bmf-table?year=${year}`;
   a.target = '_blank';
   a.rel = 'noopener';
@@ -773,64 +862,71 @@ const PROVINCES = ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV', 'NI', 'NW', '
 // A new line in a form's grid: what follows starts on the left.
 const BREAK = ['', '', 'break'];
 
+// Section titles the code looks for, and labels used twice.
+const CLIENTS = T('Kunden', 'Clients');
+const INLAND = T('Pauschalen Inland', 'Inland rates');
+const SCAN = T('Mails durchsuchen (je Ordner)', 'Mails to search (per folder)');
+const FOLDERS = T('Ordner, der Reihe nach', 'Folders, in order');
+const DEFAULT = T('Standard', 'default');
+
 // The settings as the config file has them, each where it is used: per part of the page, its
 // sections with field path, label, type. Only what all of them share is under Einstellungen.
 const PARTS = {
-  company: [['Firma', [['Company.Name', 'Firmenname']]]],
-  staff: [['Mitarbeiter', []]],
-  mail: [['E-Mail', [
+  company: [[T('Firma', 'Company'), [['Company.Name', T('Firmenname', 'Company name')]]]],
+  staff: [[T('Mitarbeiter', 'Employees'), []]],
+  mail: [[T('E-Mail', 'E-mail'), [
     ['Mail.SMTPHost', 'SMTP-Server'], ['Mail.SMTPPort', 'SMTP-Port', 'number'],
     ['Mail.IMAPHost', 'IMAP-Server'], ['Mail.IMAPPort', 'IMAP-Port', 'number'],
-    ['Mail.Username', 'Benutzer'], ['Mail.Password', 'Passwort', 'secret', 0],
-    ['Mail.From', 'Absender'], ['Mail.To', 'Empfänger'], ['Mail.CC', 'Kopie (z. B. sevDesk-Autobox)'],
+    ['Mail.Username', T('Benutzer', 'User')], ['Mail.Password', T('Passwort', 'Password'), 'secret', 0],
+    ['Mail.From', T('Absender', 'Sender')], ['Mail.To', T('Empfänger', 'Recipient')], ['Mail.CC', T('Kopie (z. B. sevDesk-Autobox)', 'Copy (e.g. sevDesk Autobox)')],
   ]]],
-  web: [['Oberfläche', [
-    ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'],
-    ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
-    ['Web.ProxyToken', 'Proxy-Token (Caddy in Docker)', 'secret', 4],
+  web: [[T('Oberfläche', 'Web interface'), [
+    ['Web.Listen', T('Adresse (Neustart nötig)', 'Address (needs a restart)'), 'text', T('localhost:8595, auch im Netz (:8595)', 'localhost:8595, on the network too (:8595)')],
+    ['Web.HomeOnly', T('Nur im Heimnetz erreichbar', 'Home network only'), 'bool', true],
+    ['Web.ProxyToken', T('Proxy-Token (Caddy in Docker)', 'Proxy token (Caddy in Docker)'), 'secret', 4],
   ]]],
-  travel: [['Kunden', [
-    ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
-  ]], ['Pauschalen Inland', [
-    ['TravelExpense.MealRates.Day', 'Tagesreise > 8 h (€)', 'money', 14],
-    ['TravelExpense.MealRates.FullDay', 'Ganzer Tag (€)', 'money', 28],
-    ['TravelExpense.MealRates.TravelDay', 'An-/Abreisetag (€)', 'money', 14],
-    ['TravelExpense.LodgingRate', 'Übernachtung (€)', 'money', 20],
+  travel: [[CLIENTS, [
+    ['TravelExpense.ChristmasWeekOff', T('Weihnachtswoche frei (24. und 27.–31.12.)', 'Christmas week off (Dec 24 and 27–31)'), 'bool', true],
+  ]], [INLAND, [
+    ['TravelExpense.MealRates.Day', `${RATE_NAMES.mealDay} (€)`, 'money', 14],
+    ['TravelExpense.MealRates.FullDay', `${RATE_NAMES.mealFullDay} (€)`, 'money', 28],
+    ['TravelExpense.MealRates.TravelDay', `${RATE_NAMES.mealTravelDay} (€)`, 'money', 14],
+    ['TravelExpense.LodgingRate', `${RATE_NAMES.lodging} (€)`, 'money', 20],
   ]]],
   invoice: [['', [
-    ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
-    ['HarvestInvoice.SevDesk.ProductName', 'Artikel (Suchbegriff)'], ['HarvestInvoice.SevDesk.ProductNum', 'Artikelnummer'],
-    ['HarvestInvoice.SevDesk.ReferenceNum', 'Kundenreferenz (E-Rechnung)'],
+    ['HarvestInvoice.SevDesk.ClientName', T('Kunde in sevDesk', 'Client in sevDesk')],
+    ['HarvestInvoice.SevDesk.ProductName', T('Artikel (Suchbegriff)', 'Product (search term)')], ['HarvestInvoice.SevDesk.ProductNum', T('Artikelnummer', 'Product number')],
+    ['HarvestInvoice.SevDesk.ReferenceNum', T('Kundenreferenz (E-Rechnung)', 'Client reference (e-invoice)')],
     BREAK,
-    ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 2],
+    ['HarvestInvoice.SevDesk.Username', T('sevDesk-Benutzer', 'sevDesk user')], ['HarvestInvoice.SevDesk.Password', T('sevDesk-Passwort', 'sevDesk password'), 'secret', 2],
     BREAK,
-    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 3],
-    ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest', 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
+    ['HarvestInvoice.Harvest.Token', T('Harvest-API-Token', 'Harvest API token'), 'secret', 3],
+    ['HarvestInvoice.Harvest.Client', T('Kunde in Harvest', 'Client in Harvest'), 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
     BREAK,
-    ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
+    ['HarvestInvoice.SkipExisting', T('Nicht doppelt anlegen (sevDesk prüfen)', 'Never twice (check sevDesk)'), 'bool', true],
   ]]],
   anthropic: [['', [
-    ['AnthropicInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 50],
-    ['AnthropicInvoice.Filter.From', 'Absender-Domains', 'text', 'mail.anthropic.com, stripe.com'],
-    ['AnthropicInvoice.Filter.Subject', 'Betreff beginnt mit', 'text', 'Your receipt from Anthropic'],
-    ['AnthropicInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],
+    ['AnthropicInvoice.Filter.Count', SCAN, 'number', 50],
+    ['AnthropicInvoice.Filter.From', T('Absender-Domains', 'Sender domains'), 'text', 'mail.anthropic.com, stripe.com'],
+    ['AnthropicInvoice.Filter.Subject', T('Betreff beginnt mit', 'Subject starts with'), 'text', 'Your receipt from Anthropic'],
+    ['AnthropicInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
   apple: [['', [
-    ['AppleInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 50],
-    ['AppleInvoice.Filter.From', 'Absender-Domain', 'text', 'apple.com'],
-    ['AppleInvoice.Filter.Subject', 'Betreff', 'text', 'Deine Rechnung von Apple'],
-    ['AppleInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],
+    ['AppleInvoice.Filter.Count', SCAN, 'number', 50],
+    ['AppleInvoice.Filter.From', T('Absender-Domain', 'Sender domain'), 'text', 'apple.com'],
+    ['AppleInvoice.Filter.Subject', T('Betreff', 'Subject'), 'text', 'Deine Rechnung von Apple'],
+    ['AppleInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
   vodafone: [['', [
-    ['VodafoneInvoice.Username', 'Benutzer'], ['VodafoneInvoice.Password', 'Passwort', 'secret', 1],
-    ['VodafoneInvoice.FallbackToLastMonth', 'Sonst die Rechnung vom Vormonat', 'bool', true],
+    ['VodafoneInvoice.Username', T('Benutzer', 'User')], ['VodafoneInvoice.Password', T('Passwort', 'Password'), 'secret', 1],
+    ['VodafoneInvoice.FallbackToLastMonth', T('Sonst die Rechnung vom Vormonat', 'Else the previous month\'s invoice'), 'bool', true],
   ]]],
 };
 const CLIENT_FIELDS = [
-  ['ID', 'Nr.'], ['Name', 'Name'], ['From', 'Von'], ['To', 'Nach'], ['Reason', 'Grund'],
-  ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
-  ['MealDay', 'Tagesreise > 8 h (€)', 'money', 14], ['MealFullDay', 'Ganzer Tag (€)', 'money', 28],
-  ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14], ['Lodging', 'Übernachtung (€)', 'money', 20],
+  ['ID', T('Nr.', 'No.')], ['Name', 'Name'], ['From', T('Von', 'From')], ['To', T('Nach', 'To')], ['Reason', T('Grund', 'Purpose')],
+  ['Distance', T('Entfernung (km, einfach)', 'Distance (km, one way)'), 'number'], ['Country', T('Land', 'Country'), 'country'], ['Province', T('Bundesland', 'State'), 'province'],
+  ['MealDay', `${RATE_NAMES.mealDay} (€)`, 'money', 14], ['MealFullDay', `${RATE_NAMES.mealFullDay} (€)`, 'money', 28],
+  ['MealTravelDay', `${RATE_NAMES.mealTravelDay} (€)`, 'money', 14], ['Lodging', `${RATE_NAMES.lodging} (€)`, 'money', 20],
 ];
 
 let settings = null;
@@ -859,7 +955,9 @@ function field(obj, [path, label, type, extra]) {
     input.value = value || 'BW';
   } else if (type === 'country') {
     input = el('select');
-    const names = Object.entries(settings.countries).sort((a, b) => a[1].localeCompare(b[1], 'de'));
+    // In English the countries' English names, from the browser.
+    const english = LANG === 'en' && typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
+    const names = Object.entries(settings.countries).map(([code, name]) => [code, english?.of(code) ?? name]).sort((a, b) => a[1].localeCompare(b[1], LANG));
     input.append(...names.map(([code, name]) => {
       const o = el('option', '', `${name} (${code})`);
       o.value = code;
@@ -887,29 +985,29 @@ function field(obj, [path, label, type, extra]) {
         // A night without a hotel invoice: the client's rate, else the inland one — abroad the
         // country's from the BMF's table is wanted.
         const inland = getPath(settings.config, 'TravelExpense.LodgingRate') || extra;
-        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)` : 'Satz des Landes';
+        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? T(`leer: ${inland} (Inland)`, `empty: ${inland} (inland)`) : T('Satz des Landes', "the country's rate");
       } else if (path.startsWith('Meal')) {
         // A client's own rate: else the inland one — abroad that is wrong, the country's is wanted.
         const inland = getPath(settings.config, `TravelExpense.MealRates.${path.slice(4)}`) || extra;
         // Abroad, the day trip and travel day rates are one in the BMF's table: each stands in
         // for the other.
         const other = { MealDay: 'MealTravelDay', MealTravelDay: 'MealDay' }[path];
-        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)`
-          : other && obj[other] ? `leer: ${obj[other]} (wie ${path === 'MealDay' ? 'An-/Abreisetag' : 'Tagesreise'})`
-          : 'Satz des Landes';
+        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? T(`leer: ${inland} (Inland)`, `empty: ${inland} (inland)`)
+          : other && obj[other] ? T(`leer: ${obj[other]} (wie ${path === 'MealDay' ? 'An-/Abreisetag' : 'Tagesreise'})`, `empty: ${obj[other]} (as ${path === 'MealDay' ? 'arrival/departure day' : 'day trip'})`)
+          : T('Satz des Landes', "the country's rate");
       } else {
-        input.placeholder = `Standard: ${extra} (gesetzlich)`;
+        input.placeholder = T(`Standard: ${extra} (gesetzlich)`, `default: ${extra} (legal)`);
       }
     }
     input.value = type === 'secret' ? '' : type === 'list' ? (value ?? []).join(', ')
       : value || (type === 'number' || type === 'money' ? '' : value ?? '');
-    if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
+    if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? T('gespeichert — zum Ändern eingeben', 'saved — type to change') : '';
     // Left empty, the default applies: shown as the hint.
-    if ((type === 'text' || type === 'number' || type === 'list') && extra !== undefined) input.placeholder = `Standard: ${extra}`;
+    if ((type === 'text' || type === 'number' || type === 'list') && extra !== undefined) input.placeholder = `${DEFAULT}: ${extra}`;
     // Left empty, another field's value applies: shown as the hint, as it is typed there.
     if (type === 'shadow') {
       input.dataset.shadowOf = extra;
-      input.placeholder = getPath(obj, extra) ? `Standard: ${getPath(obj, extra)}` : '';
+      input.placeholder = getPath(obj, extra) ? `${DEFAULT}: ${getPath(obj, extra)}` : '';
     }
     input.autocomplete = 'off';
   }
@@ -923,7 +1021,7 @@ function field(obj, [path, label, type, extra]) {
 document.addEventListener('input', (e) => {
   const path = e.target.dataset && e.target.dataset.path;
   if (!path) return;
-  for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value ? `Standard: ${e.target.value}` : '';
+  for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value ? `${DEFAULT}: ${e.target.value}` : '';
 });
 
 function bind(input, update) {
@@ -954,20 +1052,23 @@ function renderSettings() {
     const children = [];
     for (const [title, fields] of PARTS[part]) {
       if (title) children.push(el('h2', '', title));
-      if (title === 'Pauschalen Inland') {
-        children.push(el('p', 'muted', 'Für Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (Verpflegung 14 / 28 / 14 €, Übernachtung ohne Hotelrechnung 20 €). Auslandssätze: ', bmfLink(), '.'));
+      if (title === INLAND) {
+        children.push(el('p', 'muted', T('Für Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (Verpflegung 14 / 28 / 14 €, Übernachtung ohne Hotelrechnung 20 €). Auslandssätze: ',
+          'For clients without their own rates. Empty: the legal allowances (meals 14 / 28 / 14 €, a night without a hotel invoice 20 €). Rates abroad: '), bmfLink(), '.'));
       }
-      if (title === 'Kunden') children.push(renderClients(cfg));
-      if (title === 'Mitarbeiter') children.push(renderStaff(cfg));
+      if (title === CLIENTS) children.push(renderClients(cfg));
+      if (part === 'staff') children.push(renderStaff(cfg));
       if (fields.length) children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
-      if (title === 'Firma') children.push(renderLogo());
+      if (part === 'company') children.push(renderLogo());
     }
     if (part === 'web') {
-      children.push(el('p', 'muted', 'Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.'));
+      children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',
+        'Home network only: only devices with a private address (192.168.…, 10.…, localhost), even with the port open by mistake. Off: from outside too, through Caddy say — but only once an employee has a password, and only after logging in. Behind Caddy the visitor\'s address counts; Caddy in Docker (172.…) needs the proxy token, the same as in the Caddyfile.')));
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mail') {
-      children.push(el('p', 'muted', `Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen.`));
+      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen.`,
+        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Anthropic, Apple and Vodafone with Receipts.`)));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
@@ -979,13 +1080,18 @@ function renderSettings() {
 /** What has changed and is not saved yet, by name. */
 function unsaved() {
   const parts = [];
-  if (settings && JSON.stringify(settings.config) !== settings.saved) parts.push('Einstellungen');
-  if (schedule && scheduleJSON() !== schedule.saved) parts.push('Zeitplan');
-  if (lists.assignments.dirty) parts.push('Zuordnungen');
-  if (lists.blocked.dirty) parts.push('Gesperrte Tage');
-  if (logoDraft !== undefined) parts.push('Logo');
+  if (settings && JSON.stringify(settings.config) !== settings.saved) parts.push('settings');
+  if (schedule && scheduleJSON() !== schedule.saved) parts.push('schedule');
+  if (lists.assignments.dirty) parts.push('assignments');
+  if (lists.blocked.dirty) parts.push('blocked');
+  if (logoDraft !== undefined) parts.push('logo');
   return parts;
 }
+
+/** The unsaved parts by their names on the page. */
+const PART_NAMES = T({ settings: 'Einstellungen', schedule: 'Zeitplan', assignments: 'Zuordnungen', blocked: 'Gesperrte Tage', logo: 'Logo' },
+  { settings: 'settings', schedule: 'schedule', assignments: 'assignments', blocked: 'blocked days', logo: 'logo' });
+const partNames = (parts) => parts.map((p) => PART_NAMES[p]).join(', ');
 
 let armed = null; // the timer while the button asks "sicher?"
 
@@ -994,32 +1100,33 @@ function refreshSave() {
   const save = $('save-all');
   save.disabled = parts.length === 0;
   if (!parts.length) disarm();
-  $('save-note').textContent = parts.length ? `Nicht gespeichert: ${parts.join(', ')}` : '';
+  $('save-note').textContent = parts.length ? `${T('Nicht gespeichert', 'Not saved')}: ${partNames(parts)}` : '';
 }
 
 function disarm() {
   clearTimeout(armed);
   armed = null;
   $('save-all').classList.remove('armed');
-  $('save-all').textContent = 'Speichern';
+  $('save-all').textContent = T('Speichern', 'Save');
 }
+disarm();
 
 $('save-all').addEventListener('click', async () => {
   if (!armed) {
     $('save-all').classList.add('armed');
-    $('save-all').textContent = 'Sicher?';
+    $('save-all').textContent = T('Sicher?', 'Sure?');
     armed = setTimeout(disarm, 4000);
     return;
   }
   disarm();
   const parts = unsaved();
   $('save-all').disabled = true;
-  $('save-note').textContent = 'Speichere…';
+  $('save-note').textContent = T('Speichere…', 'Saving…');
   try {
     // The settings first: an assignment may name a client added just now.
-    if (parts.includes('Einstellungen')) await api('PUT', '/api/settings', settings.config);
-    if (parts.includes('Zeitplan')) await api('PUT', '/api/schedule', JSON.parse(scheduleJSON()));
-    if (parts.includes('Logo')) {
+    if (parts.includes('settings')) await api('PUT', '/api/settings', settings.config);
+    if (parts.includes('schedule')) await api('PUT', '/api/schedule', JSON.parse(scheduleJSON()));
+    if (parts.includes('logo')) {
       if (logoDraft) {
         const form = new FormData();
         form.append('logo', logoDraft);
@@ -1038,7 +1145,7 @@ $('save-all').addEventListener('click', async () => {
       }
     }
   } catch (err) {
-    $('save-note').textContent = `Nicht gespeichert: ${err.message}`;
+    $('save-note').textContent = `${T('Nicht gespeichert', 'Not saved')}: ${err.message}`;
     $('save-all').disabled = false;
     return;
   }
@@ -1048,7 +1155,7 @@ $('save-all').addEventListener('click', async () => {
   await loadOverview();
   await Promise.all([loadSettings(), loadCron(), loadTravel()]);
   refreshSave();
-  $('save-note').textContent = `Gespeichert: ${parts.join(', ')}.`;
+  $('save-note').textContent = `${T('Gespeichert', 'Saved')}: ${partNames(parts)}.`;
 });
 
 // Every edit may change what is unsaved.
@@ -1067,11 +1174,11 @@ function renderLogo() {
   const take = (file) => {
     if (!file) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      alert('Das Logo muss ein PNG oder JPEG sein.');
+      alert(T('Das Logo muss ein PNG oder JPEG sein.', 'The logo must be a PNG or JPEG.'));
       return;
     }
     if (file.size > 2 << 20) {
-      alert('Das Logo ist größer als 2 MB.');
+      alert(T('Das Logo ist größer als 2 MB.', 'The logo is larger than 2 MB.'));
       return;
     }
     logoDraft = file;
@@ -1096,24 +1203,25 @@ function renderLogo() {
 
   // Empty: the button, and where a file may be dropped instead.
   const empty = el('div', 'logo-empty',
-    button('Logo hochladen', '', () => input.click()),
-    el('span', 'muted', 'oder hier hineinziehen'),
-    el('span', 'muted', '.jpg, .jpeg, .png (max. 2 MB, 1 Datei)'));
+    button(T('Logo hochladen', 'Upload logo'), '', () => input.click()),
+    el('span', 'muted', T('oder hier hineinziehen', 'or drop it here')),
+    el('span', 'muted', T('.jpg, .jpeg, .png (max. 2 MB, 1 Datei)', '.jpg, .jpeg, .png (max. 2 MB, 1 file)')));
 
   // With a logo: a red × over it, and asked once more before it goes.
   const preview = el('img', 'logo-preview');
   preview.alt = 'Logo';
   const remove = button('×', 'logo-remove', () => { logoConfirm = true; renderSettings(); });
-  remove.title = 'Firmenlogo löschen';
-  remove.setAttribute('aria-label', 'Firmenlogo löschen');
+  const removeText = T('Firmenlogo löschen', 'Delete company logo');
+  remove.title = removeText;
+  remove.setAttribute('aria-label', removeText);
   const confirmBox = el('div', 'logo-confirm',
-    button('Firmenlogo löschen', 'danger', () => {
+    button(removeText, 'danger', () => {
       logoDraft = null;
       logoConfirm = false;
       renderSettings();
       refreshSave();
     }),
-    button('Abbrechen', '', () => { logoConfirm = false; renderSettings(); }));
+    button(T('Abbrechen', 'Cancel'), '', () => { logoConfirm = false; renderSettings(); }));
   const filled = el('div', `logo-filled${logoConfirm ? ' confirming' : ''}`, preview, remove, confirmBox);
   confirmBox.hidden = !logoConfirm;
   remove.hidden = logoConfirm;
@@ -1130,7 +1238,8 @@ function renderLogo() {
 
   card.append(empty, filled, input);
   return el('div', 'logo-box',
-    el('p', 'muted', 'Oben rechts im Zeitnachweis, Größe und Lage wie auf den sevDesk-Rechnungen — am besten dieselbe Datei. Ohne Logo: der Firmenname, ohne den der Name des Harvest-Kontos.'),
+    el('p', 'muted', T('Oben rechts im Zeitnachweis, Größe und Lage wie auf den sevDesk-Rechnungen — am besten dieselbe Datei. Ohne Logo: der Firmenname, ohne den der Name des Harvest-Kontos.',
+      "At the top right of the work log, size and place as on the sevDesk invoices — best the same file. Without a logo: the company name, without that the Harvest account's name.")),
     card);
 }
 
@@ -1147,33 +1256,34 @@ function renderMailboxes(cfg) {
   const list = el('ul', 'rows staff mailboxes', ...boxes.map((box, i) => {
     const user = el('input', 'grow');
     user.value = box.Username ?? '';
-    user.placeholder = 'Adresse, z. B. max@example.de';
+    user.placeholder = T('Adresse, z. B. max@example.de', 'Address, e.g. max@example.com');
     user.autocomplete = 'off';
-    user.setAttribute('aria-label', 'Adresse');
+    user.setAttribute('aria-label', T('Adresse', 'Address'));
     user.addEventListener('input', () => { box.Username = user.value.trim(); refreshSave(); });
     const password = el('input', 'password');
     password.type = 'password';
     password.autocomplete = 'new-password';
-    password.placeholder = settings.mailboxes?.[i] ? 'gespeichert — neu eingeben' : 'Passwort';
+    password.placeholder = settings.mailboxes?.[i] ? T('gespeichert — neu eingeben', 'saved — type anew') : T('Passwort', 'Password');
     password.value = box.Password ?? '';
-    password.setAttribute('aria-label', 'Passwort');
+    password.setAttribute('aria-label', T('Passwort', 'Password'));
     password.addEventListener('input', () => { box.Password = password.value; refreshSave(); });
     const host = el('input', 'password');
     host.value = box.IMAPHost ?? '';
-    host.placeholder = `IMAP: ${cfg.Mail.IMAPHost || 'wie oben'}`;
-    host.setAttribute('aria-label', 'IMAP-Server');
+    host.placeholder = `IMAP: ${cfg.Mail.IMAPHost || T('wie oben', 'as above')}`;
+    host.setAttribute('aria-label', T('IMAP-Server', 'IMAP server'));
     host.addEventListener('input', () => { box.IMAPHost = host.value.trim(); refreshSave(); });
-    return el('li', '', user, password, host, button('entfernen', 'link', () => {
+    return el('li', '', user, password, host, button(T('entfernen', 'remove'), 'link', () => {
       boxes.splice(i, 1);
       settings.mailboxes?.splice(i, 1);
       changed();
     }));
   }));
   return el('div', '',
-    el('h2', '', 'Weitere Postfächer'),
-    el('p', 'muted', 'Weitere Postfächer mit Belegen, etwa Anthropic an eine andere Adresse. Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.'),
-    boxes.length ? list : el('p', 'muted', 'Keine.'),
-    el('div', 'actions', button('Postfach hinzufügen', '', () => { boxes.push({ Username: '' }); changed(); })));
+    el('h2', '', T('Weitere Postfächer', 'Further mailboxes')),
+    el('p', 'muted', T('Weitere Postfächer mit Belegen, etwa Anthropic an eine andere Adresse. Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.',
+      'Further mailboxes with receipts, Anthropic\'s to another address, say. Searched after the one above, in the same folders; mail goes out from the one above. IMAP server empty: the one above.')),
+    boxes.length ? list : el('p', 'muted', T('Keine.', 'None.')),
+    el('div', 'actions', button(T('Postfach hinzufügen', 'Add mailbox'), '', () => { boxes.push({ Username: '' }); changed(); })));
 }
 
 /**
@@ -1190,11 +1300,11 @@ function renderStaff(cfg) {
     pick.type = 'radio';
     pick.name = 'staff-current';
     pick.checked = name === staff.Current;
-    pick.setAttribute('aria-label', `${name || 'Mitarbeiter'} auswählen`);
+    pick.setAttribute('aria-label', T(`${name || 'Mitarbeiter'} auswählen`, `Select ${name || 'employee'}`));
     pick.addEventListener('change', () => { staff.Current = staff.Names[i]; changed(); });
     const input = el('input', 'grow');
     input.value = name;
-    input.placeholder = 'Vorname Nachname, wie in Harvest';
+    input.placeholder = T('Vorname Nachname, wie in Harvest', 'First and last name, as in Harvest');
     input.setAttribute('aria-label', 'Name');
     // Renaming the selected one keeps it selected; the list redraws once the field is left.
     input.addEventListener('input', () => {
@@ -1208,26 +1318,26 @@ function renderStaff(cfg) {
     const password = el('input', 'password');
     password.type = 'password';
     password.autocomplete = 'new-password';
-    password.placeholder = has ? 'Passwort gesetzt — neu eingeben' : 'Passwort (für die Anmeldung)';
+    password.placeholder = has ? T('Passwort gesetzt — neu eingeben', 'password set — type anew') : T('Passwort (für die Anmeldung)', 'Password (for logging in)');
     password.value = staff.Passwords?.[name] ?? '';
-    password.setAttribute('aria-label', `Passwort für ${name || 'den Mitarbeiter'}`);
+    password.setAttribute('aria-label', T(`Passwort für ${name || 'den Mitarbeiter'}`, `Password for ${name || 'the employee'}`));
     password.addEventListener('input', () => {
       staff.Passwords ??= {};
       if (password.value) staff.Passwords[name] = password.value;
       else delete staff.Passwords[name];
       refreshSave();
     });
-    const noLogin = has && button('Passwort entfernen', 'link', () => {
+    const noLogin = has && button(T('Passwort entfernen', 'remove password'), 'link', () => {
       staff.NoLogin = [...(staff.NoLogin ?? []), name];
       changed();
     });
-    return el('li', '', pick, input, password, noLogin, button('entfernen', 'link', () => {
+    return el('li', '', pick, input, password, noLogin, button(T('entfernen', 'remove'), 'link', () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
       changed();
     }));
   }));
-  const add = button('Mitarbeiter hinzufügen', '', () => {
+  const add = button(T('Mitarbeiter hinzufügen', 'Add employee'), '', () => {
     staff.Names.push('');
     if (!staff.Current) staff.Current = '';
     renderSettings();
@@ -1236,25 +1346,28 @@ function renderStaff(cfg) {
     inputs[inputs.length - 1]?.focus();
   });
   return el('div', '',
-    el('p', 'muted', 'Der ausgewählte Mitarbeiter ist Lieferant der Reisekosten; seine Harvest-Stunden ergeben Zeitnachweis und Kundenrechnung — Name wie in Harvest.'),
-    el('p', 'muted', 'Passwort: mindestens 8 Zeichen, nur als Hash gespeichert. Hat einer eines, fragt die Seite nach der Anmeldung (im Heimnetz ohne Passwort); hat keiner eines, antwortet sie nur im Heimnetz.'),
-    staff.Names.length ? list : el('p', 'muted', 'Noch niemand eingetragen.'),
+    el('p', 'muted', T('Der ausgewählte Mitarbeiter ist Lieferant der Reisekosten; seine Harvest-Stunden ergeben Zeitnachweis und Kundenrechnung — Name wie in Harvest.',
+      'The selected employee is the supplier on the travel expenses; their Harvest hours make the work log and the invoice — the name as in Harvest.')),
+    el('p', 'muted', T('Passwort: mindestens 8 Zeichen, nur als Hash gespeichert. Hat einer eines, fragt die Seite nach der Anmeldung (im Heimnetz ohne Passwort); hat keiner eines, antwortet sie nur im Heimnetz.',
+      'Password: at least 8 characters, kept only as a hash. Once anyone has one, the page asks for a login (at home without the password); while no one has, it answers the home network only.')),
+    staff.Names.length ? list : el('p', 'muted', T('Noch niemand eingetragen.', 'No one entered yet.')),
     el('div', 'actions', add));
 }
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
   const box = el('div', '', el('p', 'muted',
-    'Feiertage: in Deutschland die des Bundeslands, sonst die des Landes. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Im Ausland die Pauschalen des Landes eintragen: ',
-    bmfLink(), ' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).'));
+    T('Feiertage: in Deutschland die des Bundeslands, sonst die des Landes. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Im Ausland die Pauschalen des Landes eintragen: ',
+      "Holidays: in Germany the state's, elsewhere the country's. Clients outside Europe get assigned days only. Abroad, enter the country's allowances: "),
+    bmfLink(), T(' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).', ' (full day = 24 hours, arrival/departure day = the day of arrival and of departure).')));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
-      button('entfernen', 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); refreshSave(); }),
+      button(T('entfernen', 'remove'), 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); refreshSave(); }),
       el('div', 'grid', ...CLIENT_FIELDS
         .filter(([key]) => key !== 'Province' || (c.Country || 'DE').toUpperCase() === 'DE')
         .map((f) => field(c, f)))));
   });
-  box.append(el('div', 'actions', button('Kunde hinzufügen', '', () => {
+  box.append(el('div', 'actions', button(T('Kunde hinzufügen', 'Add client'), '', () => {
     cfg.TravelExpense.Clients.push({ Province: 'BW' });
     renderSettings();
     refreshSave();

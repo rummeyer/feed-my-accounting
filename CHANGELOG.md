@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Web interface in **English** too: *DE | EN* at the top right, as on rummeyer.com — the browser's language at first, `?lang=en` in the address, then the one chosen. The login page as well, and the server's messages. Run names from before are shown in English too. The PDFs and mails stay German.
+
 ### Changed
 
+- The theme switch with rummeyer.com's pixel icons — sun, moon, half disc — its first click always away from what is on screen.
 - Zuordnungen: *über Nacht* is *Übernachtung*, *Hotel mit Rechnung* *Hotel*, *Rückflug über Nacht* *Nachtflug*, each with its pixel icon — moon, bed and a new plane; day trips with the car. An entry shows *Hotel* or *Übernachtung*, not both. In the calendar's legend the moon is *Übernachtung* and the bed *Übernachtungspauschale*. On one line with a short note; with an overnight trip's checkboxes, note and *Zuordnen* go beneath; the entries show the icons too.
 
 ## [1.15.0] - 2026-11-12

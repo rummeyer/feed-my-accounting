@@ -99,7 +99,7 @@ feed-my-accounting serve          # http://<host>:8595
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the three PDFs it made" width="380">
 </p>
 
-<p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>, <a href="docs/login.png">the login</a>.</sub></p>
+<p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. The page speaks German or English — the browser's language at first, then *DE | EN* at the top right; the PDFs and mails stay German, for the German books. Dark mode follows the system, or the switch beside it — sun, moon, half disc, as on rummeyer.com: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>, <a href="docs/login.png">the login</a>.</sub></p>
 
 `serve` starts a small web server — one Go binary, the page embedded — with a register card per area of work. Everything it does is also what the command line does; it reads `config.yaml` afresh on every request, so edits by hand count at once.
 

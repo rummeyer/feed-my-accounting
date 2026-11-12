@@ -6,20 +6,24 @@
   <title>Anmelden · feed-my-accounting</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect width='16' height='16' fill='%232e2e2e'/><rect x='3' y='3' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='7' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='11' width='6' height='2' fill='%23fbfbfa'/></svg>">
   <link rel="stylesheet" href="style.css">
+  <script src="lang.js"></script>
   <script src="theme.js"></script>
 </head>
 <body>
   <main class="login">
+    <div class="switch-row">
+      <span class="lang-switch"><a href="?lang=de" hreflang="de" data-lang-link="de">DE</a><span class="sep">|</span><a href="?lang=en" hreflang="en" data-lang-link="en">EN</a></span>
+    </div>
     <header class="masthead">
       <h1><img class="logo" src="logo.webp" width="580" height="218" alt="feed-my-accounting"></h1>
-      <p class="tagline">Reisekosten &amp; Rechnungen für die Buchhaltung</p>
+      <p class="tagline"><span lang="de">Reisekosten &amp; Rechnungen für die Buchhaltung</span><span lang="en">Travel expenses &amp; invoices for the accounts</span></p>
     </header>
     <form id="login" class="login-form">
-      <h2>Anmelden</h2>
-      <label>Mitarbeiter<select id="name" autocomplete="username" required></select><input id="name-typed" autocomplete="username" hidden></label>
-      <label id="password-label">Passwort<input type="password" id="password" autocomplete="current-password" required></label>
+      <h2><span lang="de">Anmelden</span><span lang="en">Log in</span></h2>
+      <label><span lang="de">Mitarbeiter</span><span lang="en">Employee</span><select id="name" autocomplete="username" required></select><input id="name-typed" autocomplete="username" hidden></label>
+      <label id="password-label"><span lang="de">Passwort</span><span lang="en">Password</span><input type="password" id="password" autocomplete="current-password" required></label>
       <p id="error" class="error" hidden></p>
-      <div class="actions"><button type="submit" class="strong">Anmelden</button></div>
+      <div class="actions"><button type="submit" class="strong"><span lang="de">Anmelden</span><span lang="en">Log in</span></button></div>
     </form>
   </main>
   <script src="login.js"></script>

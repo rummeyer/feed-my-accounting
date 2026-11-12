@@ -139,6 +139,14 @@ func homeAddress(ip net.IP) bool {
 
 func (s *server) config() (*Config, error) { return loadConfig("", s.configPath) }
 
+// say is the message in the page's language: German, or English when the page asks so in X-Lang.
+func say(r *http.Request, de, en string) string {
+	if r.Header.Get("X-Lang") == "en" {
+		return en
+	}
+	return de
+}
+
 // fresh has the browser ask for the page's files again each time: after an update, a page kept
 // from before would run its old script with the new page — and drop what it does not know of
 // when saving (12.11.2026: a new checkbox, not saved).
@@ -488,7 +496,7 @@ func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
 			return
 		}
 		if cfg.HarvestInvoice.Harvest.Token == "" {
-			fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter „Einstellungen Kundenrechnung“ eintragen"))
+			fail(w, http.StatusBadRequest, errors.New(say(r, "kein Harvest-API-Token: unter „Einstellungen Kundenrechnung“ eintragen", "no Harvest API token: enter it under “Invoice settings”")))
 			return
 		}
 		title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
@@ -578,7 +586,7 @@ func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxLogo+64<<10) // the form around it too
 	file, _, err := r.FormFile("logo")
 	if err != nil {
-		fail(w, http.StatusBadRequest, uploadError(err, "no logo uploaded"))
+		fail(w, http.StatusBadRequest, uploadError(r, err, "no logo uploaded"))
 		return
 	}
 	defer file.Close()
@@ -588,14 +596,14 @@ func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(data) > maxLogo {
-		fail(w, http.StatusBadRequest, errors.New("das Logo ist größer als 2 MB"))
+		fail(w, http.StatusBadRequest, errors.New(say(r, "das Logo ist größer als 2 MB", "the logo is larger than 2 MB")))
 		return
 	}
 	// What the PDFs can show: PNG and JPEG, read as such, whatever the file was called.
 	_, format, err := image.DecodeConfig(bytes.NewReader(data))
 	ext := map[string]string{"png": ".png", "jpeg": ".jpg"}[format]
 	if err != nil || ext == "" {
-		fail(w, http.StatusBadRequest, errors.New("das Logo muss ein PNG oder JPEG sein"))
+		fail(w, http.StatusBadRequest, errors.New(say(r, "das Logo muss ein PNG oder JPEG sein", "the logo must be a PNG or JPEG")))
 		return
 	}
 	cfg, err := readConfig(s.configPath)
@@ -638,10 +646,10 @@ func setAsideLogo(cfg *Config) error {
 const maxReport = 10 << 20
 
 // uploadError is why an upload was not taken: too big, or not there.
-func uploadError(err error, missing string) error {
+func uploadError(r *http.Request, err error, missing string) error {
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {
-		return fmt.Errorf("zu groß: höchstens %d MB", tooBig.Limit>>20)
+		return fmt.Errorf(say(r, "zu groß: höchstens %d MB", "too large: %d MB at most"), tooBig.Limit>>20)
 	}
 	return errors.New(missing)
 }
@@ -652,7 +660,7 @@ func (s *server) harvestUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxReport)
 	file, _, err := r.FormFile("report")
 	if err != nil {
-		fail(w, http.StatusBadRequest, uploadError(err, "no PDF uploaded"))
+		fail(w, http.StatusBadRequest, uploadError(r, err, "no PDF uploaded"))
 		return
 	}
 	defer file.Close()
@@ -829,7 +837,7 @@ func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if len(password) < 8 {
-				return fmt.Errorf("das Passwort für %s ist kürzer als 8 Zeichen", name)
+				return fmt.Errorf(say(r, "das Passwort für %s ist kürzer als 8 Zeichen", "the password for %s is shorter than 8 characters"), name)
 			}
 			hash, err := hashPassword(password)
 			if err != nil {

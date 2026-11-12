@@ -106,6 +106,14 @@ main {
 @keyframes blink { 50% { opacity: 0; } }
 .theme-switch, .theme-switch:hover, .theme-switch:active { background: none; border: 0; padding: 0; box-shadow: none; transform: none; cursor: pointer; color: var(--muted); line-height: 0; }
 .theme-switch:hover { color: var(--headline); }
+.theme-switch:focus-visible { outline: 1px dotted var(--headline); outline-offset: 3px; }
+
+/* Both languages live in the page; only the chosen one shows — as on rummeyer.com. */
+[data-lang="en"] :lang(de), [data-lang="de"] :lang(en) { display: none; }
+.lang-switch a { color: var(--muted); border-bottom: none; text-decoration: none; }
+.lang-switch a:hover { color: var(--headline); }
+.lang-switch .sep { margin: 0 8px; color: var(--rule); }
+.lang-switch a[aria-current="true"] { color: var(--headline); font-weight: 700; }
 .theme-icon { display: none; shape-rendering: crispEdges; }
 [data-theme-pref="light"] .theme-icon-light,
 [data-theme-pref="dark"] .theme-icon-dark,

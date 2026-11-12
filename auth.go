@@ -278,7 +278,7 @@ func overHTTPS(r *http.Request) bool {
 
 // open are the paths the login page needs before a login.
 var open = map[string]bool{
-	"/login": true, "/login.html": true, "/login.js": true, "/theme.js": true,
+	"/login": true, "/login.html": true, "/login.js": true, "/theme.js": true, "/lang.js": true,
 	"/style.css": true, "/logo.webp": true, "/api/login": true, "/api/session": true,
 }
 
@@ -354,7 +354,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	// At home the name is enough: one of the employees.
 	if fromHome(r) {
 		if !slices.Contains(cfg.Staff.Names, in.Name) {
-			fail(w, http.StatusUnauthorized, errors.New("diesen Mitarbeiter gibt es nicht"))
+			fail(w, http.StatusUnauthorized, errors.New(say(r, "diesen Mitarbeiter gibt es nicht", "no such employee")))
 			return
 		}
 		s.startSession(w, r, in.Name)
@@ -362,7 +362,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := clientIP(r)
 	if s.failures.locked(ip) {
-		fail(w, http.StatusTooManyRequests, errors.New("zu viele Versuche — in 15 Minuten wieder"))
+		fail(w, http.StatusTooManyRequests, errors.New(say(r, "zu viele Versuche — in 15 Minuten wieder", "too many tries — again in 15 minutes")))
 		return
 	}
 	hash := cfg.Staff.Logins[in.Name]
@@ -372,7 +372,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(in.Password)) != nil || cfg.Staff.Logins[in.Name] == "" {
 		s.failures.failed(ip)
-		fail(w, http.StatusUnauthorized, errors.New("Name oder Passwort falsch"))
+		fail(w, http.StatusUnauthorized, errors.New(say(r, "Name oder Passwort falsch", "wrong name or password")))
 		return
 	}
 	s.failures.succeeded(ip)
@@ -430,7 +430,7 @@ func (s *server) auth(next http.Handler) http.Handler {
 		}
 		if required && !open[r.URL.Path] && s.active(w, r) == "" {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
-				fail(w, http.StatusUnauthorized, errors.New("nicht angemeldet"))
+				fail(w, http.StatusUnauthorized, errors.New(say(r, "nicht angemeldet", "not logged in")))
 			} else {
 				http.Redirect(w, r, "/login", http.StatusFound)
 			}

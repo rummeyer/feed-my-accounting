@@ -6,95 +6,102 @@
   <title>feed-my-accounting</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect width='16' height='16' fill='%232e2e2e'/><rect x='3' y='3' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='7' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='11' width='6' height='2' fill='%23fbfbfa'/></svg>">
   <link rel="stylesheet" href="style.css">
+  <script src="lang.js"></script>
   <script src="theme.js"></script>
 </head>
 <body>
+  <!-- Both languages are in the page, the other one hidden: <span lang="de">…</span><span
+       lang="en">…</span>. Attributes in English as data-en-…, set by app.js. -->
   <!-- Who works here, above the page: the employee, and Abmelden once logged in. -->
   <div class="userbar" id="userbar" hidden>
     <span id="employee"></span>
-    <button type="button" id="logout" class="link" hidden>Abmelden</button>
+    <button type="button" id="logout" class="link" hidden><span lang="de">Abmelden</span><span lang="en">Log out</span></button>
   </div>
   <main>
     <div class="switch-row">
       <span id="status" class="status">…</span>
-      <button class="theme-switch" id="theme" type="button" aria-label="Hell, dunkel oder wie das System">
-        <svg class="theme-icon theme-icon-auto" width="14" height="14" viewBox="0 0 7 7" aria-hidden="true"><path fill="currentColor" d="M2 0h3v1h1v1h1v3H6v1H5v1H2V6H1V5H0V2h1V1h1zM3.5 1v5H5V5h1V2H5V1z"/></svg>
-        <svg class="theme-icon theme-icon-light" width="14" height="14" viewBox="0 0 7 7" aria-hidden="true"><path fill="currentColor" d="M3 0h1v1H3zM3 6h1v1H3zM0 3h1v1H0zM6 3h1v1H6zM2 2h3v3H2z"/></svg>
-        <svg class="theme-icon theme-icon-dark" width="14" height="14" viewBox="0 0 7 7" aria-hidden="true"><path fill="currentColor" d="M2 0h3v1H3v1H2v3h1v1h2v1H2V6H1V5H0V2h1V1h1z"/></svg>
+      <span class="lang-switch"><a href="?lang=de" hreflang="de" data-lang-link="de">DE</a><span class="sep">|</span><a href="?lang=en" hreflang="en" data-lang-link="en">EN</a></span>
+      <!-- rummeyer.com's three: the sun, the moon, the half lit disc for the system's. -->
+      <button class="theme-switch" id="theme" type="button">
+        <svg class="theme-icon theme-icon-light" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 6h6v4H5z M6 5h4v6H6z M7 2h2v2H7z M7 12h2v2H7z M2 7h2v2H2z M12 7h2v2h-2z M3 3h2v2H3z M11 3h2v2h-2z M3 11h2v2H3z M11 11h2v2h-2z"/></svg>
+        <svg class="theme-icon theme-icon-dark" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M5 3h5v1H5z M4 4h5v1H4z M3 5h5v1H3z M2 6h5v4H2z M3 10h5v1H3z M4 11h5v1H4z M5 12h5v1H5z"/></svg>
+        <svg class="theme-icon theme-icon-auto" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M6 2h4v1H6z M4 3h8v1H4z M3 4h2v2H3z M8 4h5v2H8z M2 6h2v4H2z M8 6h6v4H8z M3 10h2v2H3z M8 10h5v2H8z M4 12h8v1H4z M6 13h4v1H6z"/></svg>
       </button>
     </div>
 
     <header class="masthead">
       <h1><img class="logo" src="logo.webp" width="580" height="218" alt="feed-my-accounting"></h1>
-      <p class="tagline">Reisekosten &amp; Rechnungen für die Buchhaltung</p>
+      <p class="tagline"><span lang="de">Reisekosten &amp; Rechnungen für die Buchhaltung</span><span lang="en">Travel expenses &amp; invoices for the accounts</span></p>
     </header>
 
-    <nav class="tabs" aria-label="Bereiche">
-      <a href="#cron">Zeitplan</a>
-      <a href="#receipts">Belege</a>
-      <a href="#travel">Reisekosten</a>
-      <a href="#invoice">Kundenrechnung</a>
-      <a href="#log">Protokoll</a>
-      <a href="#settings">Einstellungen</a>
+    <nav class="tabs" aria-label="Bereiche" data-en-aria-label="Sections">
+      <a href="#cron"><span lang="de">Zeitplan</span><span lang="en">Schedule</span></a>
+      <a href="#receipts"><span lang="de">Belege</span><span lang="en">Receipts</span></a>
+      <a href="#travel"><span lang="de">Reisekosten</span><span lang="en">Travel</span></a>
+      <a href="#invoice"><span lang="de">Kundenrechnung</span><span lang="en">Invoice</span></a>
+      <a href="#log"><span lang="de">Protokoll</span><span lang="en">Log</span></a>
+      <a href="#settings"><span lang="de">Einstellungen</span><span lang="en">Settings</span></a>
     </nav>
 
     <!-- Cron -->
     <section id="tab-cron" class="tab">
-      <h2>Zeitplan</h2>
-      <p class="muted">Läuft, solange die Oberfläche läuft. Cron: Minute Stunde Tag Monat Wochentag, z. B. <code>0 7 5 * *</code> = am 5. um 7:00. Dazu: <code>L</code> letzter Tag, <code>L-2</code> zwei Tage davor, <code>15W</code> Werktag am nächsten zum 15., <code>LW</code> letzter Werktag (ohne Feiertage, gesperrte Tage und, wenn frei, die Weihnachtswoche), <code>5L</code> letzter Freitag, <code>1#2</code> zweiter Montag, Namen wie <code>MON-FRI</code> und <code>JAN</code>, <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>.</p>
+      <h2><span lang="de">Zeitplan</span><span lang="en">Schedule</span></h2>
+      <p class="muted" lang="de">Läuft, solange die Oberfläche läuft. Cron: Minute Stunde Tag Monat Wochentag, z. B. <code>0 7 5 * *</code> = am 5. um 7:00. Dazu: <code>L</code> letzter Tag, <code>L-2</code> zwei Tage davor, <code>15W</code> Werktag am nächsten zum 15., <code>LW</code> letzter Werktag (ohne Feiertage, gesperrte Tage und, wenn frei, die Weihnachtswoche), <code>5L</code> letzter Freitag, <code>1#2</code> zweiter Montag, Namen wie <code>MON-FRI</code> und <code>JAN</code>, <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>.</p>
+      <p class="muted" lang="en">Runs while the web interface runs. Cron: minute hour day month weekday, e.g. <code>0 7 5 * *</code> = on the 5th at 7:00. Also: <code>L</code> last day, <code>L-2</code> two days before it, <code>15W</code> workday nearest the 15th, <code>LW</code> last workday (without holidays, blocked days and, if off, the Christmas week), <code>5L</code> last Friday, <code>1#2</code> second Monday, names like <code>MON-FRI</code> and <code>JAN</code>, <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>.</p>
       <div id="schedule" class="schedule"></div>
       <div class="actions">
-        <button type="button" id="schedule-add">Eintrag hinzufügen</button>
+        <button type="button" id="schedule-add"><span lang="de">Eintrag hinzufügen</span><span lang="en">Add entry</span></button>
       </div>
     </section>
 
     <!-- Reisekosten -->
     <section id="tab-travel" class="tab" hidden>
       <div class="month-nav">
-        <button type="button" class="plain" id="prev-month" aria-label="Vormonat">‹</button>
+        <button type="button" class="plain" id="prev-month" aria-label="Vormonat" data-en-aria-label="Previous month">‹</button>
         <h2 id="month-title" class="month-title"></h2>
-        <button type="button" class="plain" id="next-month" aria-label="Folgemonat">›</button>
+        <button type="button" class="plain" id="next-month" aria-label="Folgemonat" data-en-aria-label="Next month">›</button>
       </div>
       <div class="legend">
         <span id="legend-clients" class="legend-clients"></span>
-        <span class="k blocked">gesperrt</span>
-        <span class="k holiday">Feiertag</span>
-        <span class="k off">frei</span>
+        <span class="k blocked"><span lang="de">gesperrt</span><span lang="en">blocked</span></span>
+        <span class="k holiday"><span lang="de">Feiertag</span><span lang="en">holiday</span></span>
+        <span class="k off"><span lang="de">frei</span><span lang="en">off</span></span>
       </div>
       <div id="legend-icons" class="legend legend-icons"></div>
       <div id="calendar" class="calendar"></div>
       <dl id="travel-totals" class="totals"></dl>
       <div class="actions">
-        <button type="button" id="travel-generate">PDFs ansehen</button>
-        <button type="button" id="travel-send" class="strong">Per Mail senden</button>
-        <span class="muted small">an <span data-mail-to></span></span>
+        <button type="button" id="travel-generate"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" id="travel-send" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
+        <span class="muted small"><span lang="de">an</span><span lang="en">to</span> <span data-mail-to></span></span>
       </div>
       <div class="console" data-console="travel" hidden></div>
 
-      <h2>Zuordnungen</h2>
-      <p class="muted">Tage, die fest einem Kunden gehören. Tagesreise: die Arbeitstage im Zeitraum. Übernachtung: jeder Tag samt An- und Abreise, jede Nacht mit der Übernachtungspauschale des Kunden — nicht bei „Hotel“, nicht für die Nacht im Flugzeug bei „Nachtflug“. Kunden mit Zuordnungen bekommen nur diese Tage; die übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnung in gleich großen Blöcken, in Listenreihenfolge. Gilt erst nach „Speichern“ unten.</p>
+      <h2><span lang="de">Zuordnungen</span><span lang="en">Assignments</span></h2>
+      <p class="muted" lang="de">Tage, die fest einem Kunden gehören. Tagesreise: die Arbeitstage im Zeitraum. Übernachtung: jeder Tag samt An- und Abreise, jede Nacht mit der Übernachtungspauschale des Kunden — nicht bei „Hotel“, nicht für die Nacht im Flugzeug bei „Nachtflug“. Kunden mit Zuordnungen bekommen nur diese Tage; die übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnung in gleich großen Blöcken, in Listenreihenfolge. Gilt erst nach „Speichern“ unten.</p>
+      <p class="muted" lang="en">Days that belong to a client. Day trip: the workdays in the period. Overnight: every day including arrival and departure, every night at the client's overnight allowance — not with “Hotel”, not for the night on the plane with “Night flight”. Clients with assignments get these days only; the other workdays go to the clients in Europe without one, in blocks of equal size, in list order. Takes effect after “Save” below.</p>
       <ul id="assignments" class="rows"></ul>
       <form id="assignment-form" class="inline-form">
-        <select id="a-client" aria-label="Kunde" required></select>
-        <input type="date" id="a-from" aria-label="von" required>
-        <input type="date" id="a-to" aria-label="bis">
-        <label class="check"><input type="checkbox" id="a-overnight"> <span data-icon="moon" title="Übernachtung"></span>Übernachtung</label>
-        <label class="check" id="a-hotel-label" title="Hotelrechnung vorhanden: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> <span data-icon="bed" title="Hotel"></span>Hotel</label>
-        <label class="check" id="a-flight-label" title="Rückflug über Nacht, die Nacht vor dem Ankunftstag im Flugzeug: keine Übernachtungspauschale"><input type="checkbox" id="a-flight"> <span data-icon="plane" title="Nachtflug"></span>Nachtflug</label>
-        <input id="a-note" placeholder="Notiz" title="Notiz, z. B. Miami" aria-label="Notiz">
+        <select id="a-client" aria-label="Kunde" data-en-aria-label="Client" required></select>
+        <input type="date" id="a-from" aria-label="von" data-en-aria-label="from" required>
+        <input type="date" id="a-to" aria-label="bis" data-en-aria-label="to">
+        <label class="check"><input type="checkbox" id="a-overnight"> <span data-icon="moon" title="Übernachtung" data-en-title="Overnight"></span><span lang="de">Übernachtung</span><span lang="en">Overnight</span></label>
+        <label class="check" id="a-hotel-label" title="Hotelrechnung vorhanden: keine Übernachtungspauschale" data-en-title="Hotel invoice: no overnight allowance"><input type="checkbox" id="a-hotel"> <span data-icon="bed" title="Hotel"></span>Hotel</label>
+        <label class="check" id="a-flight-label" title="Rückflug über Nacht, die Nacht vor dem Ankunftstag im Flugzeug: keine Übernachtungspauschale" data-en-title="Overnight flight home, the night before arrival on the plane: no overnight allowance"><input type="checkbox" id="a-flight"> <span data-icon="plane" title="Nachtflug" data-en-title="Night flight"></span><span lang="de">Nachtflug</span><span lang="en">Night flight</span></label>
+        <input id="a-note" placeholder="Notiz" title="Notiz, z. B. Miami" aria-label="Notiz" data-en-placeholder="Note" data-en-title="Note, e.g. Miami" data-en-aria-label="Note">
         <button type="submit">Zuordnen</button>
-        <button type="button" class="link cancel" hidden>abbrechen</button>
+        <button type="button" class="link cancel" hidden><span lang="de">abbrechen</span><span lang="en">cancel</span></button>
       </form>
 
-      <h2>Gesperrte Tage</h2>
-      <p class="muted">Urlaub, Krankheit, Fortbildung: keine Reisetage, auch im Zeitplan. Gilt erst nach „Speichern“ unten.</p>
+      <h2><span lang="de">Gesperrte Tage</span><span lang="en">Blocked days</span></h2>
+      <p class="muted"><span lang="de">Urlaub, Krankheit, Fortbildung: keine Reisetage, auch im Zeitplan. Gilt erst nach „Speichern“ unten.</span><span lang="en">Vacation, illness, training: no travel days, in the schedule too. Takes effect after “Save” below.</span></p>
       <ul id="blocked" class="rows"></ul>
       <form id="blocked-form" class="inline-form">
-        <input type="date" id="b-from" aria-label="von" required>
-        <input type="date" id="b-to" aria-label="bis">
-        <input id="b-note" placeholder="Notiz, z. B. Urlaub" aria-label="Notiz">
+        <input type="date" id="b-from" aria-label="von" data-en-aria-label="from" required>
+        <input type="date" id="b-to" aria-label="bis" data-en-aria-label="to">
+        <input id="b-note" placeholder="Notiz, z. B. Urlaub" aria-label="Notiz" data-en-placeholder="Note, e.g. vacation" data-en-aria-label="Note">
         <button type="submit">Sperren</button>
-        <button type="button" class="link cancel" hidden>abbrechen</button>
+        <button type="button" class="link cancel" hidden><span lang="de">abbrechen</span><span lang="en">cancel</span></button>
       </form>
 
       <form class="part" data-part="travel"></form>
@@ -102,32 +109,32 @@
 
     <!-- Kundenrechnung -->
     <section id="tab-invoice" class="tab" hidden>
-      <h2>Aus Harvest</h2>
-      <p class="muted">Stunden des Monats über die Harvest-API holen und den Entwurf in sevDesk anlegen — nie verschickt, nie doppelt. Dazu der Zeitnachweis als PDF, hier und im Protokoll bis zum Neustart. „Nur Zeitnachweis“: nur das PDF. Braucht den Harvest-API-Token (Einstellungen Kundenrechnung).</p>
+      <h2><span lang="de">Aus Harvest</span><span lang="en">From Harvest</span></h2>
+      <p class="muted"><span lang="de">Stunden des Monats über die Harvest-API holen und den Entwurf in sevDesk anlegen — nie verschickt, nie doppelt. Dazu der Zeitnachweis als PDF, hier und im Protokoll bis zum Neustart. „Nur Zeitnachweis“: nur das PDF. Braucht den Harvest-API-Token (Einstellungen Kundenrechnung).</span><span lang="en">Get the month's hours from the Harvest API and create the draft in sevDesk — never sent, never twice. With it the work log as PDF, here and in the log until a restart. “Work log only”: just the PDF. Needs the Harvest API token (Invoice settings).</span></p>
       <div class="actions">
-        <input id="harvest-month" class="month" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
-        <button type="button" id="harvest-run">Aus Harvest anlegen</button>
-        <button type="button" id="harvest-worklog">Nur Zeitnachweis</button>
+        <input id="harvest-month" class="month" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" id="harvest-run"><span lang="de">Aus Harvest anlegen</span><span lang="en">Create from Harvest</span></button>
+        <button type="button" id="harvest-worklog"><span lang="de">Nur Zeitnachweis</span><span lang="en">Work log only</span></button>
       </div>
       <div class="console" data-console="harvest" hidden></div>
 
-      <details class="part-box"><summary>Einstellungen Kundenrechnung</summary><form class="part" data-part="invoice"></form></details>
+      <details class="part-box"><summary><span lang="de">Einstellungen Kundenrechnung</span><span lang="en">Invoice settings</span></summary><form class="part" data-part="invoice"></form></details>
 
-      <details class="part-box"><summary>Zeitnachweis hochladen</summary>
-        <p class="muted">Statt über die API: Zeitnachweis als PDF ablegen, aus Harvest oder von hier. Stunden und Leistungszeitraum werden angezeigt — korrigierbar, bevor du den Entwurf in sevDesk anlegst.</p>
+      <details class="part-box"><summary><span lang="de">Zeitnachweis hochladen</span><span lang="en">Upload work log</span></summary>
+        <p class="muted"><span lang="de">Statt über die API: Zeitnachweis als PDF ablegen, aus Harvest oder von hier. Stunden und Leistungszeitraum werden angezeigt — korrigierbar, bevor du den Entwurf in sevDesk anlegst.</span><span lang="en">Instead of the API: drop a work log PDF, from Harvest or from here. Hours and service period are shown — to correct before you create the draft in sevDesk.</span></p>
         <form id="upload-form" class="drop">
-          <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)">
-          <span id="drop-text">PDF hierher ziehen oder auswählen</span>
+          <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)" data-en-aria-label="Harvest report (PDF)">
+          <span id="drop-text"><span lang="de">PDF hierher ziehen oder auswählen</span><span lang="en">Drop the PDF here or choose it</span></span>
         </form>
         <form id="draft-form" class="grid" hidden>
-          <label>Stunden<input type="number" id="d-hours" step="0.01" min="0" required></label>
-          <label>Leistung von<input type="date" id="d-from" required></label>
-          <label>Leistung bis<input type="date" id="d-to" required></label>
-          <label>Kunde<input id="d-client" readonly></label>
-          <label>Artikel<input id="d-product" readonly></label>
-          <label>Referenz<input id="d-reference" readonly></label>
+          <label><span lang="de">Stunden</span><span lang="en">Hours</span><input type="number" id="d-hours" step="0.01" min="0" required></label>
+          <label><span lang="de">Leistung von</span><span lang="en">Service from</span><input type="date" id="d-from" required></label>
+          <label><span lang="de">Leistung bis</span><span lang="en">Service to</span><input type="date" id="d-to" required></label>
+          <label><span lang="de">Kunde</span><span lang="en">Client</span><input id="d-client" readonly></label>
+          <label><span lang="de">Artikel</span><span lang="en">Product</span><input id="d-product" readonly></label>
+          <label><span lang="de">Referenz</span><span lang="en">Reference</span><input id="d-reference" readonly></label>
           <div class="actions span">
-            <button type="submit" class="strong">Entwurf in sevDesk anlegen</button>
+            <button type="submit" class="strong"><span lang="de">Entwurf in sevDesk anlegen</span><span lang="en">Create draft in sevDesk</span></button>
           </div>
         </form>
         <div class="console" data-console="invoice" hidden></div>
@@ -137,45 +144,45 @@
     <!-- Belege -->
     <section id="tab-receipts" class="tab" hidden>
       <h2>Anthropic</h2>
-      <p class="muted">Receipt-PDFs des Monats aus dem Posteingang: ansehen oder senden an <span data-mail-to></span>.</p>
+      <p class="muted"><span lang="de">Receipt-PDFs des Monats aus dem Posteingang: ansehen oder senden an</span><span lang="en">The month's receipt PDFs from the inbox: view, or send to</span> <span data-mail-to></span>.</p>
       <p class="last" data-last="anthropic-invoice"></p>
       <div class="actions">
-        <input class="month receipt-month" data-for="anthropic" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
-        <button type="button" data-view="anthropic">PDFs ansehen</button>
-        <button type="button" data-send="anthropic" class="strong">Per Mail senden</button>
+        <input class="month receipt-month" data-for="anthropic" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" data-view="anthropic"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-send="anthropic" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
       </div>
       <div class="console" data-console="anthropic" hidden></div>
-      <details class="part-box"><summary>Einstellungen Anthropic</summary><form class="part" data-part="anthropic"></form></details>
+      <details class="part-box"><summary><span lang="de">Einstellungen Anthropic</span><span lang="en">Anthropic settings</span></summary><form class="part" data-part="anthropic"></form></details>
 
       <h2>Apple</h2>
-      <p class="muted">Rechnungs-Mails des Monats aus dem Posteingang als PDF: ansehen oder senden an <span data-mail-to></span>.</p>
+      <p class="muted"><span lang="de">Rechnungs-Mails des Monats aus dem Posteingang als PDF: ansehen oder senden an</span><span lang="en">The month's invoice mails from the inbox as PDF: view, or send to</span> <span data-mail-to></span>.</p>
       <p class="last" data-last="apple-invoice"></p>
       <div class="actions">
-        <input class="month receipt-month" data-for="apple" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)">
-        <button type="button" data-view="apple">PDFs ansehen</button>
-        <button type="button" data-send="apple" class="strong">Per Mail senden</button>
+        <input class="month receipt-month" data-for="apple" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" data-view="apple"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-send="apple" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
       </div>
       <div class="console" data-console="apple" hidden></div>
-      <details class="part-box"><summary>Einstellungen Apple</summary><form class="part" data-part="apple"></form></details>
+      <details class="part-box"><summary><span lang="de">Einstellungen Apple</span><span lang="en">Apple settings</span></summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
-      <p class="muted">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone: ansehen oder senden an <span data-mail-to></span>.</p>
+      <p class="muted"><span lang="de">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone: ansehen oder senden an</span><span lang="en">The current invoices for mobile and cable from MeinVodafone: view, or send to</span> <span data-mail-to></span>.</p>
       <p class="last" data-last="vodafone-invoice"></p>
       <div class="actions">
         <!-- Vodafone has the current month's only: shown, not to be chosen. -->
-        <input class="month receipt-month" data-for="vodafone" disabled aria-label="Monat (nur der laufende)" title="MeinVodafone hat nur die aktuelle Rechnung">
-        <button type="button" data-view="vodafone">PDFs ansehen</button>
-        <button type="button" data-send="vodafone" class="strong">Per Mail senden</button>
+        <input class="month receipt-month" data-for="vodafone" disabled aria-label="Monat (nur der laufende)" title="MeinVodafone hat nur die aktuelle Rechnung" data-en-aria-label="Month (the current one only)" data-en-title="MeinVodafone has the current invoice only">
+        <button type="button" data-view="vodafone"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-send="vodafone" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
       </div>
       <div class="console" data-console="vodafone" hidden></div>
-      <details class="part-box"><summary>Einstellungen Vodafone</summary><form class="part" data-part="vodafone"></form></details>
+      <details class="part-box"><summary><span lang="de">Einstellungen Vodafone</span><span lang="en">Vodafone settings</span></summary><form class="part" data-part="vodafone"></form></details>
     </section>
 
     <!-- Protokoll -->
     <section id="tab-log" class="tab" hidden>
-      <h2>Läufe</h2>
+      <h2><span lang="de">Läufe</span><span lang="en">Runs</span></h2>
       <ul id="jobs" class="rows jobs"></ul>
-      <p id="no-jobs" class="muted" hidden>Noch nichts gelaufen.</p>
+      <p id="no-jobs" class="muted" hidden><span lang="de">Noch nichts gelaufen.</span><span lang="en">Nothing has run yet.</span></p>
     </section>
 
     <!-- Einstellungen -->
