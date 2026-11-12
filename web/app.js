@@ -837,7 +837,7 @@ function renderLogo() {
   });
   remove.hidden = logoDraft === null;
   return el('div', 'logo-box',
-    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, statt des Firmennamens. PNG oder JPEG, am besten breit und mit transparentem Hintergrund. Ohne Firmennamen nimmt der Zeitnachweis den Namen des Harvest-Kontos.'),
+    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos. PNG oder JPEG.'),
     el('div', 'logo-row', el('div', 'logo-frame', preview, none), el('div', 'actions', input, choose, remove)));
 }
 

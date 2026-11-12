@@ -31,10 +31,14 @@ var logColumns = []struct {
 	width float64
 }{{"Kunde", 36}, {"Projekt", 72}, {"Tätigkeit", 28}, {"Mitarbeiter", 30}, {"Stunden", 20}}
 
-// The logo's room at the head's right: no wider or taller than this, its proportions kept.
+// The logo as sevDesk places it on the invoices (Rechnung 0201, 30.09.2026): 57.6 mm wide, its
+// top 4.8 mm from the page's, its right edge 18 mm from the page's — so that the same file looks
+// the same on both. Its height by its proportions, no taller than logoMaxHeight.
 const (
-	logoWidth  = 90.0
-	logoHeight = 30.0
+	logoWidth     = 57.6
+	logoTop       = 4.8
+	logoRight     = 18.0
+	logoMaxHeight = 40.0
 )
 
 // WorkLog is the PDF of the entries, Harvest's detailed time report as the company would have
@@ -114,13 +118,12 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 		if err := pdf.Error(); err != nil {
 			return fmt.Errorf("the logo %s: %w", logo, err)
 		}
-		// As large as the room allows, its proportions kept, at the right margin.
 		w, h := logoWidth, logoWidth*info.Height()/info.Width()
-		if h > logoHeight {
-			w, h = logoHeight*info.Width()/info.Height(), logoHeight
+		if h > logoMaxHeight {
+			w, h = logoMaxHeight*info.Width()/info.Height(), logoMaxHeight
 		}
-		pdf.ImageOptions(logo, 210-logMargin-w, logMargin, w, h, false, options, 0, "")
-		bottom = max(bottom, logMargin+h)
+		pdf.ImageOptions(logo, 210-logoRight-w, logoTop, w, h, false, options, 0, "")
+		bottom = max(bottom, logoTop+h)
 	} else {
 		pdf.SetFont("Helvetica", "", 16)
 		pdf.MultiCell(86, 7, tr(company), "", "R", false)
