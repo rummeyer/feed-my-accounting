@@ -26,9 +26,10 @@ type Config struct {
 	Harvest      HarvestAPI    `yaml:"harvest"`
 	SevDesk      SevDeskConfig `yaml:"sevdesk"`
 	Month        time.Time     // the month to invoice; zero is the current one
-	// Workday says which days, at midnight UTC, 8 hours at least are expected on: fewer in the
-	// month is a warning. Nil: no check.
-	Workday func(time.Time) bool
+	// Days counts the days of the month starting at from that 8 hours at least are expected on,
+	// and says which: "days at Acme GmbH", "workdays". Fewer hours in the month
+	// is a warning. Nil: no check.
+	Days func(from time.Time) (n int, which string)
 }
 
 // hoursPerWorkday are the hours a workday has at least.
@@ -161,16 +162,19 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), len(entries), report.TotalHours)
 
 	var account Company
-	short := cfg.Workday != nil && report.TotalHours < expectedHours(from, cfg.Workday)
+	days, which := 0, ""
+	if cfg.Days != nil {
+		days, which = cfg.Days(from)
+	}
+	short := days > 0 && report.TotalHours < float64(days*hoursPerWorkday)
 	if cfg.Harvest.Company == "" || short {
 		if account, err = APICompany(cfg.Harvest); err != nil {
 			return nil, nil, err
 		}
 	}
 	if short {
-		days := workdaysIn(from, cfg.Workday)
-		logger.Printf("WARNING: %.2f hours, fewer than %d workdays × %d h = %d h: check the time entries in Harvest, %s/time",
-			report.TotalHours, days, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
+		logger.Printf("WARNING: %.2f hours, fewer than %d %s × %d h = %d h: check the time entries in Harvest, %s/time",
+			report.TotalHours, days, which, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
 	}
 	company := cfg.Harvest.Company
 	if company == "" {
@@ -183,22 +187,6 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	log := &pdfdoc.Document{Filename: WorkLogName(from, ""), Data: data}
 	logger.Printf("Work log: %s, %d KB", log.Filename, (len(data)+1023)/1024)
 	return report, log, nil
-}
-
-// workdaysIn counts the workdays of the month that starts at from.
-func workdaysIn(from time.Time, workday func(time.Time) bool) int {
-	n := 0
-	for d := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC); d.Month() == from.Month(); d = d.AddDate(0, 0, 1) {
-		if workday(d) {
-			n++
-		}
-	}
-	return n
-}
-
-// expectedHours are the hours the month's workdays have at least.
-func expectedHours(from time.Time, workday func(time.Time) bool) float64 {
-	return float64(workdaysIn(from, workday) * hoursPerWorkday)
 }
 
 // ErrAlreadyInvoiced is a report sevDesk already has an invoice for: same client, a Rechnungsdatum

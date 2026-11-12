@@ -99,13 +99,13 @@ func TestInvoiceNumber(t *testing.T) {
 		want  string
 	}{
 		// As sevDesk's list showed a new draft on 12.11.2026: the number beneath the client.
-		{[]string{"Entwurf", "-", "-", "S-Management Services GmbH\nRechnung Nr. 0203", "12.11.26", "10.275,00\u00a0€", "12.227,25\u00a0€", ""}, "0203"},
+		{[]string{"Entwurf", "-", "-", "Acme GmbH\nRechnung Nr. 0203", "12.11.26", "10.275,00\u00a0€", "12.227,25\u00a0€", ""}, "0203"},
 		{[]string{"Offen", "-", "-", "Acme GmbH\nRechnungs-Nr.: RE-0204", "12.11.26"}, "0204"},
-		{[]string{"Entwurf", "0203", "S-Management Services GmbH", "", "12.11.26", "10.275,00 €"}, "0203"},
-		{[]string{"Offen", "RE-0202", "S-Management Services GmbH", "", "03.11.26"}, "0202"},
+		{[]string{"Entwurf", "0203", "Acme GmbH", "", "12.11.26", "10.275,00 €"}, "0203"},
+		{[]string{"Offen", "RE-0202", "Acme GmbH", "", "03.11.26"}, "0202"},
 		{[]string{"Bezahlt", "RE 1001", "Acme GmbH", "", "01.10.26"}, "1001"},
 		// The status and the date are never the number, nor are amounts or names.
-		{[]string{"Entwurf", "", "S-Management Services GmbH", "", "12.11.26", "10.275,00 €"}, ""},
+		{[]string{"Entwurf", "", "Acme GmbH", "", "12.11.26", "10.275,00 €"}, ""},
 		{[]string{"1234", "", "", "", "5678"}, ""},
 		{nil, ""},
 	} {

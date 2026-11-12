@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-11-12
+
+### Fixed
+
+- harvest-invoice: the warning about too few hours counts the client's days, not every workday: the days the Reisekosten plan gives the travel client of the sevDesk client's name — with another client's week away in the month, only the rest. Without such a client, every workday as before.
+- Tests and comments use made-up client names only.
+
 ## [1.17.1] - 2026-11-12
 
 ### Changed

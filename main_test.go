@@ -69,3 +69,29 @@ func TestParseMonthArg_ExtraArgs(t *testing.T) {
 		t.Errorf("parseMonthArg() = %d/%s, want 2024/July", year, month)
 	}
 }
+
+func TestClientDays(t *testing.T) {
+	off := false
+	cfg := &Config{Staff: StaffConfig{Names: []string{"Max Mustermann"}, Current: "Max Mustermann"}}
+	cfg.TravelExpense = TravelExpenseConfig{
+		ChristmasWeekOff: &off,
+		Clients: []Client{
+			{ID: "1", Name: "Acme GmbH", Province: "BW", Distance: 42},
+			{ID: "2", Name: "Globex Inc.", Country: "US"},
+		},
+		Blocked:     []DateRange{{From: "2026-12-24"}, {From: "2026-12-31"}},
+		Assignments: []Assignment{{Client: "2", From: "2026-12-03", To: "2026-12-09", Overnight: true}},
+	}
+	december := time.Date(2026, 12, 1, 0, 0, 0, 0, time.Local)
+	// The invoice's client: its days in the plan, not every workday — the overnight week takes five of them.
+	cfg.HarvestInvoice.SevDesk.ClientName = "Acme GmbH"
+	if n, which := clientDays(cfg)(december); n != 15 || which != "days at Acme GmbH" {
+		t.Errorf("Acme in December: %d %s, want 15", n, which)
+	}
+	// No such client in the travel expenses: every workday — 23 weekdays, without the 25th, the
+	// 24th and the 31st.
+	cfg.HarvestInvoice.SevDesk.ClientName = "Someone Else"
+	if n, which := clientDays(cfg)(december); n != 20 || which != "workdays" {
+		t.Errorf("an unknown client in December: %d %s, want 20 workdays", n, which)
+	}
+}

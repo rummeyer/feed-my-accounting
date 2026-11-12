@@ -189,14 +189,3 @@ func TestLogoAsUploaded(t *testing.T) {
 		}
 	}
 }
-
-func TestWorkdaysIn(t *testing.T) {
-	weekdays := func(d time.Time) bool { return d.Weekday() != time.Saturday && d.Weekday() != time.Sunday }
-	nov := time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
-	if n := workdaysIn(nov, weekdays); n != 21 {
-		t.Errorf("November 2026: %d workdays, want 21", n)
-	}
-	if h := expectedHours(nov, weekdays); h != 168 {
-		t.Errorf("November 2026: %v hours expected, want 168", h)
-	}
-}

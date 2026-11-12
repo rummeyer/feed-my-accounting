@@ -253,7 +253,7 @@ type invoiceRow struct {
 var numberCell = regexp.MustCompile(`^(?:[A-Za-z]{1,6}[-_ /]?)?(\d{3,})$`)
 
 // numberNamed is the invoice number as sevDesk's list writes it beneath the client:
-// "S-Management Services GmbH\nRechnung Nr. 0203" (12.11.2026).
+// "Acme GmbH\nRechnung Nr. 0203" (12.11.2026).
 var numberNamed = regexp.MustCompile(`Rechnung(?:s)?[ -]?(?:Nr|nummer)\.?:?\s*(?:[A-Za-z]{1,6}[-_ /]?)?(\d{3,})`)
 
 // number is the invoice's number, its digits — "0202" — named as such, or in a cell that holds
