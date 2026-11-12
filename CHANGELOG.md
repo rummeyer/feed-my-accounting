@@ -5,11 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- travel-expense: **Übernachtungspauschale** — the flat rate for each night of an overnight assignment without a hotel invoice, as a third PDF. Every day of the trip but the last starts a night, in the month it starts in. The rate is the client's `lodging` — abroad the BMF's for the place, Miami 256 € — else the inland `lodgingRate`, 20 € by law. An assignment with `hotel` (*Hotel mit Rechnung*) has none. The calendar shows each night's rate, the totals the nights and their sum.
+
+### Changed
+
+- Web interface: the logo as a card, as sevDesk has it — empty, a button and room to drop a file; with a logo, a red × over it while the mouse is on it, and *Firmenlogo löschen* or *Abbrechen* before it goes. At most 2 MB.
+- Work log: a logo small already — no wider than 680 px, no larger than 150 KB, a JPEG or a PNG with an alpha channel — goes in as uploaded; a PNG with a palette and transparent colours is shrunk, as fpdf draws those colours opaque.
+- Web interface: *Verpflegung Inland* is *Pauschalen Inland*, with the night's rate.
+
+### Fixed
+
+- travel-expense: umlauts in the PDFs — the Lieferant, a client's address, "Übernachtung" — are written in the PDF's own encoding, not as garbled UTF-8.
+
 ## [1.10.0] - 2026-11-12
 
 ### Added
 
-- **Company** (`company.name`) and its **logo**, on the web interface under Einstellungen › Firma: the work log shows the logo at its head — a PNG or JPEG kept beside the configuration — sized and placed as sevDesk does on its invoices — else the name, else Harvest's account name. The PDF carries the logo shrunk to 680 px — 300 dpi at its size — as a JPEG on white: some 60 KB, not the megabyte an uploaded one may have; the file uploaded stays as it is. A logo small already — no wider than 680 px, no larger than 150 KB, a JPEG or a PNG with an alpha channel — goes in as uploaded; a PNG with a palette and transparent colours is shrunk, as fpdf draws those colours opaque. A logo replaced or removed is kept as its `.bak`.
+- **Company** (`company.name`) and its **logo**, on the web interface under Einstellungen › Firma: the work log shows the logo at its head — a PNG or JPEG kept beside the configuration — sized and placed as sevDesk does on its invoices — else the name, else Harvest's account name. The PDF carries the logo shrunk to 680 px — 300 dpi at its size — as a JPEG on white: some 60 KB, not the megabyte an uploaded one may have; the file uploaded stays as it is. A logo replaced or removed is kept as its `.bak`.
 - The work log is in German: *Zeitnachweis*, Zeitraum, Kunde, Projekt, Tätigkeit, Mitarbeiter, Stunden, Seite x von y. The upload reads it too.
 - **Employees** (`staff.names`, `staff.current`), on the web interface under Einstellungen › Mitarbeiter, the selected one shown at the top right. The selected employee is the Lieferant on the travel expenses, and only their hours in Harvest make the work log and the invoice — named as in Harvest. `travel-expense.employee` moves there by itself, as the first employee.
 

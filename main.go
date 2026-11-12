@@ -207,6 +207,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 			ID: c.ID, Name: c.Name, From: c.From, To: c.To,
 			Reason: c.Reason, Distance: c.Distance, Country: c.Country, Province: c.Province,
 			MealDay: c.MealDay, MealFullDay: c.MealFullDay, MealTravelDay: c.MealTravelDay,
+			Lodging: c.Lodging,
 		}
 	}
 	for _, c := range te.Clients {
@@ -222,6 +223,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 		Clients:          clients,
 		ChristmasWeekOff: te.ChristmasWeekOff,
 		InlandRates:      travelexpense.MealRates{Day: te.MealRates.Day, FullDay: te.MealRates.FullDay, TravelDay: te.MealRates.TravelDay},
+		InlandLodging:    te.LodgingRate,
 	}
 	for _, b := range te.Blocked {
 		from, to, err := parseRange(b.From, b.To)
@@ -240,7 +242,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 			return tc, fmt.Errorf("travel-expense.assignments: no client %q", a.Client)
 		}
 		tc.Assignments = append(tc.Assignments, travelexpense.Assignment{
-			Client: client, From: from, To: to, Overnight: a.Overnight, Note: a.Note,
+			Client: client, From: from, To: to, Overnight: a.Overnight, Hotel: a.Hotel, Note: a.Note,
 		})
 	}
 	return tc, nil

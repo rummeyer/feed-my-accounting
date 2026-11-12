@@ -31,6 +31,8 @@ type Client struct {
 	MealDay       float64 `yaml:"mealDay,omitempty"`       // day trip, more than 8 hours
 	MealFullDay   float64 `yaml:"mealFullDay,omitempty"`   // a full day away, overnight trips
 	MealTravelDay float64 `yaml:"mealTravelDay,omitempty"` // arrival or departure day
+	// Flat rate for a night without a hotel invoice; empty for the inland one (lodgingRate).
+	Lodging float64 `yaml:"lodging,omitempty"`
 }
 
 // DateRange is days from From to To (YYYY-MM-DD), inclusive; To empty for one day.
@@ -46,6 +48,7 @@ type Assignment struct {
 	From      string `yaml:"from" json:"from"`
 	To        string `yaml:"to,omitempty" json:"to"`
 	Overnight bool   `yaml:"overnight,omitempty" json:"overnight"`
+	Hotel     bool   `yaml:"hotel,omitempty" json:"hotel"` // the nights have a hotel invoice: no flat rate
 	Note      string `yaml:"note,omitempty" json:"note"`
 }
 
@@ -57,8 +60,9 @@ type MealRates struct {
 }
 
 type TravelExpenseConfig struct {
-	Employee         string       `yaml:"employee,omitempty"`  // until 1.10: now staff.current, moved there on reading
-	MealRates        MealRates    `yaml:"mealRates,omitempty"` // inland rates, for clients without their own
+	Employee         string       `yaml:"employee,omitempty"`    // until 1.10: now staff.current, moved there on reading
+	MealRates        MealRates    `yaml:"mealRates,omitempty"`   // inland rates, for clients without their own
+	LodgingRate      float64      `yaml:"lodgingRate,omitempty"` // inland flat rate for a night; empty: the legal 20
 	Clients          []Client     `yaml:"clients"`
 	ChristmasWeekOff *bool        `yaml:"christmasWeekOff,omitempty"` // default: true
 	Blocked          []DateRange  `yaml:"blocked,omitempty"`          // vacation and other days off

@@ -269,20 +269,24 @@ function renderCalendar() {
   for (let i = 0; i < first; i++) cells.push(el('div', 'day pad'));
   const today = new Date().toISOString().slice(0, 10);
   for (const d of plan.days) {
-    const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today', d.missing && 'fallback'].filter(Boolean).join(' ');
+    const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today', (d.missing || d.lodgingMissing) && 'fallback'].filter(Boolean).join(' ');
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
     const eur = d.meal || d.mileage
-      ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}`) : null;
+      ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}${d.lodging ? ` · ${euro(d.lodging)} Ü` : ''}`) : null;
     const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), who,
       d.client && d.note && el('span', 'note muted', d.note), eur);
-    cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.note,
-      d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`].filter(Boolean).join(' · ');
+    cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
+      d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
+      d.lodgingMissing && `Satz „${RATE_NAMES.lodging}“ des Kunden fehlt — Inlandssatz ${euro(d.lodging)}`].filter(Boolean).join(' · ');
     cells.push(cell);
   }
   $('calendar').replaceChildren(...cells);
 }
 
-const RATE_NAMES = { mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag' };
+const RATE_NAMES = { mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag', lodging: 'Übernachtung' };
+
+/** What the month's expenses come to: meals, mileage and nights. */
+const totalOf = (t) => (t.meals ?? 0) + (t.mileage ?? 0) + (t.lodging ?? 0);
 
 function renderTotals() {
   const t = plan.totals;
@@ -290,13 +294,15 @@ function renderTotals() {
   const missing = new Map();
   for (const d of plan.days) {
     if (d.missing) missing.set(`${d.client}|${d.missing}`, `${d.client}: Satz „${RATE_NAMES[d.missing]}“ fehlt — es gilt der Inlandssatz ${euro(d.meal)}`);
+    if (d.lodgingMissing) missing.set(`${d.client}|lodging`, `${d.client}: Satz „${RATE_NAMES.lodging}“ fehlt — es gilt der Inlandssatz ${euro(d.lodging)}`);
   }
   const per = Object.entries(plan.perClient).map(([name, n]) => `${name} ${n}`).join(' · ');
   $('travel-totals').replaceChildren(...[
     el('div', '', el('dt', '', 'Reisetage'), el('dd', '', String(t.days ?? 0))),
     el('div', '', el('dt', '', 'Verpflegung'), el('dd', '', euro(t.meals))),
     el('div', '', el('dt', '', 'Kilometer'), el('dd', '', euro(t.mileage))),
-    el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro((t.meals ?? 0) + (t.mileage ?? 0)))),
+    t.nights > 0 && el('div', '', el('dt', '', `Übernachtung · ${t.nights} ${t.nights === 1 ? 'Nacht' : 'Nächte'}`), el('dd', '', euro(t.lodging))),
+    el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro(totalOf(t)))),
     per && el('div', 'whole', el('dt', '', 'Je Kunde'), el('dd', 'muted', per)),
     missing.size > 0 && el('div', 'whole warn', el('dt', '', 'Satz fehlt'),
       el('dd', '', ...[...missing.values()].flatMap((text, i) => (i ? [el('br'), text] : [text])), el('br'),
@@ -340,7 +346,7 @@ function renderLists() {
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   const what = {
-    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.note ? ` · ${a.note}` : ''],
+    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel mit Rechnung' : '', a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
   };
   for (const [name, list] of Object.entries(lists)) {
@@ -376,6 +382,8 @@ function editEntry(name, i) {
     $('a-from').value = e.from;
     $('a-to').value = e.to || '';
     $('a-overnight').checked = !!e.overnight;
+    $('a-hotel').checked = !!e.hotel;
+    syncHotel();
     $('a-note').value = e.note || '';
   } else {
     $('b-from').value = e.from;
@@ -390,6 +398,7 @@ function editEntry(name, i) {
 function stopEditing(name) {
   lists[name].editing = -1;
   $(lists[name].form).reset();
+  if (name === 'assignments') syncHotel();
 }
 
 /** The form's entry, added to the draft or taking the place of the one being edited. */
@@ -405,9 +414,18 @@ $('assignment-form').addEventListener('submit', (e) => {
   e.preventDefault();
   takeForm('assignments', {
     client: $('a-client').value, from: $('a-from').value, to: $('a-to').value,
-    overnight: $('a-overnight').checked, note: $('a-note').value.trim(),
+    overnight: $('a-overnight').checked, hotel: $('a-overnight').checked && $('a-hotel').checked,
+    note: $('a-note').value.trim(),
   });
+  syncHotel();
 });
+
+/** "Hotel mit Rechnung" is for overnight trips only: their nights at the flat rate, unless ticked. */
+function syncHotel() {
+  $('a-hotel-label').hidden = !$('a-overnight').checked;
+}
+$('a-overnight').addEventListener('change', syncHotel);
+syncHotel();
 
 $('blocked-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -445,7 +463,7 @@ $('travel-generate').addEventListener('click', () =>
   start('travel', 'POST', '/api/travel/generate', { month: monthKey() }));
 $('travel-send').addEventListener('click', () => {
   const t = plan?.totals ?? {};
-  if (!confirm(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro((t.meals ?? 0) + (t.mileage ?? 0))}`)) return;
+  if (!confirm(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro(totalOf(t))}`)) return;
   start('travel', 'POST', '/api/travel/send', { month: monthKey() });
 });
 
@@ -549,10 +567,11 @@ const PARTS = {
   ]]],
   travel: [['Kunden', [
     ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
-  ]], ['Verpflegung Inland', [
+  ]], ['Pauschalen Inland', [
     ['TravelExpense.MealRates.Day', 'Tagesreise > 8 h (€)', 'money', 14],
     ['TravelExpense.MealRates.FullDay', 'Ganzer Tag (€)', 'money', 28],
     ['TravelExpense.MealRates.TravelDay', 'An-/Abreisetag (€)', 'money', 14],
+    ['TravelExpense.LodgingRate', 'Übernachtung (€)', 'money', 20],
   ]]],
   invoice: [['', [
     ['HarvestInvoice.SevDesk.ClientName', 'Kunde in sevDesk'],
@@ -580,7 +599,7 @@ const CLIENT_FIELDS = [
   ['ID', 'Nr.'], ['Name', 'Name'], ['From', 'Von'], ['To', 'Nach'], ['Reason', 'Grund'],
   ['Distance', 'Entfernung (km, einfach)', 'number'], ['Country', 'Land', 'country'], ['Province', 'Bundesland', 'province'],
   ['MealDay', 'Tagesreise > 8 h (€)', 'money', 14], ['MealFullDay', 'Ganzer Tag (€)', 'money', 28],
-  ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14],
+  ['MealTravelDay', 'An-/Abreisetag (€)', 'money', 14], ['Lodging', 'Übernachtung (€)', 'money', 20],
 ];
 
 let settings = null;
@@ -631,8 +650,14 @@ function field(obj, [path, label, type, extra]) {
       input.step = '0.01';
       // Abroad, an empty rate falls back to the inland one: marked.
       const stand = { MealDay: 'MealTravelDay', MealTravelDay: 'MealDay' }[path];
-      if (path.startsWith('Meal') && (obj.Country || 'DE').toUpperCase() !== 'DE' && !value && !(stand && obj[stand])) input.classList.add('missing');
-      if (path.startsWith('Meal')) {
+      const client = path.startsWith('Meal') || path === 'Lodging';
+      if (client && (obj.Country || 'DE').toUpperCase() !== 'DE' && !value && !(stand && obj[stand])) input.classList.add('missing');
+      if (path === 'Lodging') {
+        // A night without a hotel invoice: the client's rate, else the inland one — abroad the
+        // country's from the BMF's table is wanted.
+        const inland = getPath(settings.config, 'TravelExpense.LodgingRate') || extra;
+        input.placeholder = (obj.Country || 'DE').toUpperCase() === 'DE' ? `leer: ${inland} (Inland)` : 'Satz des Landes';
+      } else if (path.startsWith('Meal')) {
         // A client's own rate: else the inland one — abroad that is wrong, the country's is wanted.
         const inland = getPath(settings.config, `TravelExpense.MealRates.${path.slice(4)}`) || extra;
         // Abroad, the day trip and travel day rates are one in the BMF's table: each stands in
@@ -694,8 +719,8 @@ function renderSettings() {
     const children = [];
     for (const [title, fields] of PARTS[part]) {
       if (title) children.push(el('h2', '', title));
-      if (title === 'Verpflegung Inland') {
-        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (14 / 28 / 14 €). Ändert sich das Gesetz, hier anpassen. Die Sätze fürs Ausland: ', bmfLink(), '.'));
+      if (title === 'Pauschalen Inland') {
+        children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (Verpflegung 14 / 28 / 14 €, Übernachtung ohne Hotelrechnung 20 €). Ändert sich das Gesetz, hier anpassen. Die Sätze fürs Ausland, Verpflegung und Übernachtung: ', bmfLink(), '.'));
       }
       if (title === 'Kunden') children.push(renderClients(cfg));
       if (title === 'Mitarbeiter') children.push(renderStaff(cfg));

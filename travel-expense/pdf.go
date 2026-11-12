@@ -11,6 +11,9 @@ import (
 // The lieferant name is rendered in bold larger font at the top for sevDesk OCR recognition.
 func createPDF(lieferant, header string, blocks []string, footer string) ([]byte, error) {
 	pdf := pdfdoc.New()
+	// The PDF's own encoding, cp1252: "Übernachtung", a client "Müller", as written.
+	tr := pdf.UnicodeTranslatorFromDescriptor("")
+	lieferant, header, footer = tr(lieferant), tr(header), tr(footer)
 
 	const cellWidth = 300
 
@@ -23,7 +26,7 @@ func createPDF(lieferant, header string, blocks []string, footer string) ([]byte
 
 	for _, block := range append(blocks, footer) {
 		pdf.Keep(float64(strings.Count(block, "\n")+1) * pdfLineHeight)
-		pdf.MultiCell(cellWidth, pdfLineHeight, block, "", "", false)
+		pdf.MultiCell(cellWidth, pdfLineHeight, tr(block), "", "", false)
 	}
 	return pdf.Bytes()
 }

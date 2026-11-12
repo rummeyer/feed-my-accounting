@@ -228,6 +228,7 @@ travel-expense:
       country: US                # optional, default DE: whose public holidays count
       mealFullDay: 65            # abroad: the country's rates (BMF table)
       mealTravelDay: 44
+      lodging: 256               # a night without a hotel invoice (BMF table)
   blocked:                       # optional: no travel on these days
     - from: 2026-08-03
       to: 2026-08-14
@@ -281,22 +282,24 @@ schedule:                          # optional, run by feed-my-accounting serve
 
 ## Module: travel-expense
 
-Generates two PDF documents per month for German business travel expense reporting:
+Generates up to three PDF documents per month for German business travel expense reporting:
 
 - **Kilometergelderstattung** — mileage reimbursement (distance × €0.30/km, one-way)
 - **Verpflegungsmehraufwand** — meal allowance (€14.00 for trips 8h–24h)
+- **Übernachtungspauschale** — the flat rate for each night of an overnight trip without a hotel invoice, see below
 
 ### How it works
 
 1. Calculates workdays for the month (excluding weekends, German public holidays, blocked days, and optionally the Christmas/New Year week)
 2. Gives the days of explicit **assignments** to their client, and the remaining workdays to the other clients in consecutive blocks of equal size
 3. Generates formatted PDF documents with smart page breaks (blocks never split across pages)
-4. Sends both PDFs via email as in-memory attachments (no files written to disk)
+4. Sends the PDFs via email as in-memory attachments (no files written to disk)
 
 ### PDF output
 
 - `MM_YYYY_Reisekosten_Kilometergelderstattung.pdf`
 - `MM_YYYY_Reisekosten_Verpflegungsmehraufwand.pdf`
+- `MM_YYYY_Reisekosten_Uebernachtungspauschale.pdf` — only with nights at the flat rate
 
 PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are formatted for sevDesk OCR recognition. The selected employee (`staff.current`) is rendered prominently at the top as the Lieferant.
 
@@ -339,7 +342,7 @@ Every client uses the **inland rates** under `mealRates`, unless it has rates of
 | `fullDay` | `mealFullDay` | a full day away, overnight trips | 28 € |
 | `travelDay` | `mealTravelDay` | the day of arrival or departure of an overnight trip | 14 € |
 
-The defaults are the German Verpflegungspauschalen by law. If the law changes, change `mealRates` — on the web interface under *Verpflegung Inland* — and every client without rates of its own follows. For trips abroad, set the BMF's Auslandspauschalen for the country on that client — the table has one rate for the day of arrival or departure *and* for a day of more than 8 hours away, so a client abroad with only one of `mealDay` and `mealTravelDay` uses it for both; only with neither does the inland rate apply, marked red in the calendar: [BMF-Schreiben of 5 December 2025, table for 2026](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-12-05-steuerliche-behandlung-reisekosten-2026.html) — Miami, say, 65 € for 24 hours and 44 € for the day of arrival or departure. The web interface links the table where the rates are entered.
+The defaults are the German Verpflegungspauschalen by law. If the law changes, change `mealRates` — on the web interface under *Pauschalen Inland* — and every client without rates of its own follows. For trips abroad, set the BMF's Auslandspauschalen for the country on that client — the table has one rate for the day of arrival or departure *and* for a day of more than 8 hours away, so a client abroad with only one of `mealDay` and `mealTravelDay` uses it for both; only with neither does the inland rate apply, marked red in the calendar: [BMF-Schreiben of 5 December 2025, table for 2026](https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-12-05-steuerliche-behandlung-reisekosten-2026.html) — Miami, say, 65 € for 24 hours and 44 € for the day of arrival or departure. The web interface links the table where the rates are entered.
 
 ### Countries
 
@@ -385,6 +388,10 @@ Defaults to `BW` if omitted or invalid. Only used for `country: DE`.
 
 A month without any travel day — all of it vacation, say — is logged as nothing to send, not an error, so `all` goes on with the other modules.
 
+### Nights without a hotel invoice
+
+Without a hotel invoice, the employer may pay a flat rate per night instead, tax free (Übernachtungspauschale): 20 € in Germany, abroad the BMF's rate for the place — Miami 256 €, in the same table as the meal rates. Every **overnight assignment** has a night on each of its days but the last: 3–9 December are six nights, from the 3rd to the 4th up to the 8th to the 9th, each in the month it starts in. The rate is the client's `lodging`, else the inland `lodgingRate` (default 20 €; abroad that is marked red, as with the meal rates). An assignment with `hotel: true` — on the web interface *Hotel mit Rechnung* — has no flat rate: its hotel invoice is accounted on its own, not twice. The nights come as a third PDF, *Übernachtungspauschale*, and show in the calendar (`256,00 € Ü`) and the totals.
+
 ### travel-expense config options
 
 | Field | Description | Default |
@@ -392,10 +399,12 @@ A month without any travel day — all of it vacation, say — is logged as noth
 | `christmasWeekOff` | Exclude Dec 24 and Dec 27–31 | `true` |
 | `clients` | List of client/trip configurations | required |
 | `mealRates` | Inland meal rates in EUR: `day`, `fullDay`, `travelDay` | 14 / 28 / 14 |
+| `lodgingRate` | Inland flat rate for a night without a hotel invoice, in EUR | 20 |
+| `clients[].lodging` | The client's flat rate for a night, in EUR; abroad the BMF's | `lodgingRate` |
 | `clients[].mealDay`, `mealFullDay`, `mealTravelDay` | The client's own meal rates in EUR, see above | `mealRates` |
 | `clients[].country` | ISO 3166 code: whose public holidays count | `DE` |
 | `blocked` | Date ranges without travel: `from`, `to` (optional), `note` | — |
-| `assignments` | Date ranges for one client: `client` (id or name), `from`, `to`, `overnight`, `note` | — |
+| `assignments` | Date ranges for one client: `client` (id or name), `from`, `to`, `overnight`, `hotel` (the nights have a hotel invoice: no flat rate), `note` | — |
 
 ---
 

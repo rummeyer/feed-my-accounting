@@ -80,7 +80,17 @@ type Client struct {
 	MealDay       float64
 	MealFullDay   float64
 	MealTravelDay float64
+	// Lodging is the flat rate in EUR for a night of an overnight trip without a hotel invoice
+	// (Übernachtungspauschale); zero for the inland one. Abroad, the BMF's for the place.
+	Lodging float64
 }
+
+// GermanLodging is the inland flat rate for a night, by law, as of 2026: what the employer may
+// pay without a hotel invoice.
+const GermanLodging = 20.0
+
+// lodging is the client's flat rate for a night: its own, else the inland one.
+func (c Client) lodging(inland float64) float64 { return orDefault(c.Lodging, inland) }
 
 // MealRates are meal allowance rates in EUR (Verpflegungspauschalen).
 type MealRates struct {
@@ -162,7 +172,10 @@ type Assignment struct {
 	From      time.Time
 	To        time.Time
 	Overnight bool
-	Note      string
+	// Hotel says the nights of an overnight trip have a hotel invoice, accounted on its own: no
+	// flat rate for them.
+	Hotel bool
+	Note  string
 }
 
 func (a Assignment) contains(date time.Time) bool {
@@ -196,7 +209,13 @@ type Config struct {
 	// InlandRates are the German meal rates for every client without its own; zero for the
 	// legal ones (GermanRates).
 	InlandRates MealRates
+	// InlandLodging is the German flat rate for a night for every client without its own; zero
+	// for the legal one (GermanLodging).
+	InlandLodging float64
 }
+
+// inlandLodging is the configured inland rate for a night, the legal one where left out.
+func (cfg *Config) inlandLodging() float64 { return orDefault(cfg.InlandLodging, GermanLodging) }
 
 func (c *Config) christmasWeekOffEnabled() bool {
 	return c.ChristmasWeekOff == nil || *c.ChristmasWeekOff
@@ -332,6 +351,11 @@ type Day struct {
 	// Missing names the client's own rate the day needed but did not find, abroad, where the
 	// inland rate was taken instead: "mealDay", "mealFullDay" or "mealTravelDay".
 	Missing string
+	// Lodging is the flat rate for the night that starts on the day, of an overnight trip
+	// without a hotel invoice: every day of it but the last. LodgingMissing says it is the
+	// inland one abroad, the client having none of its own.
+	Lodging        float64
+	LodgingMissing bool
 }
 
 // Plan works out each day of the month. An overnight assignment counts every day within it.
@@ -346,6 +370,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 	calendars := getClientCalendars(cfg.Clients)
 	christmas := cfg.christmasWeekOffEnabled()
 	inland := cfg.inlandRates()
+	lodging := cfg.inlandLodging()
 	// The clients sharing the unassigned workdays: those without assignments of their own. A
 	// client with assignments gets those days, and no others.
 	assignedTo := map[int]bool{}
@@ -377,7 +402,7 @@ func Plan(cfg Config, year int, month time.Month) []Day {
 			assigned = nil
 		}
 		if assigned != nil && assigned.Overnight {
-			days = append(days, awayDay(cfg.Clients[assigned.Client], *assigned, day, inland))
+			days = append(days, awayDay(cfg.Clients[assigned.Client], *assigned, day, inland, lodging))
 			continue
 		}
 		// Whose holidays count: the assigned client's; for the shared days, any of the shared
@@ -459,8 +484,9 @@ func travelDay(day Day, c Client, client int, inland MealRates) Day {
 }
 
 // awayDay is a day of an overnight trip: the travel day rate on its first and last day, with the
-// drive there or back; the full day rate between. A trip of one day is a day trip.
-func awayDay(c Client, a Assignment, day Day, inland MealRates) Day {
+// drive there or back; the full day rate between. A trip of one day is a day trip. Every day but
+// the last starts a night, at the flat rate unless there is a hotel invoice for it.
+func awayDay(c Client, a Assignment, day Day, inland MealRates, lodging float64) Day {
 	to := a.To
 	if to.IsZero() {
 		to = a.From
@@ -484,6 +510,10 @@ func awayDay(c Client, a Assignment, day Day, inland MealRates) Day {
 	}
 	if first || last {
 		day.Mileage = float64(c.Distance) * kmRatePerKm
+	}
+	if !last && !a.Hotel {
+		day.Lodging = c.lodging(lodging)
+		day.LodgingMissing = c.Abroad() && c.Lodging == 0
 	}
 	return day
 }
@@ -525,16 +555,19 @@ type Document = pdfdoc.Document
 // any driving, as one spent abroad.
 type Result struct {
 	Days       int // days with a meal allowance: day trips and days away
+	Nights     int // nights at the flat rate
 	MileageEUR float64
 	MealsEUR   float64
+	LodgingEUR float64
 	Mileage    *Document // Kilometergelderstattung
 	Meals      *Document // Verpflegungsmehraufwand
+	Lodging    *Document // Übernachtungspauschale; nil without a night at the flat rate
 }
 
 // Documents are the PDFs to send.
 func (r *Result) Documents() []Document {
 	var docs []Document
-	for _, d := range []*Document{r.Mileage, r.Meals} {
+	for _, d := range []*Document{r.Mileage, r.Meals, r.Lodging} {
 		if d != nil {
 			docs = append(docs, *d)
 		}
@@ -565,6 +598,10 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 		r.Days++
 		r.MealsEUR += day.Meal
 		r.MileageEUR += day.Mileage
+		r.LodgingEUR += day.Lodging
+		if day.Lodging > 0 {
+			r.Nights++
+		}
 	}
 
 	logger.Printf("Calculated %d travel day(s) for %02d/%d", r.Days, month, year)
@@ -572,7 +609,7 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 		return nil, fmt.Errorf("%02d/%d: %w", month, year, ErrNoTravelDays)
 	}
 
-	var kmBlocks, mealBlocks []string
+	var kmBlocks, mealBlocks, lodgingBlocks []string
 	for i, client := range cfg.Clients {
 		days := byClient[i]
 		if len(days) == 0 {
@@ -583,8 +620,19 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 			logger.Printf("WARNING: %q is abroad (%s) but has no %s: the inland rate is used", client.Name, normalCountry(client.Country), missing)
 		}
 		mealBlocks = append(mealBlocks, buildClientHeader(client))
-		drives := false
+		drives, sleeps := false, false
 		for _, day := range days {
+			if day.Lodging > 0 {
+				if !sleeps {
+					lodgingBlocks, sleeps = append(lodgingBlocks, buildClientHeader(client)), true
+					if day.LodgingMissing {
+						logger.Printf("WARNING: %q is abroad (%s) but has no lodging rate: the inland one is used", client.Name, normalCountry(client.Country))
+					}
+				}
+				next := day.Date.AddDate(0, 0, 1)
+				lodgingBlocks = append(lodgingBlocks, buildLodgingEntry(
+					formatDate(year, month, day.Date.Day()), formatDate(next.Year(), next.Month(), next.Day()), day.Note, day.Lodging))
+			}
 			date := formatDate(year, month, day.Date.Day())
 			mealBlocks = append(mealBlocks, buildMealEntry(date, day.Times, day.MealText, day.Meal))
 			if day.Mileage > 0 {
@@ -612,6 +660,16 @@ func Generate(cfg Config, year int, month time.Month) (*Result, error) {
 		return nil, fmt.Errorf("generating verp PDF: %w", err)
 	}
 	r.Meals = &Document{Filename: fmt.Sprintf("%02d_%d_Reisekosten_Verpflegungsmehraufwand.pdf", month, year), Data: data}
+
+	if len(lodgingBlocks) > 0 {
+		logger.Printf("Generating Übernachtungspauschale PDF: %d night(s)...", r.Nights)
+		header := buildDocumentHeader(year, month, last, first, last, "Übernachtungspauschale")
+		data, err := createPDF(cfg.Employee, header, lodgingBlocks, buildDocumentFooter(r.LodgingEUR))
+		if err != nil {
+			return nil, fmt.Errorf("generating lodging PDF: %w", err)
+		}
+		r.Lodging = &Document{Filename: fmt.Sprintf("%02d_%d_Reisekosten_Uebernachtungspauschale.pdf", month, year), Data: data}
+	}
 	return r, nil
 }
 

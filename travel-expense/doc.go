@@ -59,7 +59,7 @@ func buildDocumentHeader(year int, month time.Month, dateString, periodStart, pe
 	var b strings.Builder
 
 	header := fmt.Sprintf("%s %02d/%d", strings.ToUpper(title), month, year)
-	padding := (lineWidth - len(header)) / 2
+	padding := (lineWidth - utf8.RuneCountInString(header)) / 2
 	b.WriteString(lineDouble + "\n")
 	b.WriteString(fmt.Sprintf("%s%s\n", strings.Repeat(" ", padding), header))
 	b.WriteString(lineDouble + "\n\n")
@@ -120,6 +120,22 @@ func buildMealEntry(dateString, times, what string, amount float64) string {
 		b.WriteString(fmt.Sprintf("  %s\n", dateString))
 	}
 	b.WriteString(amountLine(4, fmt.Sprintf("Verpflegungsmehraufwand (%s)", what), amount))
+	b.WriteString("\n\n")
+
+	return b.String()
+}
+
+// buildLodgingEntry is one night at the flat rate: "03.12.2026 - 04.12.2026" and, after the
+// place where there is one, its amount.
+func buildLodgingEntry(from, to, where string, amount float64) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("  %s - %s\n", from, to))
+	label := "Übernachtungspauschale"
+	if where != "" {
+		label += " (" + where + ")"
+	}
+	b.WriteString(amountLine(4, label, amount))
 	b.WriteString("\n\n")
 
 	return b.String()

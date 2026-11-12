@@ -75,13 +75,14 @@
       <div class="console" data-console="travel" hidden></div>
 
       <h2>Zuordnungen</h2>
-      <p class="muted">Tage, die ausdrücklich einem Kunden gehören. Tagesreisen: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag, mit An- und Abreisetag. Ein Kunde mit Zuordnungen bekommt nur diese Tage; alle übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnungen in zusammenhängenden, gleich großen Blöcken, in der Reihenfolge der Kundenliste. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Änderungen gelten erst mit „Speichern“ unten.</p>
+      <p class="muted">Tage, die ausdrücklich einem Kunden gehören. Tagesreisen: die Arbeitstage im Zeitraum. Über Nacht: jeder Tag, mit An- und Abreisetag, und jede Nacht dazwischen mit der Übernachtungspauschale des Kunden — außer mit „Hotel mit Rechnung“. Ein Kunde mit Zuordnungen bekommt nur diese Tage; alle übrigen Arbeitstage teilen sich die Kunden in Europa ohne Zuordnungen in zusammenhängenden, gleich großen Blöcken, in der Reihenfolge der Kundenliste. Kunden außerhalb Europas bekommen nur zugeordnete Tage. Änderungen gelten erst mit „Speichern“ unten.</p>
       <ul id="assignments" class="rows"></ul>
       <form id="assignment-form" class="inline-form">
         <select id="a-client" aria-label="Kunde" required></select>
         <input type="date" id="a-from" aria-label="von" required>
         <input type="date" id="a-to" aria-label="bis">
         <label class="check"><input type="checkbox" id="a-overnight"> über Nacht</label>
+        <label class="check" id="a-hotel-label" title="Die Nächte haben eine Hotelrechnung: keine Übernachtungspauschale"><input type="checkbox" id="a-hotel"> Hotel mit Rechnung</label>
         <input id="a-note" placeholder="Notiz, z. B. Miami" aria-label="Notiz">
         <button type="submit">Zuordnen</button>
         <button type="button" class="link cancel" hidden>abbrechen</button>

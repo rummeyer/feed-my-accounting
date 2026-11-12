@@ -241,6 +241,10 @@ type planDay struct {
 	MealText string  `json:"mealText,omitempty"`
 	Mileage  float64 `json:"mileage,omitempty"`
 	Missing  string  `json:"missing,omitempty"`
+	// The night's flat rate, for a night that starts on the day; lodgingMissing: the inland one
+	// abroad.
+	Lodging        float64 `json:"lodging,omitempty"`
+	LodgingMissing bool    `json:"lodgingMissing,omitempty"`
 }
 
 var weekdays = [...]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
@@ -268,7 +272,7 @@ func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 		day := planDay{
 			Date: d.Date.Format(time.DateOnly), Weekday: weekdays[d.Date.Weekday()], Kind: d.Kind,
 			Assigned: d.Assigned, Note: d.Note, Meal: d.Meal, MealText: d.MealText, Mileage: d.Mileage,
-			Missing: d.Missing,
+			Missing: d.Missing, Lodging: d.Lodging, LodgingMissing: d.LodgingMissing,
 		}
 		if d.Client >= 0 {
 			day.Client = tc.Clients[d.Client].Name
@@ -277,6 +281,10 @@ func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 		}
 		totals["meals"] += d.Meal
 		totals["mileage"] += d.Mileage
+		totals["lodging"] += d.Lodging
+		if d.Lodging > 0 {
+			totals["nights"]++
+		}
 		days = append(days, day)
 	}
 	te := cfg.TravelExpense

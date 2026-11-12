@@ -1,11 +1,14 @@
 package travelexpense
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/ledongthuc/pdf"
 )
 
 // ---------------------------------------------------------------------------
@@ -405,7 +408,7 @@ func decemberWithMiami() Config {
 		Clients: []Client{
 			{ID: "1", Name: "Acme GmbH", Distance: 15, Province: "BW"},
 			{ID: "2", Name: "Globex Inc.", Distance: 30, Country: "US",
-				MealFullDay: 65, MealTravelDay: 44},
+				MealFullDay: 65, MealTravelDay: 44, Lodging: 256},
 		},
 		Assignments: []Assignment{{Client: 1, From: date(3), To: date(9), Overnight: true, Note: "Miami"}},
 	}
@@ -462,8 +465,12 @@ func TestGenerateWithOvernightTrip(t *testing.T) {
 	if want := float64(travel)*15*0.30 + 2*30*0.30; math.Abs(r.MileageEUR-want) > 1e-9 {
 		t.Errorf("mileage = %.2f, want %.2f", r.MileageEUR, want)
 	}
-	if len(r.Documents()) != 2 {
-		t.Errorf("want both PDFs, got %d", len(r.Documents()))
+	// Six nights in Miami, the 3rd to the 9th, at its flat rate.
+	if r.Nights != 6 || math.Abs(r.LodgingEUR-6*256) > 1e-9 {
+		t.Errorf("nights = %d, lodging = %.2f, want 6 and 1536", r.Nights, r.LodgingEUR)
+	}
+	if len(r.Documents()) != 3 || r.Lodging.Filename != "12_2026_Reisekosten_Uebernachtungspauschale.pdf" {
+		t.Errorf("want mileage, meals and lodging PDFs, got %d", len(r.Documents()))
 	}
 }
 
@@ -476,8 +483,92 @@ func TestGenerateAbroadWithoutDriving(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Mileage != nil || r.Meals == nil || len(r.Documents()) != 1 {
+	// No distance, no mileage PDF; four nights at the inland rate, the client abroad having none.
+	if r.Mileage != nil || r.Meals == nil || r.Lodging == nil || len(r.Documents()) != 2 || r.LodgingEUR != 4*GermanLodging {
 		t.Errorf("no distance, no mileage PDF: %+v", r)
+	}
+}
+
+func TestPlanLodging(t *testing.T) {
+	cfg := decemberWithMiami()
+	days := Plan(cfg, 2026, time.December)
+	// A night starts on every day of the trip but the last: the 3rd to the 8th.
+	for d := 1; d <= 31; d++ {
+		want := 0.0
+		if d >= 3 && d <= 8 {
+			want = 256
+		}
+		if got := days[d-1].Lodging; got != want {
+			t.Errorf("%d Dec: lodging %.2f, want %.2f", d, got, want)
+		}
+	}
+
+	// With a hotel invoice: no flat rate.
+	cfg.Assignments[0].Hotel = true
+	for _, d := range Plan(cfg, 2026, time.December) {
+		if d.Lodging != 0 {
+			t.Errorf("%s: lodging %.2f with a hotel invoice", d.Date.Format("02.01."), d.Lodging)
+		}
+	}
+
+	// Inland: the legal rate, or the configured one; abroad without a rate of its own, the
+	// inland one, marked.
+	inland := Config{Clients: []Client{{Name: "Acme GmbH", Province: "BW"}},
+		Assignments: []Assignment{{Client: 0, From: date(14), To: date(16), Overnight: true}}}
+	if d := Plan(inland, 2026, time.December)[13]; d.Lodging != 20 || d.LodgingMissing {
+		t.Errorf("inland: %+v", d)
+	}
+	inland.InlandLodging = 25
+	if d := Plan(inland, 2026, time.December)[13]; d.Lodging != 25 {
+		t.Errorf("inland, configured: %+v", d)
+	}
+	inland.Clients[0].Country = "US"
+	if d := Plan(inland, 2026, time.December)[13]; d.Lodging != 25 || !d.LodgingMissing {
+		t.Errorf("abroad without a rate: %+v", d)
+	}
+
+	// A trip of one day has no night.
+	oneDay := Config{Clients: []Client{{Name: "Acme GmbH", Province: "BW"}},
+		Assignments: []Assignment{{Client: 0, From: date(14), To: date(14), Overnight: true}}}
+	if d := Plan(oneDay, 2026, time.December)[13]; d.Lodging != 0 {
+		t.Errorf("one day: %+v", d)
+	}
+
+	// Across the month's end: the night of the 31st is December's, the 1st's January's.
+	across := Config{Clients: []Client{{Name: "Acme GmbH", Province: "BW", Lodging: 30}},
+		Assignments: []Assignment{{Client: 0, From: date(30), To: time.Date(2027, 1, 2, 0, 0, 0, 0, time.UTC), Overnight: true}}}
+	var dec, jan float64
+	for _, d := range Plan(across, 2026, time.December) {
+		dec += d.Lodging
+	}
+	for _, d := range Plan(across, 2027, time.January) {
+		jan += d.Lodging
+	}
+	if dec != 60 || jan != 30 {
+		t.Errorf("across the month's end: December %.0f, January %.0f; want 60 and 30", dec, jan)
+	}
+}
+
+func TestLodgingPDFUmlauts(t *testing.T) {
+	cfg := decemberWithMiami()
+	cfg.Assignments[0].Note = "Miami Süd"
+	r, err := Generate(cfg, 2026, time.December)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := pdf.NewReader(bytes.NewReader(r.Lodging.Data), int64(len(r.Lodging.Data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, err := reader.Page(1).GetPlainText(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Written in the PDF's own encoding, the umlauts read back as they were.
+	for _, want := range []string{"ÜBERNACHTUNGSPAUSCHALE 12/2026", "03.12.2026 - 04.12.2026", "Übernachtungspauschale (Miami Süd)", "256,00 EUR", "1536,00 EUR"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("lodging PDF without %q", want)
+		}
 	}
 }
 
