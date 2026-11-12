@@ -115,11 +115,11 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	pdf.CellFormat(110, 10, fmt.Sprintf("Zeitnachweis %d/%d", from.Month(), from.Year()), "", 0, "L", false, 0, "")
 	bottom := logMargin + 12
 	if logo != "" {
-		data, err := logoJPEG(logo)
+		data, kind, err := logoForPDF(logo)
 		if err != nil {
 			return fmt.Errorf("the logo %s: %w", logo, err)
 		}
-		options := fpdf.ImageOptions{ImageType: "JPG"}
+		options := fpdf.ImageOptions{ImageType: kind}
 		info := pdf.RegisterImageOptionsReader("logo", options, bytes.NewReader(data))
 		if err := pdf.Error(); err != nil {
 			return fmt.Errorf("the logo %s: %w", logo, err)

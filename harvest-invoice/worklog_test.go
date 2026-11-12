@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -153,5 +154,38 @@ func TestLogoShrunk(t *testing.T) {
 	}
 	if len(pdfData) > 150<<10 {
 		t.Errorf("work log with a logo: %d KB", len(pdfData)>>10)
+	}
+}
+
+func TestLogoAsUploaded(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name string, img image.Image, asJPEG bool) string {
+		path := filepath.Join(dir, name)
+		f, _ := os.Create(path)
+		defer f.Close()
+		if asJPEG {
+			jpeg.Encode(f, img, &jpeg.Options{Quality: 80})
+		} else {
+			png.Encode(f, img)
+		}
+		return path
+	}
+	small := image.NewNRGBA(image.Rect(0, 0, 300, 200))
+	small.Set(10, 10, color.NRGBA{0, 0, 0, 0x80})
+	paletted := image.NewPaletted(image.Rect(0, 0, 300, 200), color.Palette{color.NRGBA{0, 0, 0, 0}, color.NRGBA{0, 0, 0, 0xff}, color.NRGBA{0x80, 0x80, 0x80, 0x40}})
+	for _, c := range []struct {
+		name, path, kind string
+		asUploaded       bool
+	}{
+		{"small PNG with alpha", write("small.png", small, false), "PNG", true},
+		{"small JPEG", write("small.jpg", small, true), "JPG", true},
+		{"palette with transparency", write("palette.png", paletted, false), "JPG", false},
+		{"too wide", write("wide.png", image.NewNRGBA(image.Rect(0, 0, logoPixels+1, 100)), false), "JPG", false},
+	} {
+		uploaded, _ := os.ReadFile(c.path)
+		data, kind, err := logoForPDF(c.path)
+		if err != nil || kind != c.kind || bytes.Equal(data, uploaded) != c.asUploaded {
+			t.Errorf("%s: %s, as uploaded %v, %v; want %s, as uploaded %v", c.name, kind, bytes.Equal(data, uploaded), err, c.kind, c.asUploaded)
+		}
 	}
 }
