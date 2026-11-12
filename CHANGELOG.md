@@ -5,20 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Changed
-
-- Web interface: the employee — and *Abmelden*, once logged in — sits centred above the page, bigger and bold, no longer in its corner.
+## [1.13.0] - 2026-11-12
 
 ### Added
 
 - Web interface: **logging in**. Every employee can have a password (Einstellungen › Mitarbeiter, kept as a bcrypt hash in `staff.logins`); as soon as one has, the page asks for a login — at home just the employee, from outside the employee and their password. Sessions of 30 days in a cookie scripts cannot read, Secure over HTTPS, SameSite strict; five failed logins lock an address for 15 minutes; changing calls only from the page itself; security headers (CSP, no framing). *Abmelden* at the top.
 - Behind a reverse proxy — Caddy, on the Pi or elsewhere in the home network — the client's address counts, from `X-Forwarded-For`, not the proxy's: a visitor from the internet is not at home through it.
 
+### Changed
+
+- Web interface: the employee — and *Abmelden*, once logged in — sits centred above the page, bigger and bold, no longer in its corner.
+
 ### Removed
 
 - `web.password` and HTTP basic auth: on starting, a password set there becomes the selected employee's login.
+
+### Fixed
+
+- Web interface: the month next to *Aus Harvest anlegen* always starts at the current month — the browser restored an emptied field over it — and its hint follows the month too.
 
 ## [1.12.0] - 2026-11-12
 
