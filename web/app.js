@@ -545,7 +545,12 @@ function renderLists() {
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   const what = {
-    assignments: (a) => [nameOf(a.client), a.overnight ? ' · über Nacht' : ' · Tagesreisen', a.overnight && a.hotel ? ' · Hotel' : '', a.overnight && a.nightFlight ? ' · Nachtflug' : '', a.note ? ` · ${a.note}` : ''],
+    // With the form's icons: moon, bed, plane.
+    assignments: (a) => [nameOf(a.client),
+      ...(a.overnight ? [' · ', icon('moon', 'über Nacht'), 'über Nacht'] : [' · Tagesreisen']),
+      ...(a.overnight && a.hotel ? [' · ', icon('bed', 'Hotel'), 'Hotel'] : []),
+      ...(a.overnight && a.nightFlight ? [' · ', icon('plane', 'Nachtflug'), 'Nachtflug'] : []),
+      a.note ? ` · ${a.note}` : ''],
     blocked: (b) => [b.note || ''],
   };
   for (const [name, list] of Object.entries(lists)) {
