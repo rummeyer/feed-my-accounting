@@ -374,3 +374,4 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
   .logo-filled:hover .logo-preview { opacity: .35; }
 }
 .legend-clients { display: contents; } /* its clients, each a key of the legend */
+.totals dt { min-height: 16px; display: flex; align-items: center; } /* with an icon or without, the same height: the amounts in one line */

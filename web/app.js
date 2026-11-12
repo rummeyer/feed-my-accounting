@@ -418,7 +418,7 @@ function renderTotals() {
     el('div', '', el('dt', '', 'Reisetage'), el('dd', '', String(t.days ?? 0))),
     el('div', '', el('dt', '', icon('meal', 'Verpflegung'), 'Verpflegung'), el('dd', '', euro(t.meals))),
     el('div', '', el('dt', '', icon('car', 'Kilometergeld'), 'Kilometer'), el('dd', '', euro(t.mileage))),
-    t.nights > 0 && el('div', '', el('dt', '', icon('bed', 'Übernachtung'), `Übernachtung · ${t.nights} ${t.nights === 1 ? 'Nacht' : 'Nächte'}`), el('dd', '', euro(t.lodging))),
+    t.nights > 0 && el('div', '', el('dt', '', icon('bed', 'Übernachtung'), 'Übernachtung'), el('dd', '', euro(t.lodging))),
     el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro(totalOf(t)))),
     per && el('div', 'whole', el('dt', '', 'Je Kunde'), el('dd', 'muted', per)),
     missing.size > 0 && el('div', 'whole warn', el('dt', '', 'Satz fehlt'),
