@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] - 2026-11-12
 
 ### Added
 
@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - travel-expense: umlauts in the PDFs — the Lieferant, a client's address, "Übernachtung" — are written in the PDF's own encoding, not as garbled UTF-8.
+- Web interface: the browser asks for the page's files again each time — a page kept from before an update ran its old script and dropped a new field when saving.
 
 ## [1.10.0] - 2026-11-12
 
