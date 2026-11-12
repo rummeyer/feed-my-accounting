@@ -54,6 +54,16 @@ func TestExtractOrderNumber(t *testing.T) {
 			"MHJT12345",
 		},
 		{
+			"label and number in their own elements",
+			`<div><p class="a">Bestellnummer:</p><p class="b">MNMTYFDFG4<br/></p></div><div><p>Dokument:</p><p>818213388275</p></div>`,
+			"MNMTYFDFG4",
+		},
+		{
+			"App Store: BESTELLNR. above a link",
+			`<td><span>BESTELLNR.</span><br><span><a href="https://support.apple.com/kb/HT204088">MK5YH4MJ4X</a></span></td><td><span>DOKUMENT-NR.</span><br>744213462350</td>`,
+			"MK5YH4MJ4X",
+		},
+		{
 			"not found",
 			`<html><body><p>No order number here</p></body></html>`,
 			"",

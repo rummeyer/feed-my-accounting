@@ -15,6 +15,7 @@ import (
 	"feed-my-accounting/email"
 
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 )
 
 var logger = log.New(os.Stderr, "[apple-invoice] ", log.LstdFlags)
@@ -130,26 +131,45 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 // Invoice parsing
 // ---------------------------------------------------------------------------
 
-// extractOrderNumber parses the invoice HTML for the order number following
-// the "Bestellnummer:" label. Returns empty string if not found.
+// orderLabel is the order number's label: "Bestellnummer:" in subscription invoices, "BESTELLNR."
+// in App Store ones, the number after it in the same text or the next.
+var orderLabel = regexp.MustCompile(`(?i)^bestell(?:nummer|nr\.?)\s*:?\s*(.*)$`)
+
+// extractOrderNumber parses the invoice HTML for the order number following its label. Returns
+// empty string if not found.
 func extractOrderNumber(htmlContent string) string {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(htmlContent))
 	if err != nil {
 		return ""
 	}
-	var orderNum string
-	doc.Find("*").EachWithBreak(func(_ int, s *goquery.Selection) bool {
-		text := strings.TrimSpace(s.Text())
-		if strings.HasPrefix(text, "Bestellnummer:") {
-			orderNum = strings.TrimSpace(strings.TrimPrefix(text, "Bestellnummer:"))
-			if idx := strings.IndexAny(orderNum, "\n\r\t"); idx >= 0 {
-				orderNum = strings.TrimSpace(orderNum[:idx])
-			}
-			return false
+	texts := textsOf(doc.Nodes[0], nil)
+	for i, text := range texts {
+		m := orderLabel.FindStringSubmatch(text)
+		if m == nil {
+			continue
 		}
-		return true
-	})
-	return orderNum
+		value := m[1]
+		if value == "" && i+1 < len(texts) {
+			value = texts[i+1]
+		}
+		if fields := strings.Fields(value); len(fields) > 0 {
+			return fields[0]
+		}
+	}
+	return ""
+}
+
+// textsOf appends the node's texts, trimmed and in document order, the empty ones left out.
+func textsOf(n *html.Node, texts []string) []string {
+	if n.Type == html.TextNode {
+		if t := strings.TrimSpace(n.Data); t != "" {
+			texts = append(texts, t)
+		}
+	}
+	for c := n.FirstChild; c != nil; c = c.NextSibling {
+		texts = textsOf(c, texts)
+	}
+	return texts
 }
 
 func sanitizeFilename(s string) string {
