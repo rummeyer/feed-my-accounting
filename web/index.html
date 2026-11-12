@@ -114,26 +114,27 @@
       </div>
       <div class="console" data-console="harvest" hidden></div>
 
-      <h2>Harvest-Bericht hochladen</h2>
-      <p class="muted">Statt über die API: den PDF-Stundenbericht aus Harvest hier ablegen. Stunden und Leistungszeitraum werden ausgelesen, zum Prüfen. Dann legt das Tool den Rechnungsentwurf in sevDesk an — er wird nie verschickt.</p>
-      <form id="upload-form" class="drop">
-        <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)">
-        <span id="drop-text">PDF hierher ziehen oder auswählen</span>
-      </form>
-      <form id="draft-form" class="grid" hidden>
-        <label>Stunden<input type="number" id="d-hours" step="0.01" min="0" required></label>
-        <label>Leistung von<input type="date" id="d-from" required></label>
-        <label>Leistung bis<input type="date" id="d-to" required></label>
-        <label>Kunde<input id="d-client" readonly></label>
-        <label>Artikel<input id="d-product" readonly></label>
-        <label>Referenz<input id="d-reference" readonly></label>
-        <div class="actions span">
-          <button type="submit" class="strong">Entwurf in sevDesk anlegen</button>
-        </div>
-      </form>
-      <div class="console" data-console="invoice" hidden></div>
-
       <details class="part-box"><summary>Einstellungen Kundenrechnung</summary><form class="part" data-part="invoice"></form></details>
+
+      <details class="part-box"><summary>PDF-Bericht hochladen (statt über die API)</summary>
+        <p class="muted">Statt über die API: den PDF-Stundenbericht aus Harvest hier ablegen. Stunden und Leistungszeitraum werden ausgelesen, zum Prüfen. Dann legt das Tool den Rechnungsentwurf in sevDesk an — er wird nie verschickt.</p>
+        <form id="upload-form" class="drop">
+          <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)">
+          <span id="drop-text">PDF hierher ziehen oder auswählen</span>
+        </form>
+        <form id="draft-form" class="grid" hidden>
+          <label>Stunden<input type="number" id="d-hours" step="0.01" min="0" required></label>
+          <label>Leistung von<input type="date" id="d-from" required></label>
+          <label>Leistung bis<input type="date" id="d-to" required></label>
+          <label>Kunde<input id="d-client" readonly></label>
+          <label>Artikel<input id="d-product" readonly></label>
+          <label>Referenz<input id="d-reference" readonly></label>
+          <div class="actions span">
+            <button type="submit" class="strong">Entwurf in sevDesk anlegen</button>
+          </div>
+        </form>
+        <div class="console" data-console="invoice" hidden></div>
+      </details>
     </section>
 
     <!-- Belege -->
