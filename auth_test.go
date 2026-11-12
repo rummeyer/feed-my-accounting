@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -306,5 +309,80 @@ func TestSessionEndsWhenIdle(t *testing.T) {
 	s.m[h] = session{Name: "Max Mustermann", Expires: time.Now().Add(-time.Second)}
 	if name, _ := s.who(token, true); name != "" {
 		t.Errorf("expired session still %q", name)
+	}
+}
+
+func TestDockerContainerIsNotHome(t *testing.T) {
+	s := testServer(t, true, false)
+	const container = "172.18.0.5:40000"
+	forged := func(r *http.Request) { r.Header.Set("X-Forwarded-For", "192.168.178.5") }
+	// Straight from a container, or claiming a home address: a password is asked, as from outside.
+	if w := call(s, "POST", "/api/login", container, `{"name":"Max Mustermann"}`); w.Code != http.StatusUnauthorized {
+		t.Errorf("container without a password: %d", w.Code)
+	}
+	if w := call(s, "POST", "/api/login", container, `{"name":"Max Mustermann"}`, forged); w.Code != http.StatusUnauthorized {
+		t.Errorf("container with a forged home address: %d", w.Code)
+	}
+	if w := call(s, "GET", "/api/session", container, "", forged); strings.Contains(w.Body.String(), "Max Mustermann") {
+		t.Errorf("names shown to a container: %s", w.Body)
+	}
+}
+
+func TestProxyToken(t *testing.T) {
+	s := testServer(t, true, false)
+	if err := s.change(func(cfg *Config) error { cfg.Web.ProxyToken = "caddy-secret"; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	const caddy = "172.18.0.2:40000"
+	via := func(token, client string) func(*http.Request) {
+		return func(r *http.Request) {
+			r.Header.Set(proxyTokenHeader, token)
+			r.Header.Set("X-Forwarded-For", client)
+			r.Header.Set("X-Forwarded-Proto", "https")
+		}
+	}
+	// Caddy in Docker with the token: the visitor at home counts as at home.
+	if w := call(s, "POST", "/api/login", caddy, `{"name":"Max Mustermann"}`, via("caddy-secret", "192.168.178.5")); w.Code != http.StatusOK {
+		t.Errorf("home visitor through Caddy with the token: %d %s", w.Code, w.Body)
+	}
+	// A wrong token: the header is the container's own say.
+	if w := call(s, "POST", "/api/login", caddy, `{"name":"Max Mustermann"}`, via("guessed", "192.168.178.5")); w.Code != http.StatusUnauthorized {
+		t.Errorf("wrong token taken: %d", w.Code)
+	}
+	// From outside through Caddy: the password, and a Secure cookie.
+	w := call(s, "POST", "/api/login", caddy, `{"name":"Max Mustermann","password":"geheim123"}`, via("caddy-secret", "84.150.10.2"))
+	if c := w.Result().Cookies(); w.Code != http.StatusOK || len(c) == 0 || !c[0].Secure {
+		t.Errorf("outside through Caddy: %d, cookie %+v", w.Code, c)
+	}
+}
+
+func TestManyAddressesTrying(t *testing.T) {
+	s := testServer(t, true, false)
+	for i := range maxAllFailures {
+		addr := fmt.Sprintf("84.150.10.%d:50000", i+1)
+		call(s, "POST", "/api/login", addr, `{"name":"Max Mustermann","password":"falsch123"}`)
+	}
+	// Everyone from outside waits, the right password too; at home no password is asked.
+	if w := call(s, "POST", "/api/login", "84.150.99.1:50000", `{"name":"Max Mustermann","password":"geheim123"}`); w.Code != http.StatusTooManyRequests {
+		t.Errorf("after %d failures from many addresses: %d", maxAllFailures, w.Code)
+	}
+	if w := call(s, "POST", "/api/login", home, `{"name":"Max Mustermann"}`); w.Code != http.StatusOK {
+		t.Errorf("at home during the wait: %d", w.Code)
+	}
+}
+
+func TestUploadTooBig(t *testing.T) {
+	s := testServer(t, false, false)
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	part, _ := form.CreateFormFile("report", "report.pdf")
+	_, _ = part.Write(bytes.Repeat([]byte("x"), maxReport+1))
+	_ = form.Close()
+	w := call(s, "POST", "/api/harvest/upload", home, "", func(r *http.Request) {
+		r.Body = io.NopCloser(&body)
+		r.Header.Set("Content-Type", form.FormDataContentType())
+	})
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "zu groß") {
+		t.Errorf("a report over %d MB: %d %s", maxReport>>20, w.Code, w.Body)
 	}
 }

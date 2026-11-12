@@ -758,6 +758,7 @@ const PARTS = {
   web: [['Oberfläche', [
     ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'],
     ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
+    ['Web.ProxyToken', 'Proxy-Token (Caddy in Docker)', 'secret', 4],
   ]]],
   travel: [['Kunden', [
     ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
@@ -933,7 +934,7 @@ function renderSettings() {
       if (title === 'Firma') children.push(renderLogo());
     }
     if (part === 'web') {
-      children.push(el('p', 'muted', 'Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers.'));
+      children.push(el('p', 'muted', 'Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.'));
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mail') {

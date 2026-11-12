@@ -122,13 +122,19 @@ func (s *server) handler() http.Handler {
 	return s.auth(mux)
 }
 
-// fromHome says whether a request comes from the home network: a private, loopback or
-// link-local address. Anything else is turned away, even if the port is open to the internet.
-func fromHome(r *http.Request) bool {
-	// Through Caddy on this machine, every request comes from localhost: the client's address
-	// counts, not the proxy's.
-	ip := net.ParseIP(clientIP(r))
-	return ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
+// fromHome says whether a request comes from the home network — through a proxy, the client's
+// address counts, not the proxy's. Anything else is turned away, even if the port is open to the
+// internet.
+func fromHome(r *http.Request) bool { return homeAddress(net.ParseIP(clientIP(r))) }
+
+// docker is 172.16.0.0/12, private but where Docker puts its containers: one of them, open to
+// the internet, is not at home.
+var docker = &net.IPNet{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)}
+
+// homeAddress says whether the address is in the home network: 10.…, 192.168.…, local IPv6,
+// loopback or link-local — not Docker's 172.16–31.
+func homeAddress(ip net.IP) bool {
+	return ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || (ip.IsPrivate() && !docker.Contains(ip)))
 }
 
 func (s *server) config() (*Config, error) { return loadConfig("", s.configPath) }
@@ -569,9 +575,10 @@ const maxLogo = 2 << 20
 // putLogo keeps an uploaded PNG or JPEG as the company's logo, beside the configuration. The
 // logo it replaces is kept as its .bak.
 func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxLogo+64<<10) // the form around it too
 	file, _, err := r.FormFile("logo")
 	if err != nil {
-		fail(w, http.StatusBadRequest, errors.New("no logo uploaded"))
+		fail(w, http.StatusBadRequest, uploadError(err, "no logo uploaded"))
 		return
 	}
 	defer file.Close()
@@ -627,12 +634,25 @@ func setAsideLogo(cfg *Config) error {
 	return os.Rename(path, strings.TrimSuffix(path, ext)+".bak"+ext)
 }
 
+// maxReport is the largest Harvest report taken: a month's is some 100 KB.
+const maxReport = 10 << 20
+
+// uploadError is why an upload was not taken: too big, or not there.
+func uploadError(err error, missing string) error {
+	var tooBig *http.MaxBytesError
+	if errors.As(err, &tooBig) {
+		return fmt.Errorf("zu groß: höchstens %d MB", tooBig.Limit>>20)
+	}
+	return errors.New(missing)
+}
+
 // harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before
 // the draft is made.
 func (s *server) harvestUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxReport)
 	file, _, err := r.FormFile("report")
 	if err != nil {
-		fail(w, http.StatusBadRequest, errors.New("no PDF uploaded"))
+		fail(w, http.StatusBadRequest, uploadError(err, "no PDF uploaded"))
 		return
 	}
 	defer file.Close()
@@ -749,6 +769,7 @@ func secrets(cfg *Config) []*string {
 		&cfg.VodafoneInvoice.Password,
 		&cfg.HarvestInvoice.SevDesk.Password,
 		&cfg.HarvestInvoice.Harvest.Token,
+		&cfg.Web.ProxyToken,
 	}
 }
 

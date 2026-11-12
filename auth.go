@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -29,6 +31,10 @@ const (
 	sessionIdle   = time.Hour        // a session ends after this long without a request
 	maxFailures   = 5                // failed logins from one address before it waits
 	lockedFor     = 15 * time.Minute // how long it waits
+	// maxAllFailures are the failed logins from all addresses together, within lockedFor, before
+	// logins from outside wait: many addresses trying, as a botnet would. At home no password
+	// is asked, so it still lets in.
+	maxAllFailures = 20
 )
 
 // sessions are the logged-in browsers: the token's SHA-256, never the token, with the employee
@@ -136,36 +142,54 @@ func (s *sessions) save() error {
 	return os.WriteFile(s.path, data, 0o600)
 }
 
-// failures counts failed logins by address, so that passwords cannot be tried one after another.
+// failures counts failed logins by address, so that passwords cannot be tried one after another,
+// and all of them together, so that they cannot be tried from many addresses at once either.
 type failures struct {
-	mu sync.Mutex
-	m  map[string]struct {
-		n     int
-		until time.Time
-	}
+	mu  sync.Mutex
+	m   map[string]failure
+	all []time.Time // the failures within lockedFor, from any address
+	// allUntil is when logins from outside may go on, after maxAllFailures.
+	allUntil time.Time
+}
+
+type failure struct {
+	n     int
+	last  time.Time
+	until time.Time
 }
 
 func (f *failures) locked(ip string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return time.Now().Before(f.m[ip].until)
+	now := time.Now()
+	return now.Before(f.allUntil) || now.Before(f.m[ip].until)
 }
 
 func (f *failures) failed(ip string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	now := time.Now()
 	if f.m == nil {
-		f.m = map[string]struct {
-			n     int
-			until time.Time
-		}{}
+		f.m = map[string]failure{}
+	}
+	// Addresses quiet for lockedFor are forgotten: the map does not grow with every one tried.
+	for a, got := range f.m {
+		if now.Sub(got.last) > lockedFor && now.After(got.until) {
+			delete(f.m, a)
+		}
 	}
 	got := f.m[ip]
 	got.n++
+	got.last = now
 	if got.n >= maxFailures {
-		got.n, got.until = 0, time.Now().Add(lockedFor)
+		got.n, got.until = 0, now.Add(lockedFor)
 	}
 	f.m[ip] = got
+
+	f.all = append(slices.DeleteFunc(f.all, func(t time.Time) bool { return now.Sub(t) > lockedFor }), now)
+	if len(f.all) >= maxAllFailures {
+		f.all, f.allUntil = nil, now.Add(lockedFor)
+	}
 }
 
 func (f *failures) succeeded(ip string) {
@@ -190,14 +214,39 @@ func hashPassword(password string) (string, error) {
 // Where a request comes from
 // ---------------------------------------------------------------------------
 
-// proxied says the request came through a reverse proxy in the home network — Caddy on this
-// machine or on another — with the client's address in X-Forwarded-For. Only from there is the
-// header believed: from outside, it is the client's own say. A proxy elsewhere in the home
-// network must count too, or everyone it lets in from the internet would be at home.
+// proxied says the request came through a reverse proxy with the client's address in
+// X-Forwarded-For: one in the home network — Caddy on this machine or on another — or one that
+// sent the proxy token. Only from there is the header believed: from outside, or from a Docker
+// container, it is the client's own say. A proxy elsewhere in the home network must count too,
+// or everyone it lets in from the internet would be at home.
 func proxied(r *http.Request) bool {
-	ip := net.ParseIP(remoteHost(r.RemoteAddr))
-	return ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()) &&
-		r.Header.Get("X-Forwarded-For") != ""
+	if r.Header.Get("X-Forwarded-For") == "" {
+		return false
+	}
+	trusted, _ := r.Context().Value(trustedProxy{}).(bool)
+	return trusted || homeAddress(net.ParseIP(remoteHost(r.RemoteAddr)))
+}
+
+// trustedProxy marks a request whose proxy sent the token.
+type trustedProxy struct{}
+
+// proxyTokenHeader carries the proxy token: see WebConfig.ProxyToken.
+const proxyTokenHeader = "X-Proxy-Token"
+
+// withProxy is the request as the proxy's headers are to be taken: marked when the proxy sent the
+// token, the forwarding headers dropped when they are not to be believed. The token itself goes
+// no further.
+func withProxy(r *http.Request, token string) *http.Request {
+	sent := r.Header.Get(proxyTokenHeader)
+	r.Header.Del(proxyTokenHeader)
+	if token != "" && subtle.ConstantTimeCompare([]byte(sent), []byte(token)) == 1 {
+		return r.WithContext(context.WithValue(r.Context(), trustedProxy{}, true))
+	}
+	if !proxied(r) {
+		r.Header.Del("X-Forwarded-For")
+		r.Header.Del("X-Forwarded-Proto")
+	}
+	return r
 }
 
 func remoteHost(addr string) string {
@@ -278,12 +327,11 @@ func (s *server) session(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	// The employees to choose from at home; from outside the name is typed, not shown.
 	atHome := fromHome(r)
 	names := []string{}
-	for _, n := range cfg.Staff.Names {
-		if atHome || cfg.Staff.Logins[n] != "" {
-			names = append(names, n)
-		}
+	if atHome {
+		names = cfg.Staff.Names
 	}
 	reply(w, map[string]any{
 		"required": len(cfg.Staff.Logins) > 0, "password": !atHome, "names": names, "user": s.loggedIn(r),
@@ -298,11 +346,6 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	if !read(w, r, &in) {
 		return
 	}
-	ip := clientIP(r)
-	if s.failures.locked(ip) {
-		fail(w, http.StatusTooManyRequests, errors.New("zu viele Versuche — in 15 Minuten wieder"))
-		return
-	}
 	cfg, err := readConfig(s.configPath)
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err)
@@ -315,6 +358,11 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.startSession(w, r, in.Name)
+		return
+	}
+	ip := clientIP(r)
+	if s.failures.locked(ip) {
+		fail(w, http.StatusTooManyRequests, errors.New("zu viele Versuche — in 15 Minuten wieder"))
 		return
 	}
 	hash := cfg.Staff.Logins[in.Name]
@@ -367,6 +415,7 @@ func (s *server) auth(next http.Handler) http.Handler {
 			http.Error(w, "config: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+		r = withProxy(r, cfg.Web.ProxyToken)
 		required := len(cfg.Staff.Logins) > 0
 		if (cfg.Web.homeOnly() || !required) && !fromHome(r) {
 			http.Error(w, "only reachable from the home network", http.StatusForbidden)

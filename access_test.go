@@ -10,7 +10,7 @@ func TestOnlyTheHomeNetwork(t *testing.T) {
 	for remote, want := range map[string]bool{
 		"10.0.1.20:51000":     true,
 		"192.168.178.5:51000": true,
-		"172.20.0.3:51000":    true,
+		"172.20.0.3:51000":    false, // a Docker container is not at home
 		"127.0.0.1:51000":     true,
 		"[::1]:51000":         true,
 		"[fd00::5]:51000":     true,

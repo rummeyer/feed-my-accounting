@@ -10,7 +10,15 @@ const $ = (id) => document.getElementById(id);
     location.replace('/');
     return;
   }
-  for (const name of session?.names ?? []) {
+  const names = session?.names ?? [];
+  // From outside no list of employees: the name is typed.
+  if (names.length === 0) {
+    $('name').remove();
+    $('name-typed').id = 'name';
+    $('name').hidden = false;
+    $('name').required = true;
+  }
+  for (const name of names) {
     const o = document.createElement('option');
     o.value = o.textContent = name;
     $('name').append(o);

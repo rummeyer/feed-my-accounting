@@ -87,6 +87,9 @@ type WebConfig struct {
 	// Password is the page's one password of before 1.13, asked by HTTP basic auth: on starting,
 	// it becomes the selected employee's login.
 	Password string `yaml:"password,omitempty"`
+	// ProxyToken is what a reverse proxy outside the home network's addresses — Caddy in Docker,
+	// say — sends in X-Proxy-Token to have its X-Forwarded-For believed. Empty: none such.
+	ProxyToken string `yaml:"proxyToken,omitempty"`
 }
 
 // homeOnly says whether only the home network may reach the web interface: unless switched off.

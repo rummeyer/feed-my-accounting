@@ -152,18 +152,18 @@ New entries start at `0 7 1 * *`, the 1st at 7:00.
 
 ### Who may reach it
 
-The page holds the keys to your mail, Vodafone, Harvest and sevDesk accounts, so by default it answers **the home network only** (`web.homeOnly`, on the web interface *Nur im Heimnetz erreichbar*): private addresses (`10.…`, `192.168.…`, `172.16–31.…`), localhost and local IPv6. Anything else gets *403*, even if the port is open to the internet by mistake. A VPN such as Tailscale uses addresses outside the private ranges (`100.64.…`) and is not let in.
+The page holds the keys to your mail, Vodafone, Harvest and sevDesk accounts, so by default it answers **the home network only** (`web.homeOnly`, on the web interface *Nur im Heimnetz erreichbar*): private addresses (`10.…`, `192.168.…`), localhost and local IPv6 — not `172.16–31.…`, where Docker puts its containers: one of them, open to the internet, is not at home. Anything else gets *403*, even if the port is open to the internet by mistake. A VPN such as Tailscale uses addresses outside the private ranges (`100.64.…`) and is not let in.
 
 ### Logging in
 
 Every employee can have a **password** (Einstellungen › Mitarbeiter, at least 8 characters, kept only as a bcrypt hash in `staff.logins`). As soon as one has, every page and call needs a session:
 
 - **At home**, the login page asks only for the employee — a dropdown and *Anmelden*, no password. A password lost is set anew from there; no reset by mail is needed.
-- **From outside** — `web.homeOnly` switched off, through a reverse proxy with HTTPS — it asks for the employee and their password. Only employees with a password are offered.
+- **From outside** — `web.homeOnly` switched off, through a reverse proxy with HTTPS — it asks for the employee's name, typed — no list of employees shows — and their password.
 
-<p align="center"><img src="docs/login.png" alt="The login page from outside: the employee chosen from a list, Max Mustermann, and the password field beneath, with Anmelden" width="480"></p>
+<p align="center"><img src="docs/login.png" alt="The login page from outside: the employee's name typed, Max Mustermann, and the password field beneath, with Anmelden" width="480"></p>
 
-As long as no employee has a password, the page answers the home network only, whatever `web.homeOnly` says. A session ends after an hour without a request — the page's own polling does not count, so an open tab logs out too and shows the login — and each request renews it; it is in a cookie the page's scripts cannot read, sent over HTTPS only when the browser talks HTTPS, and only from this site's pages; the Pi keeps the sessions' hashes, not their tokens, in `feed-my-accounting-sessions.json`, so a restart logs no one out. A new password ends the employee's other sessions. Five failed logins from one address lock it for 15 minutes. Calls that change something are taken only from the page itself, and the page loads only its own scripts and cannot be framed.
+As long as no employee has a password, the page answers the home network only, whatever `web.homeOnly` says. A session ends after an hour without a request — the page's own polling does not count, so an open tab logs out too and shows the login — and each request renews it; it is in a cookie the page's scripts cannot read, sent over HTTPS only when the browser talks HTTPS, and only from this site's pages; the Pi keeps the sessions' hashes, not their tokens, in `feed-my-accounting-sessions.json`, so a restart logs no one out. A new password ends the employee's other sessions. Five failed logins from one address lock it for 15 minutes; twenty from any addresses within 15 minutes, as a botnet would try, lock all logins from outside for 15 minutes — at home no password is asked, so it still lets in. Uploads are capped: the logo at 2 MB, a Zeitnachweis at 10 MB. Calls that change something are taken only from the page itself, and the page loads only its own scripts and cannot be framed.
 
 ### Behind Caddy with HTTPS
 
@@ -174,6 +174,18 @@ accounting.example.com {
 	reverse_proxy 192.168.178.10:8595   # the Pi; localhost:8595 with Caddy on the Pi
 }
 ```
+
+**Caddy in Docker** reaches the Pi from a Docker address, `172.…`, which counts neither as home nor as a proxy to believe — else any container could claim to be at home. Give it a token: a long random one, `openssl rand -hex 32`, as `web.proxyToken` (on the web interface *Proxy-Token*, under *Nur im Heimnetz erreichbar*) and in the Caddyfile:
+
+```
+accounting.example.com {
+	reverse_proxy 172.18.0.1:8595 {   # the Docker network's gateway: the Pi
+		header_up X-Proxy-Token "the same token"
+	}
+}
+```
+
+Keep the Caddyfile readable for its owner only: it holds the token.
 
 Then switch off *Nur im Heimnetz erreichbar* and give the employees who log in from outside a password.
 

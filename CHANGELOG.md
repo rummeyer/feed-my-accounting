@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Web interface: Docker's addresses, `172.16–31.…`, are no longer home, and `X-Forwarded-For` from there is not believed: a container on the Pi, open to the internet, could have logged in without a password. Caddy in Docker sends a token instead, `web.proxyToken` (*Proxy-Token* on the web interface), in `X-Proxy-Token`.
+- The login page from outside shows no list of employees: the name is typed.
+- Twenty failed logins from any addresses within 15 minutes lock all logins from outside for 15 minutes, against a botnet; at home no password is asked. Addresses quiet for 15 minutes are forgotten.
+- Uploads capped: the logo at 2 MB, a Zeitnachweis at 10 MB, before it is read.
+
 ### Changed
 
 - Web interface: a session ends after an hour without a request, not after 30 days; every request renews it, and its cookie with it. The page's polling for the next run does not count: a tab left open logs out too, and shows the login. Sessions from before are cut to an hour.
