@@ -263,7 +263,8 @@ loaders.travel = () => { loadTravel(); loadSettings(); };
 
 const KIND_TEXT = { weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' };
 
-// Pixel icons, 16 × 16: what an amount is for — fork and knife, a car, a bed. Drawn by pixel,
+// Pixel icons, 16 × 16, each centred in its square: what an amount is for — fork and knife, a
+// car, a bed. Drawn by pixel,
 // '#' the outline, '+' the shade, '.' the light: shades of the text's colour, so that they turn
 // light on dark with the theme.
 const GRIDS = {
@@ -281,8 +282,8 @@ const GRIDS = {
     '    #+#   #+#   ',
     '    #+#   #+#   ',
     '    #+#   #+#   ',
+    '    #+#   #+#   ',
     '     ##    ##   ',
-    '                ',
     '                ',
   ],
   car: [
@@ -311,12 +312,12 @@ const GRIDS = {
     '##              ',
     '#####           ',
     '##...#          ',
-    '##...####### ## ',
-    '##++++++++++### ',
-    '##+++++++++++## ',
-    '############### ',
-    '############### ',
-    '##           ## ',
+    '##...######## ##',
+    '##+++++++++++###',
+    '##++++++++++++##',
+    '################',
+    '################',
+    '##            ##',
     '                ',
     '                ',
     '                ',
