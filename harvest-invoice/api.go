@@ -174,17 +174,22 @@ func minutes(clock string) int {
 	return hours*60 + mins
 }
 
-// APICompany is the account's company name, for the report's head.
-func APICompany(creds HarvestAPI) (string, error) {
+// Company is the Harvest account's company: its name, for the report's head, and where it is on
+// the web, https://rummeyer.harvestapp.com.
+type Company struct {
+	Name    string `json:"name"`
+	BaseURI string `json:"base_uri"`
+}
+
+// APICompany is the account's company.
+func APICompany(creds HarvestAPI) (Company, error) {
+	var company Company
 	account, err := apiAccount(creds)
 	if err != nil {
-		return "", err
-	}
-	var company struct {
-		Name string `json:"name"`
+		return company, err
 	}
 	if err := apiGet(creds, account, "https://api.harvestapp.com/v2/company", &company); err != nil {
-		return "", fmt.Errorf("reading the company: %w", err)
+		return company, fmt.Errorf("reading the company: %w", err)
 	}
-	return company.Name, nil
+	return company, nil
 }

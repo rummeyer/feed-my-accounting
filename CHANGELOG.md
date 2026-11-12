@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Protokoll: a run's output opens under its entry, a second click closes it. 50 runs are kept, not 100, the oldest going first. Files gone with a restart are listed by name, not as links; a page left open across a restart turns its dead links into text when shown again.
 
+- harvest-invoice: a warning in the log when the month has fewer hours than its workdays × 8 — workdays as the Reisekosten count them, without holidays and blocked days — with the link to the time entries in Harvest, its address from the API (`https://rummeyer.harvestapp.com/time`). Web addresses in the log are links.
+
 ### Fixed
 
 - apple-invoice: App Store invoices — an app or in-app purchase — are named by their order number as well, `11_2026_Rechnung_Apple_MK5YH4MJ4X.pdf`, not by the subject: their label is *BESTELLNR.*, the number in the next cell, where subscription invoices have *Bestellnummer:*.

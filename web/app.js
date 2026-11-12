@@ -208,8 +208,20 @@ async function follow(name, job, onDone) {
   onDone?.(job);
 }
 
+/** The text with its web addresses as links: Harvest's, for one, in a warning. */
+function linked(text) {
+  return text.split(/(https:\/\/[^\s,;)]+)/).map((part, i) => {
+    if (i % 2 === 0) return part;
+    const a = el('a', '', part);
+    a.href = part;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    return a;
+  });
+}
+
 function renderJob(box, job) {
-  const pre = el('pre', '', (job.output ?? []).join('\n') || '…');
+  const pre = el('pre', '', ...linked((job.output ?? []).join('\n') || '…'));
   const files = (job.files ?? []).map((f) => {
     if (f.gone) return el('span', 'muted', `${f.name} (nicht mehr verfügbar)`);
     const a = el('a', '', `${f.name} (${Math.round(f.size / 1024)} KB)`);

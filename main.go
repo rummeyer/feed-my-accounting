@@ -365,6 +365,7 @@ func harvestConfig(cfg *Config) harvest.Config {
 			ProductNum:   cfg.HarvestInvoice.SevDesk.ProductNum,
 			ReferenceNum: cfg.HarvestInvoice.SevDesk.ReferenceNum,
 		},
+		Workday: workdays(cfg),
 	}
 }
 
