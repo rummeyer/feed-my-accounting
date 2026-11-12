@@ -84,6 +84,8 @@ type ScheduleEntry struct {
 type WebConfig struct {
 	Listen   string `yaml:"listen,omitempty"`
 	HomeOnly *bool  `yaml:"homeOnly,omitempty"` // default: true
+	// Password is the page's one password of before 1.13, asked by HTTP basic auth: on starting,
+	// it becomes the selected employee's login.
 	Password string `yaml:"password,omitempty"`
 }
 
@@ -134,6 +136,13 @@ type CompanyConfig struct {
 type StaffConfig struct {
 	Names   []string `yaml:"names"`
 	Current string   `yaml:"current"`
+	// Logins are the employees' passwords for the web interface, by name: bcrypt hashes. One is
+	// enough for the web interface to ask for a login.
+	Logins map[string]string `yaml:"logins,omitempty"`
+	// Passwords are new ones, from the settings page, by name: hashed into Logins on saving,
+	// never kept as they are. NoLogin are the names whose password goes.
+	Passwords map[string]string `yaml:"-"`
+	NoLogin   []string          `yaml:"-"`
 }
 
 type Config struct {
@@ -271,6 +280,12 @@ func normalizeStaff(cfg *Config) {
 		}
 	}
 	cfg.Staff.Names, cfg.Staff.Current = names, strings.TrimSpace(cfg.Staff.Current)
+	// An employee gone takes their login along.
+	for name := range cfg.Staff.Logins {
+		if !slices.Contains(names, name) {
+			delete(cfg.Staff.Logins, name)
+		}
+	}
 	if !slices.Contains(cfg.Staff.Names, cfg.Staff.Current) {
 		cfg.Staff.Current = ""
 		if len(cfg.Staff.Names) > 0 {

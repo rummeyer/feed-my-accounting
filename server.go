@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -18,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,6 +40,9 @@ type server struct {
 
 	mu      sync.Mutex
 	uploads map[string]*harvest.ReportData // Harvest PDFs uploaded, by id, until used
+
+	sessions *sessions // the logged-in browsers
+	failures failures  // failed logins, by address
 }
 
 // runServe starts the web interface and serves until it fails.
@@ -52,6 +55,10 @@ func runServe(configPath string) error {
 		configPath: configPath,
 		jobs:       NewJobs(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-jobs.json")),
 		uploads:    map[string]*harvest.ReportData{},
+		sessions:   newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-sessions.json")),
+	}
+	if err := s.change(moveOldPassword); err != nil {
+		return err
 	}
 	go s.scheduler()
 	httpServer := &http.Server{Addr: cfg.Web.Listen, Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second}
@@ -63,6 +70,9 @@ func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
 	web, _ := fs.Sub(webFiles, "web")
 	mux.Handle("GET /", fresh(http.FileServerFS(web)))
+	mux.HandleFunc("GET /api/session", s.session)
+	mux.HandleFunc("POST /api/login", s.login)
+	mux.HandleFunc("POST /api/logout", s.logout)
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/schedule", s.getSchedule)
 	mux.HandleFunc("PUT /api/schedule", s.putSchedule)
@@ -89,40 +99,12 @@ func (s *server) handler() http.Handler {
 	return s.auth(mux)
 }
 
-// auth lets in only the home network — private, loopback and link-local addresses — unless
-// web.homeOnly is switched off, and asks for web.password, if one is set, by HTTP basic auth;
-// any user name will do. Both are read afresh for every request, so a change counts at once.
-func (s *server) auth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := readConfig(s.configPath)
-		if err != nil {
-			http.Error(w, "config: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if cfg.Web.homeOnly() && !fromHome(r) {
-			http.Error(w, "only reachable from the home network", http.StatusForbidden)
-			return
-		}
-		if cfg.Web.Password != "" {
-			_, given, ok := r.BasicAuth()
-			if !ok || subtle.ConstantTimeCompare([]byte(given), []byte(cfg.Web.Password)) != 1 {
-				w.Header().Set("WWW-Authenticate", `Basic realm="feed-my-accounting"`)
-				http.Error(w, "password required", http.StatusUnauthorized)
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 // fromHome says whether a request comes from the home network: a private, loopback or
 // link-local address. Anything else is turned away, even if the port is open to the internet.
 func fromHome(r *http.Request) bool {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	ip := net.ParseIP(host)
+	// Through Caddy on this machine, every request comes from localhost: the client's address
+	// counts, not the proxy's.
+	ip := net.ParseIP(clientIP(r))
 	return ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast())
 }
 
@@ -706,7 +688,6 @@ func secrets(cfg *Config) []*string {
 		&cfg.Mail.Password,
 		&cfg.VodafoneInvoice.Password,
 		&cfg.HarvestInvoice.SevDesk.Password,
-		&cfg.Web.Password,
 		&cfg.HarvestInvoice.Harvest.Token,
 	}
 }
@@ -717,18 +698,28 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	set := make([]bool, 0, 5)
+	set := make([]bool, 0, 4)
 	for _, p := range secrets(cfg) {
 		set = append(set, *p != "")
 		*p = ""
 	}
-	reply(w, map[string]any{"config": cfg, "secretsSet": set, "path": s.configPath, "countries": travelexpense.Countries})
+	// Who has a password, not the hashes.
+	logins := map[string]bool{}
+	for name := range cfg.Staff.Logins {
+		logins[name] = true
+	}
+	cfg.Staff.Logins = nil
+	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "path": s.configPath, "countries": travelexpense.Countries})
 }
 
 func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 	var in Config
 	if !read(w, r, &in) {
 		return
+	}
+	var token string
+	if cookie, err := r.Cookie(sessionCookie); err == nil {
+		token = cookie.Value
 	}
 	done(w, s.change(func(cfg *Config) error {
 		for i, p := range secrets(&in) {
@@ -739,9 +730,60 @@ func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 		// Blocked days, assignments and the schedule are edited on their own pages.
 		in.TravelExpense.Blocked, in.TravelExpense.Assignments = cfg.TravelExpense.Blocked, cfg.TravelExpense.Assignments
 		in.Schedule = cfg.Schedule
+		in.Web.Password = cfg.Web.Password
+		// The logins kept, new passwords hashed into them, those to go gone — and with a new
+		// password or none, the employee's other sessions ended: the caller's own stays.
+		in.Staff.Logins = cfg.Staff.Logins
+		if in.Staff.Logins == nil {
+			in.Staff.Logins = map[string]string{}
+		}
+		for name, password := range in.Staff.Passwords {
+			if password = strings.TrimSpace(password); password == "" || !slices.Contains(in.Staff.Names, name) {
+				continue
+			}
+			if len(password) < 8 {
+				return fmt.Errorf("das Passwort für %s ist kürzer als 8 Zeichen", name)
+			}
+			hash, err := hashPassword(password)
+			if err != nil {
+				return err
+			}
+			in.Staff.Logins[name] = hash
+			s.sessions.endFor(name, token)
+		}
+		for _, name := range in.Staff.NoLogin {
+			delete(in.Staff.Logins, name)
+			s.sessions.endFor(name, "")
+		}
+		in.Staff.Passwords, in.Staff.NoLogin = nil, nil
 		*cfg = in
 		return nil
 	}))
+}
+
+// moveOldPassword makes the page's one password of before, web.password, the selected
+// employee's login — the first employee's without one selected — unless they have one already.
+func moveOldPassword(cfg *Config) error {
+	if cfg.Web.Password == "" || len(cfg.Staff.Names) == 0 {
+		return nil
+	}
+	name := cfg.Staff.Current
+	if name == "" {
+		name = cfg.Staff.Names[0]
+	}
+	if cfg.Staff.Logins == nil {
+		cfg.Staff.Logins = map[string]string{}
+	}
+	if cfg.Staff.Logins[name] == "" {
+		hash, err := hashPassword(cfg.Web.Password)
+		if err != nil {
+			return err
+		}
+		cfg.Staff.Logins[name] = hash
+		log.Printf("web.password is now the login of %s", name)
+	}
+	cfg.Web.Password = ""
+	return nil
 }
 
 // change edits the configuration as written and saves it, unless edit fails.

@@ -27,9 +27,23 @@ async function api(method, path, body) {
     body: isForm ? body : body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
+  // The session gone — expired, or ended elsewhere: back to the login.
+  if (res.status === 401) location.href = '/login';
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
+
+// Abmelden, once logged in: the session ends here, the login comes again.
+(async () => {
+  const session = await api('GET', '/api/session').catch(() => null);
+  if (!session?.user) return;
+  $('logout').hidden = false;
+  $('logout').title = `Angemeldet als ${session.user}`;
+  $('logout').addEventListener('click', async () => {
+    await api('POST', '/api/logout').catch(() => {});
+    location.href = '/login';
+  });
+})();
 
 const euro = (v) => `${(v ?? 0).toFixed(2).replace('.', ',')} €`;
 const dmy = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
@@ -690,7 +704,6 @@ const PARTS = {
   ]]],
   web: [['Oberfläche', [
     ['Web.Listen', 'Adresse (Neustart nötig)', 'text', 'localhost:8595, auch im Netz (:8595)'],
-    ['Web.Password', 'Passwort für diese Seite', 'secret', 3],
     ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
   ]]],
   travel: [['Kunden', [
@@ -708,7 +721,7 @@ const PARTS = {
     BREAK,
     ['HarvestInvoice.SevDesk.Username', 'sevDesk-Benutzer'], ['HarvestInvoice.SevDesk.Password', 'sevDesk-Passwort', 'secret', 2],
     BREAK,
-    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 4],
+    ['HarvestInvoice.Harvest.Token', 'Harvest-API-Token', 'secret', 3],
     ['HarvestInvoice.Harvest.Client', 'Kunde in Harvest', 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
     BREAK,
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
@@ -856,7 +869,7 @@ function renderSettings() {
       if (title === 'Firma') children.push(renderLogo());
     }
     if (part === 'web') {
-      children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
+      children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie auch von außen — durch Caddy etwa —, aber nur, wenn ein Mitarbeiter ein Passwort hat, und dann nur nach der Anmeldung mit Passwort. Hinter Caddy zählt die Adresse des Besuchers, nicht die von Caddy.'));
     }
     if (part === 'mail') {
       children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
@@ -1053,7 +1066,25 @@ function renderStaff(cfg) {
       refreshSave();
     });
     input.addEventListener('change', changed);
-    return el('li', '', pick, input, button('entfernen', 'link', () => {
+    // The employee's password for logging in: typed anew, or none any more. Kept only as a hash.
+    const has = settings.logins?.[name] && !(staff.NoLogin ?? []).includes(name);
+    const password = el('input', 'password');
+    password.type = 'password';
+    password.autocomplete = 'new-password';
+    password.placeholder = has ? 'Passwort gesetzt — neu eingeben' : 'Passwort (für die Anmeldung)';
+    password.value = staff.Passwords?.[name] ?? '';
+    password.setAttribute('aria-label', `Passwort für ${name || 'den Mitarbeiter'}`);
+    password.addEventListener('input', () => {
+      staff.Passwords ??= {};
+      if (password.value) staff.Passwords[name] = password.value;
+      else delete staff.Passwords[name];
+      refreshSave();
+    });
+    const noLogin = has && button('Passwort entfernen', 'link', () => {
+      staff.NoLogin = [...(staff.NoLogin ?? []), name];
+      changed();
+    });
+    return el('li', '', pick, input, password, noLogin, button('entfernen', 'link', () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
       changed();
@@ -1069,6 +1100,7 @@ function renderStaff(cfg) {
   });
   return el('div', '',
     el('p', 'muted', 'Der ausgewählte Mitarbeiter steht als Lieferant auf den Reisekosten, und seine Stunden aus Harvest ergeben Zeitnachweis und Kundenrechnung — den Namen so schreiben wie in Harvest. Oben rechts steht, wer ausgewählt ist.'),
+    el('p', 'muted', 'Mit Passwort meldet sich der Mitarbeiter an dieser Seite an — mindestens 8 Zeichen, gespeichert nur als Hash. Hat einer eines, fragt die Seite jeden nach der Anmeldung, auch im Heimnetz; hat keiner eines, antwortet sie nur im Heimnetz.'),
     staff.Names.length ? list : el('p', 'muted', 'Noch niemand eingetragen.'),
     el('div', 'actions', add));
 }

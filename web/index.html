@@ -6,19 +6,13 @@
   <title>feed-my-accounting</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect width='16' height='16' fill='%232e2e2e'/><rect x='3' y='3' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='7' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='11' width='6' height='2' fill='%23fbfbfa'/></svg>">
   <link rel="stylesheet" href="style.css">
-  <script>
-    // The theme before the first paint, as rummeyer.com does it: light, dark or the system's.
-    try {
-      const pref = localStorage.getItem('theme') || 'auto';
-      document.documentElement.dataset.themePref = pref;
-      if (pref !== 'auto') document.documentElement.dataset.theme = pref;
-    } catch { document.documentElement.dataset.themePref = 'auto'; }
-  </script>
+  <script src="theme.js"></script>
 </head>
 <body>
   <main>
     <div class="switch-row">
       <span id="employee" hidden></span>
+      <button type="button" id="logout" class="link" hidden>Abmelden</button>
       <span id="status" class="status">…</span>
       <button class="theme-switch" id="theme" type="button" aria-label="Hell, dunkel oder wie das System">
         <svg class="theme-icon theme-icon-auto" width="14" height="14" viewBox="0 0 7 7" aria-hidden="true"><path fill="currentColor" d="M2 0h3v1h1v1h1v3H6v1H5v1H2V6H1V5H0V2h1V1h1zM3.5 1v5H5V5h1V2H5V1z"/></svg>

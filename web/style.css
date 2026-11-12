@@ -375,3 +375,12 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 }
 .legend-clients { display: contents; } /* its clients, each a key of the legend */
 .totals dt { min-height: 16px; display: flex; align-items: center; } /* with an icon or without, the same height: the amounts in one line */
+
+/* An employee's password beside the name; the logout beside the employee at the top. */
+ul.rows.staff li input.password { width: 15em; flex: none; }
+#logout { padding: 0; font-size: 11px; letter-spacing: 2px; }
+/* The login: the masthead, and a small form beneath it. */
+main.login { max-width: 560px; }
+.login-form { display: grid; gap: 14px; max-width: 360px; margin: 10px auto 30px; }
+.login-form label { display: grid; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.login-form .error { color: var(--bad); margin: 0; }

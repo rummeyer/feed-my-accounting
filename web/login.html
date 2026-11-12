@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anmelden · feed-my-accounting</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><rect width='16' height='16' fill='%232e2e2e'/><rect x='3' y='3' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='7' width='10' height='2' fill='%23fbfbfa'/><rect x='3' y='11' width='6' height='2' fill='%23fbfbfa'/></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <main class="login">
+    <header class="masthead">
+      <h1><img class="logo" src="logo.webp" width="580" height="218" alt="feed-my-accounting"></h1>
+      <p class="tagline">Reisekosten &amp; Rechnungen für die Buchhaltung</p>
+    </header>
+    <form id="login" class="login-form">
+      <h2>Anmelden</h2>
+      <label>Mitarbeiter<select id="name" autocomplete="username" required></select></label>
+      <label id="password-label">Passwort<input type="password" id="password" autocomplete="current-password" required></label>
+      <p id="error" class="error" hidden></p>
+      <div class="actions"><button type="submit" class="strong">Anmelden</button></div>
+    </form>
+  </main>
+  <script src="login.js"></script>
+</body>
+</html>
