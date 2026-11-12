@@ -9,56 +9,23 @@
 
 A single command that closes your books for the month.
 
-Every month, freelancers and small businesses juggle the same ritual: collect invoices from Apple and Vodafone, generate travel expense reports, turn Harvest timesheets into outgoing invoices, and feed everything into the accounting system. **feed-my-accounting** automates all of it — from source to [sevDesk](https://sevdesk.de).
+Every month, freelancers and small businesses juggle the same ritual: collect invoices from Anthropic, Apple and Vodafone, generate travel expense reports, turn Harvest timesheets into outgoing invoices, and feed everything into the accounting system. **feed-my-accounting** automates all of it — from source to [sevDesk](https://sevdesk.de).
 
-It connects four data sources to your sevDesk account, each handled by a dedicated module:
+It connects its sources — mailboxes, MeinVodafone, the Harvest API and your calendar — to your sevDesk account, each handled by a dedicated module:
 
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
-| **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
+| **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung, Verpflegungsmehraufwand and Übernachtungspauschale PDFs | Email → sevDesk Autobox |
 | **anthropic-invoice** | IMAP inbox and *Rechnungen* | Fetches Anthropic's receipt emails and takes the receipt PDF each brings | Email → sevDesk Autobox |
 | **apple-invoice** | IMAP inbox and *Rechnungen* | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
-| **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, creates draft invoice in sevDesk | Direct browser automation |
+| **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, makes the work log PDF, creates the draft invoice in sevDesk | Direct browser automation |
 
 ### How it all fits together
 
-```
-                        feed-my-accounting
-                       ────────────────────
-                                │
-           ┌────────────────────┼────────────────────┐
-           │                    │                    │
-  ┌────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-  │ travel-expense │  │ apple-invoice   │  │ vodafone-invoice│
-  │                │  │                 │  │                 │
-  │ Config →       │  │ IMAP → Chrome → │  │ Chrome →        │
-  │ generate PDFs  │  │ HTML to PDF     │  │ download PDFs   │
-  └───────┬────────┘  └────────┬────────┘  └────────┬────────┘
-          │                    │                    │
-          └────────────────────┼────────────────────┘
-                               │
-                        Email + SMTP
-                               │
-                               ▼
-                  ┌───────────────────────┐
-                  │  sevDesk Autobox      │
-                  │  autobox@sevdesk.email│
-                  │                       │
-                  │  Auto-imports PDFs    │
-                  │  via OCR parsing      │
-                  └───────────────────────┘
+<p align="center"><img src="docs/architecture.svg" alt="Architecture: the web interface, the Zeitplan and the command line start feed-my-accounting, one Go binary with one config.yaml. Its sources — mailboxes over IMAP, MeinVodafone, the Harvest API and the calendar with clients, vacation and assignments — feed five modules: anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice and travel-expense. Four of them send their PDFs by email to the sevDesk Autobox; harvest-invoice creates a draft E-Rechnung in sevDesk with headless Chrome. Every run's PDFs and log are in the Protokoll. It runs on a Raspberry Pi behind Caddy with HTTPS." width="900"></p>
 
-  ┌─────────────────┐              ┌─────────────────┐
-  │ harvest-invoice │    Chrome    │ sevDesk Web UI  │
-  │                 │  ─────────►  │                 │
-  │ Harvest API →   │              │ Creates draft   │
-  │ month's hours   │              │ E-Rechnung with │
-  │ of the client   │              │ hours + period  │
-  └─────────────────┘              └─────────────────┘
-```
-
-Four modules collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
+Four modules — anthropic, apple, vodafone and travel-expense — collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
 
 Run once a month with a single command — or schedule it with cron — and your accounting is fed.
 
@@ -128,8 +95,8 @@ feed-my-accounting serve          # http://<host>:8595
 </p>
 
 <p align="center">
-  <img src="docs/cron.png" alt="The Zeitplan card: four jobs with their cron expressions and next runs" width="380">
-  <img src="docs/log.png" alt="The Protokoll card: a run's live output and the two PDFs it made" width="380">
+  <img src="docs/cron.png" alt="The Zeitplan card: five jobs with their cron expressions and next runs, Anthropic on the last workday, LW" width="380">
+  <img src="docs/log.png" alt="The Protokoll card: a run's live output and the three PDFs it made" width="380">
 </p>
 
 <p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>, <a href="docs/login.png">the login</a>.</sub></p>
@@ -143,8 +110,8 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. Each with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking: Anthropic and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
-| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. As a fallback, behind its own flap at the foot of the card, *Zeitnachweis hochladen*: drop a Harvest PDF report in hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Folded away beneath the buttons, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
-| **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
+| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the month's workdays × 8 — workdays as the Reisekosten count them — log a warning with the link to the time entries in Harvest. As a fallback, behind its own flap at the foot of the card, *Zeitnachweis hochladen*: drop a Harvest PDF report in hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Folded away beneath the buttons, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
+| **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. |
 | **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, and the web interface's address and password. |
 
 Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.

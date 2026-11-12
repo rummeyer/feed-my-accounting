@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" width="1200" height="760" font-family="'JetBrains Mono','SF Mono',Menlo,Consolas,monospace">
+  <title>feed-my-accounting: sources, modules and where their documents go</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4b5568"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#d6333a"/>
+    </marker>
+    <pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse">
+      <rect x="6" y="6" width="2" height="2" fill="#e4e0d6"/>
+    </pattern>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1f2a44" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- Paper card, as the web interface has it. -->
+  <rect x="0" y="0" width="1200" height="760" rx="18" fill="#faf9f6"/>
+  <rect x="0" y="0" width="1200" height="760" rx="18" fill="url(#dots)"/>
+  <rect x="0.5" y="0.5" width="1199" height="759" rx="18" fill="none" stroke="#dcd7cc"/>
+
+  <text x="40" y="48" font-size="13" letter-spacing="4" fill="#6b7280" font-weight="700">HOW IT FITS TOGETHER</text>
+
+  <!-- How a run starts. -->
+  <g font-size="13" fill="#1f2a44" text-anchor="middle">
+    <rect x="370" y="30" width="140" height="34" rx="17" fill="#fff" stroke="#1f2a44" filter="url(#lift)"/>
+    <text x="440" y="52">Web interface</text>
+    <rect x="530" y="30" width="140" height="34" rx="17" fill="#fff" stroke="#1f2a44" filter="url(#lift)"/>
+    <text x="600" y="52">Zeitplan · cron</text>
+    <rect x="690" y="30" width="140" height="34" rx="17" fill="#fff" stroke="#1f2a44" filter="url(#lift)"/>
+    <text x="760" y="52">command line</text>
+  </g>
+  <g stroke="#1f2a44" stroke-width="1.5" fill="none">
+    <path d="M440 64 V80 Q440 88 448 88 H592 Q600 88 600 96 V104"/>
+    <path d="M760 64 V80 Q760 88 752 88 H608 Q600 88 600 96"/>
+    <path d="M600 64 V104"/>
+  </g>
+
+  <!-- The hub: one binary, one config. -->
+  <rect x="330" y="104" width="540" height="46" rx="8" fill="#1f2a44" filter="url(#lift)"/>
+  <text x="600" y="133" font-size="16" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="1">feed-my-accounting<tspan fill="#9fb0d0" font-weight="400"> · one config.yaml · Go</tspan></text>
+  <path d="M600 150 V182" stroke="#1f2a44" stroke-width="1.5"/>
+
+  <!-- Column heads. -->
+  <g font-size="11" letter-spacing="3" fill="#6b7280" font-weight="700">
+    <text x="40" y="212">SOURCES</text>
+    <text x="430" y="212">MODULES</text>
+    <text x="930" y="212">DESTINATIONS</text>
+  </g>
+
+  <!-- Sources. -->
+  <g font-size="12" fill="#4b5568">
+    <rect x="40" y="226" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
+    <text x="58" y="254" font-size="15" font-weight="700" fill="#1f2a44">Mailboxes · IMAP</text>
+    <text x="58" y="276">inbox, then Rechnungen</text>
+    <text x="58" y="294">several accounts</text>
+
+    <rect x="40" y="326" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
+    <text x="58" y="354" font-size="15" font-weight="700" fill="#1f2a44">MeinVodafone</text>
+    <text x="58" y="376">portal, headless Chrome</text>
+    <text x="58" y="394">Mobilfunk + Kabel</text>
+
+    <rect x="40" y="426" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
+    <text x="58" y="454" font-size="15" font-weight="700" fill="#1f2a44">Harvest API</text>
+    <text x="58" y="476">time entries, account</text>
+    <text x="58" y="494">personal access token</text>
+
+    <rect x="40" y="526" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
+    <text x="58" y="554" font-size="15" font-weight="700" fill="#1f2a44">Calendar · config</text>
+    <text x="58" y="576">clients, vacation,</text>
+    <text x="58" y="594">assignments, holidays</text>
+  </g>
+
+  <!-- Modules, each in its vendor's colour. -->
+  <rect x="412" y="182" width="376" height="452" rx="12" fill="none" stroke="#1f2a44" stroke-dasharray="4 5" opacity="0.45"/>
+  <g font-size="12" fill="#4b5568">
+    <g filter="url(#lift)">
+      <rect x="430" y="226" width="340" height="68" rx="8" fill="#fff" stroke="#cfc9bc"/>
+      <rect x="430" y="226" width="8" height="68" rx="3" fill="#c96442"/>
+    </g>
+    <text x="454" y="254" font-size="15" font-weight="700" fill="#1f2a44">anthropic-invoice</text>
+    <text x="454" y="276">the receipt PDF each email brings</text>
+
+    <g filter="url(#lift)">
+      <rect x="430" y="306" width="340" height="68" rx="8" fill="#fff" stroke="#cfc9bc"/>
+      <rect x="430" y="306" width="8" height="68" rx="3" fill="#1d1d1f"/>
+    </g>
+    <text x="454" y="334" font-size="15" font-weight="700" fill="#1f2a44">apple-invoice</text>
+    <text x="454" y="356">HTML invoice → PDF, by order no.</text>
+
+    <g filter="url(#lift)">
+      <rect x="430" y="386" width="340" height="68" rx="8" fill="#fff" stroke="#cfc9bc"/>
+      <rect x="430" y="386" width="8" height="68" rx="3" fill="#e60000"/>
+    </g>
+    <text x="454" y="414" font-size="15" font-weight="700" fill="#1f2a44">vodafone-invoice</text>
+    <text x="454" y="436">the current invoices as PDF</text>
+
+    <g filter="url(#lift)">
+      <rect x="430" y="466" width="340" height="68" rx="8" fill="#fff" stroke="#cfc9bc"/>
+      <rect x="430" y="466" width="8" height="68" rx="3" fill="#fa5d00"/>
+    </g>
+    <text x="454" y="494" font-size="15" font-weight="700" fill="#1f2a44">harvest-invoice</text>
+    <text x="454" y="516">hours → draft + Zeitnachweis</text>
+
+    <g filter="url(#lift)">
+      <rect x="430" y="546" width="340" height="68" rx="8" fill="#fff" stroke="#cfc9bc"/>
+      <rect x="430" y="546" width="8" height="68" rx="3" fill="#6fa8dc"/>
+    </g>
+    <text x="454" y="574" font-size="15" font-weight="700" fill="#1f2a44">travel-expense</text>
+    <text x="454" y="596">Kilometer · Verpflegung · Übernachtung</text>
+  </g>
+
+  <!-- Sources to modules. -->
+  <g stroke="#4b5568" stroke-width="1.6" fill="none" marker-end="url(#arrow)">
+    <path d="M290 258 C360 258 360 260 428 260"/>
+    <path d="M290 278 C360 278 360 340 428 340"/>
+    <path d="M290 368 C360 368 360 420 428 420"/>
+    <path d="M290 468 C360 468 360 500 428 500"/>
+    <path d="M290 568 C360 568 360 580 428 580"/>
+  </g>
+
+  <!-- Destinations. -->
+  <g font-size="12" fill="#4b5568">
+    <rect x="930" y="226" width="230" height="128" rx="8" fill="#fff" stroke="#d6333a" stroke-width="1.5" filter="url(#lift)"/>
+    <text x="948" y="256" font-size="15" font-weight="700" fill="#1f2a44">sevDesk Autobox</text>
+    <text x="948" y="280">autobox@sevdesk.email</text>
+    <text x="948" y="300">PDFs imported</text>
+    <text x="948" y="318">as receipts</text>
+    <text x="948" y="340" fill="#d6333a" font-weight="700">by email · SMTP</text>
+
+    <rect x="930" y="446" width="230" height="104" rx="8" fill="#fff" stroke="#d6333a" stroke-width="1.5" filter="url(#lift)"/>
+    <text x="948" y="476" font-size="15" font-weight="700" fill="#1f2a44">sevDesk draft</text>
+    <text x="948" y="500">E-Rechnung with hours</text>
+    <text x="948" y="518">and period, never sent</text>
+    <text x="948" y="538" fill="#d6333a" font-weight="700">headless Chrome</text>
+
+    <rect x="930" y="586" width="230" height="84" rx="8" fill="#fff" stroke="#cfc9bc" stroke-dasharray="5 4" filter="url(#lift)"/>
+    <text x="948" y="614" font-size="15" font-weight="700" fill="#1f2a44">Protokoll</text>
+    <text x="948" y="636">every run's PDFs to look at</text>
+    <text x="948" y="654">and download, its live log</text>
+  </g>
+
+  <!-- Modules to destinations. -->
+  <g stroke="#d6333a" stroke-width="1.6" fill="none" marker-end="url(#arrow-red)">
+    <path d="M770 260 C850 260 850 270 928 270"/>
+    <path d="M770 340 C850 340 850 290 928 290"/>
+    <path d="M770 420 C850 420 850 310 928 310"/>
+    <path d="M770 580 C870 580 840 330 928 330"/>
+    <path d="M770 500 C850 500 850 498 928 498"/>
+  </g>
+  <path d="M788 628 H928" stroke="#9aa3b2" stroke-width="1.4" fill="none" stroke-dasharray="4 4" marker-end="url(#arrow)"/>
+
+  <!-- Where it runs. -->
+  <g font-size="12" fill="#6b7280">
+    <rect x="40" y="690" width="1120" height="42" rx="8" fill="#fff" stroke="#e4e0d6"/>
+    <text x="60" y="716">▣ Raspberry Pi · systemd  ·  Caddy in front, HTTPS  ·  login per employee, at home without password  ·  one job at a time</text>
+  </g>
+</svg>
