@@ -121,7 +121,7 @@ for (const link of document.querySelectorAll('[data-lang-link]')) {
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
-const TABS = ['cron', 'receipts', 'travel', 'invoice', 'log', 'settings'];
+const TABS = ['cron', 'travel', 'receipts', 'invoice', 'log', 'settings'];
 const loaders = {};
 
 function showTab() {
