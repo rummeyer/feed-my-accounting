@@ -128,8 +128,8 @@ function showTab() {
   const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cron';
   for (const t of TABS) $(`tab-${t}`).hidden = t !== name;
   // The Protokoll has nothing to save: its button empties it instead.
-  $('save-all').hidden = name === 'log';
-  $('clear-log').hidden = name !== 'log';
+  for (const id of ['save-all', 'save-note']) $(id).hidden = name === 'log';
+  for (const id of ['clear-log', 'clear-note']) $(id).hidden = name !== 'log';
   for (const a of document.querySelectorAll('.tabs a')) a.classList.toggle('on', a.getAttribute('href') === `#${name}`);
   loaders[name]?.();
 }

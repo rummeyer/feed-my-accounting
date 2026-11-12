@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Protokoll: *Löschen* where the other tabs have *Speichern*, asking *Sicher?* first, as *Speichern* does: the runs and their files gone, one running goes on.
+- Protokoll: *Verlauf* and *Löschen* where the other tabs have *Speichern*, asking *Sicher?* first, as *Speichern* does: the runs and their files gone, one running goes on.
 
 ## [1.16.1] - 2026-11-12
 
