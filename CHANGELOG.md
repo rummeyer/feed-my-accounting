@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Web interface: a session ends after an hour without a request, not after 30 days; every request renews it, and its cookie with it. The page's polling for the next run does not count: a tab left open logs out too, and shows the login. Sessions from before are cut to an hour.
+- Web interface: a session ends after 24 hours without a request, not after 30 days; every request renews it, and its cookie with it. The page's polling for the next run does not count: a tab left open logs out too, and shows the login. Sessions from before are cut to 24 hours.
 
 ## [1.14.0] - 2026-11-12
 

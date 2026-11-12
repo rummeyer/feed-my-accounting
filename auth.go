@@ -28,7 +28,7 @@ import (
 
 const (
 	sessionCookie = "fma_session"
-	sessionIdle   = time.Hour        // a session ends after this long without a request
+	sessionIdle   = 24 * time.Hour   // a session ends after this long without a request
 	maxFailures   = 5                // failed logins from one address before it waits
 	lockedFor     = 15 * time.Minute // how long it waits
 	// maxAllFailures are the failed logins from all addresses together, within lockedFor, before
@@ -56,7 +56,7 @@ func newSessions(path string) *sessions {
 	if data, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(data, &s.m)
 	}
-	// None lasts longer than sessionIdle from now: those of the 30 days sessions had before 1.15.
+	// None lasts longer than sessionIdle from now: those of the 30 days sessions had before.
 	for h, got := range s.m {
 		if limit := time.Now().Add(sessionIdle); got.Expires.After(limit) {
 			got.Expires = limit
