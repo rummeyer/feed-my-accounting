@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-11-12
+
+### Changed
+
+- The tabs: *Reisekosten* before *Belege*.
+- English: *Login* and *Logout*, and the tagline *Travel expenses & invoices for accounting*.
+
 ## [1.16.0] - 2026-11-12
 
 The web interface in English too, and a calmer Zuordnungen form: short words with pixel icons, on one line.
