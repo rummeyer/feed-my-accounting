@@ -33,8 +33,8 @@ var logColumns = []struct {
 
 // The logo's room at the head's right: no wider or taller than this, its proportions kept.
 const (
-	logoWidth  = 70.0
-	logoHeight = 20.0
+	logoWidth  = 90.0
+	logoHeight = 30.0
 )
 
 // WorkLog is the PDF of the entries, Harvest's detailed time report as the company would have
@@ -106,7 +106,7 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
-	pdf.CellFormat(100, 10, "Stundenbericht", "", 0, "L", false, 0, "")
+	pdf.CellFormat(100, 10, "Zeitnachweis", "", 0, "L", false, 0, "")
 	bottom := logMargin + 12
 	if logo != "" {
 		options := fpdf.ImageOptions{ReadDpi: false}

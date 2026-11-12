@@ -803,7 +803,7 @@ let logoStamp = Date.now(); // a new one after saving, so that the browser fetch
 function renderLogo() {
   const preview = el('img', 'logo-preview');
   preview.alt = 'Logo';
-  const none = el('span', 'muted', 'Kein Logo: der Stundenbericht zeigt den Firmennamen.');
+  const none = el('span', 'muted', 'Kein Logo: der Zeitnachweis zeigt den Firmennamen.');
   const show = (src) => {
     preview.hidden = !src;
     none.hidden = !!src;
@@ -837,7 +837,7 @@ function renderLogo() {
   });
   remove.hidden = logoDraft === null;
   return el('div', 'logo-box',
-    el('p', 'muted', 'Das Logo steht oben rechts im Stundenbericht, statt des Firmennamens. PNG oder JPEG, am besten breit und mit transparentem Hintergrund. Ohne Firmennamen nimmt der Stundenbericht den Namen des Harvest-Kontos.'),
+    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, statt des Firmennamens. PNG oder JPEG, am besten breit und mit transparentem Hintergrund. Ohne Firmennamen nimmt der Zeitnachweis den Namen des Harvest-Kontos.'),
     el('div', 'logo-row', el('div', 'logo-frame', preview, none), el('div', 'actions', input, choose, remove)));
 }
 
@@ -883,7 +883,7 @@ function renderStaff(cfg) {
     inputs[inputs.length - 1]?.focus();
   });
   return el('div', '',
-    el('p', 'muted', 'Der ausgewählte Mitarbeiter steht als Lieferant auf den Reisekosten, und seine Stunden aus Harvest ergeben Stundenbericht und Kundenrechnung — den Namen so schreiben wie in Harvest. Oben rechts steht, wer ausgewählt ist.'),
+    el('p', 'muted', 'Der ausgewählte Mitarbeiter steht als Lieferant auf den Reisekosten, und seine Stunden aus Harvest ergeben Zeitnachweis und Kundenrechnung — den Namen so schreiben wie in Harvest. Oben rechts steht, wer ausgewählt ist.'),
     staff.Names.length ? list : el('p', 'muted', 'Noch niemand eingetragen.'),
     el('div', 'actions', add));
 }

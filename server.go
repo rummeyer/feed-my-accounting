@@ -413,7 +413,7 @@ func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
 		}
 		title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
 		if logOnly {
-			title = fmt.Sprintf("Stundenbericht %d/%d aus Harvest", month, year)
+			title = fmt.Sprintf("Zeitnachweis %d/%d aus Harvest", month, year)
 		}
 		s.start(w, "harvest-invoice", title, func() ([]File, error) {
 			return withFile(runHarvestInvoice(cfg, year, month, logOnly))

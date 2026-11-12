@@ -46,7 +46,7 @@ func TestWorkLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Stundenbericht", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
+	for _, want := range []string{"Zeitnachweis", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("work log without %q", want)
 		}
@@ -107,7 +107,7 @@ func TestWorkLogLogo(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := pdfText(data)
-	if strings.Contains(text, "Muster GmbH") || !strings.Contains(text, "Stundenbericht") {
+	if strings.Contains(text, "Muster GmbH") || !strings.Contains(text, "Zeitnachweis") {
 		t.Errorf("with a logo, the name should not show: %q", text[:min(200, len(text))])
 	}
 	if _, err := WorkLog("Muster GmbH", filepath.Join(t.TempDir(), "none.png"), day, day, entries); err == nil {
