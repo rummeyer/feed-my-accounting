@@ -16,6 +16,13 @@
   --bad: #a3432f;
   --away: #e4ece6;
   --blocked: #efe7e2;
+  /* One colour per client, in the order of the client list: its days in the calendar. */
+  --c1: #dcebf8; --c1-edge: #6d9cc7;
+  --c2: #e0eee3; --c2-edge: #6a9b76;
+  --c3: #f4ead3; --c3-edge: #b8984f;
+  --c4: #ebe4f6; --c4-edge: #8e79b8;
+  --c5: #f7e1df; --c5-edge: #c27d78;
+  --c6: #d8efed; --c6-edge: #5aa39e;
   color-scheme: light dark;
 
   --dark-headline: #f4f4f4;
@@ -31,6 +38,12 @@
   --dark-bad: #e0806b;
   --dark-away: #2c3a31;
   --dark-blocked: #3e322d;
+  --dark-c1: #203243; --dark-c1-edge: #5f8db5;
+  --dark-c2: #243629; --dark-c2-edge: #5f8f6b;
+  --dark-c3: #3a3221; --dark-c3-edge: #ab8d4f;
+  --dark-c4: #2f293e; --dark-c4-edge: #8c78b0;
+  --dark-c5: #3c2726; --dark-c5-edge: #b67470;
+  --dark-c6: #1f3a38; --dark-c6-edge: #579a95;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -38,6 +51,7 @@
     --rule: var(--dark-rule); --accent: var(--dark-accent); --bg: var(--dark-bg);
     --panel: var(--dark-panel); --panel-edge: var(--dark-panel-edge); --cell: var(--dark-cell);
     --ok: var(--dark-ok); --bad: var(--dark-bad); --away: var(--dark-away); --blocked: var(--dark-blocked);
+    --c1: var(--dark-c1); --c1-edge: var(--dark-c1-edge); --c2: var(--dark-c2); --c2-edge: var(--dark-c2-edge); --c3: var(--dark-c3); --c3-edge: var(--dark-c3-edge); --c4: var(--dark-c4); --c4-edge: var(--dark-c4-edge); --c5: var(--dark-c5); --c5-edge: var(--dark-c5-edge); --c6: var(--dark-c6); --c6-edge: var(--dark-c6-edge);
   }
 }
 :root[data-theme="dark"] {
@@ -45,6 +59,7 @@
   --rule: var(--dark-rule); --accent: var(--dark-accent); --bg: var(--dark-bg);
   --panel: var(--dark-panel); --panel-edge: var(--dark-panel-edge); --cell: var(--dark-cell);
   --ok: var(--dark-ok); --bad: var(--dark-bad); --away: var(--dark-away); --blocked: var(--dark-blocked);
+  --c1: var(--dark-c1); --c1-edge: var(--dark-c1-edge); --c2: var(--dark-c2); --c2-edge: var(--dark-c2-edge); --c3: var(--dark-c3); --c3-edge: var(--dark-c3-edge); --c4: var(--dark-c4); --c4-edge: var(--dark-c4-edge); --c5: var(--dark-c5); --c5-edge: var(--dark-c5-edge); --c6: var(--dark-c6); --c6-edge: var(--dark-c6-edge);
   color-scheme: dark;
 }
 :root[data-theme="light"] { color-scheme: light; }
@@ -164,8 +179,7 @@ label.check input { width: auto; }
 .month-title { border: 0; margin: 8px 0; padding: 0; font-size: 18px; color: var(--headline); min-width: 260px; text-align: center; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
 .legend .k::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--rule); }
-.legend .travel::before { background: var(--panel); border-color: var(--ink); }
-.legend .away::before { background: var(--away); }
+.legend .moon::before { content: '☾'; border: 0; width: auto; height: auto; margin-right: 5px; vertical-align: 0; }
 .legend .blocked::before { background: repeating-linear-gradient(45deg, var(--blocked) 0 3px, var(--panel) 3px 6px); }
 .legend .holiday::before { background: var(--cell); }
 .legend .off::before { background: transparent; border-style: dotted; }
@@ -183,6 +197,15 @@ label.check input { width: auto; }
 .day.travel { border-color: var(--ink); background: var(--panel); }
 .day.travel.assigned .who::after { content: ' ★'; color: var(--accent); }
 .day.away { background: var(--away); border-color: var(--ok); }
+/* A client's days in its colour, a day trip or away; away, the moon in the corner. */
+.day.c1, .legend .c1::before { background: var(--c1); border-color: var(--c1-edge); }
+.day.c2, .legend .c2::before { background: var(--c2); border-color: var(--c2-edge); }
+.day.c3, .legend .c3::before { background: var(--c3); border-color: var(--c3-edge); }
+.day.c4, .legend .c4::before { background: var(--c4); border-color: var(--c4-edge); }
+.day.c5, .legend .c5::before { background: var(--c5); border-color: var(--c5-edge); }
+.day.c6, .legend .c6::before { background: var(--c6); border-color: var(--c6-edge); }
+.day { position: relative; }
+.day .moon { position: absolute; top: 4px; right: 7px; font-size: 13px; color: var(--ink); opacity: .7; }
 .day.blocked { background: repeating-linear-gradient(45deg, var(--blocked) 0 6px, var(--panel) 6px 12px); }
 .day.holiday, .day.christmas { background: var(--cell); color: var(--muted); }
 .day.weekend, .day.home { border-style: dotted; color: var(--muted); }
@@ -342,3 +365,4 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
   .logo-filled:hover .logo-remove, .logo-remove:focus-visible { opacity: 1; }
   .logo-filled:hover .logo-preview { opacity: .35; }
 }
+.legend-clients { display: contents; } /* its clients, each a key of the legend */

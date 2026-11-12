@@ -245,6 +245,7 @@ type planDay struct {
 	Weekday  string  `json:"weekday"`
 	Kind     string  `json:"kind"`
 	Client   string  `json:"client,omitempty"`
+	ClientNo int     `json:"clientNo,omitempty"` // its place in the client list, from 1: its colour
 	Assigned bool    `json:"assigned,omitempty"`
 	Note     string  `json:"note,omitempty"`
 	Meal     float64 `json:"meal,omitempty"`
@@ -285,7 +286,7 @@ func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 			Missing: d.Missing, Lodging: d.Lodging, LodgingMissing: d.LodgingMissing,
 		}
 		if d.Client >= 0 {
-			day.Client = tc.Clients[d.Client].Name
+			day.Client, day.ClientNo = tc.Clients[d.Client].Name, d.Client+1
 			perClient[day.Client]++
 			totals["days"]++
 		}
@@ -303,9 +304,19 @@ func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 		"days":        days,
 		"totals":      totals,
 		"perClient":   perClient,
+		"clients":     clientNames(tc.Clients),
 		"blocked":     orEmpty(te.Blocked),
 		"assignments": orEmpty(te.Assignments),
 	})
+}
+
+// clientNames are the clients' names in the order of the list, for the calendar's legend.
+func clientNames(clients []travelexpense.Client) []string {
+	names := make([]string, len(clients))
+	for i, c := range clients {
+		names[i] = c.Name
+	}
+	return names
 }
 
 func (s *server) travelRun(send bool) http.HandlerFunc {

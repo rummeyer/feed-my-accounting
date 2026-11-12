@@ -122,7 +122,7 @@ feed-my-accounting serve          # http://<host>:8595
 ```
 
 <p align="center">
-  <img src="docs/travel.png" alt="The Reisekosten card for December 2026 with fictional companies: an overnight trip to Miami for Globex Inc. from the 3rd to the 9th in green, day trips to Acme GmbH and Initech GmbH in blocks on the other workdays, three vacation days hatched, the Christmas week grey, and the month's totals" width="760">
+  <img src="docs/travel.png" alt="The Reisekosten card for December 2026 with fictional companies: each client in its own colour — an overnight trip to Miami for Globex Inc. from the 3rd to the 9th with a moon on each day, day trips to Acme GmbH in light blue and Initech GmbH in green in blocks on the other workdays, three vacation days hatched, the Christmas week grey, and the month's totals" width="760">
 </p>
 
 <p align="center">

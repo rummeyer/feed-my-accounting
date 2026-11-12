@@ -269,13 +269,13 @@ function renderCalendar() {
   for (let i = 0; i < first; i++) cells.push(el('div', 'day pad'));
   const today = new Date().toISOString().slice(0, 10);
   for (const d of plan.days) {
-    const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today', (d.missing || d.lodgingMissing) && 'fallback'].filter(Boolean).join(' ');
+    const classes = ['day', d.kind, d.clientNo && colourOf(d.clientNo), d.assigned && 'assigned', d.date === today && 'today', (d.missing || d.lodgingMissing) && 'fallback'].filter(Boolean).join(' ');
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
     const eur = d.meal || d.mileage
       ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}`) : null;
     // The night's flat rate on a line of its own, the word written out.
     const night = d.lodging ? el('span', 'eur night', `${euro(d.lodging)} Übernachtung`) : null;
-    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), who,
+    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', '☾'), who,
       d.client && d.note && el('span', 'note muted', d.note), eur, night);
     cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
       d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
@@ -283,7 +283,12 @@ function renderCalendar() {
     cells.push(cell);
   }
   $('calendar').replaceChildren(...cells);
+  // The legend: each client in its colour.
+  $('legend-clients').replaceChildren(...(plan.clients ?? []).map((name, i) => el('span', `k ${colourOf(i + 1)}`, name)));
 }
+
+/** A client's colour class, by its place in the list from 1: six colours, then again. */
+const colourOf = (no) => `c${((no - 1) % 6) + 1}`;
 
 const RATE_NAMES = { mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', mealTravelDay: 'An-/Abreisetag', lodging: 'Übernachtung' };
 
