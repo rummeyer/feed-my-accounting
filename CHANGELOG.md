@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - harvest-invoice: a warning in the log when the month has fewer hours than its workdays × 8 — workdays as the Reisekosten count them, without holidays and blocked days — with the link to the time entries in Harvest, its address from the API (`https://rummeyer.harvestapp.com/time`). Web addresses in the log are links.
 
+- harvest-invoice: the work log without an invoice number — with *Nur Zeitnachweis*, or none found in sevDesk — is `11_2026_Rechnung_WorkLog.pdf`, not `11_2026_WorkLog.pdf`.
+
 ### Fixed
 
 - apple-invoice: App Store invoices — an app or in-app purchase — are named by their order number as well, `11_2026_Rechnung_Apple_MK5YH4MJ4X.pdf`, not by the subject: their label is *BESTELLNR.*, the number in the next cell, where subscription invoices have *Bestellnummer:*.

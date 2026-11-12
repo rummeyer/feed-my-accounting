@@ -96,11 +96,11 @@ func WorkLog(company, logo string, from, to time.Time, entries []Entry) ([]byte,
 	return doc.Bytes()
 }
 
-// WorkLogName is the work log's file name: "10_2026_WorkLog.pdf", or with the number of the
+// WorkLogName is the work log's file name: "10_2026_Rechnung_WorkLog.pdf", or with the number of the
 // invoice it goes with, "10_2026_Rechnung_0202_WorkLog.pdf".
 func WorkLogName(from time.Time, invoice string) string {
 	if invoice == "" {
-		return from.Format("01_2006") + "_WorkLog.pdf"
+		return from.Format("01_2006") + "_Rechnung_WorkLog.pdf"
 	}
 	return from.Format("01_2006") + "_Rechnung_" + invoice + "_WorkLog.pdf"
 }
