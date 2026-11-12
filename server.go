@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg" // logos
+	_ "image/png"
 	"io"
 	"io/fs"
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -68,6 +73,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
+	mux.HandleFunc("GET /api/logo", s.getLogo)
+	mux.HandleFunc("PUT /api/logo", s.putLogo)
+	mux.HandleFunc("DELETE /api/logo", s.deleteLogo)
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
@@ -411,6 +419,87 @@ func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
 			return withFile(runHarvestInvoice(cfg, year, month, logOnly))
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Logo
+// ---------------------------------------------------------------------------
+
+// getLogo is the company's logo, for the settings page to show; 404 without one.
+func (s *server) getLogo(w http.ResponseWriter, r *http.Request) {
+	cfg, err := readConfig(s.configPath)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	path := cfg.logoPath()
+	if path == "" {
+		fail(w, http.StatusNotFound, errors.New("no logo"))
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	http.ServeFile(w, r, path)
+}
+
+// putLogo keeps an uploaded PNG or JPEG as the company's logo, beside the configuration. The
+// logo it replaces is kept as its .bak.
+func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
+	file, _, err := r.FormFile("logo")
+	if err != nil {
+		fail(w, http.StatusBadRequest, errors.New("no logo uploaded"))
+		return
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, 4<<20+1))
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	if len(data) > 4<<20 {
+		fail(w, http.StatusBadRequest, errors.New("das Logo ist größer als 4 MB"))
+		return
+	}
+	// What the PDFs can show: PNG and JPEG, read as such, whatever the file was called.
+	_, format, err := image.DecodeConfig(bytes.NewReader(data))
+	ext := map[string]string{"png": ".png", "jpeg": ".jpg"}[format]
+	if err != nil || ext == "" {
+		fail(w, http.StatusBadRequest, errors.New("das Logo muss ein PNG oder JPEG sein"))
+		return
+	}
+	cfg, err := readConfig(s.configPath)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := setAsideLogo(cfg); err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := os.WriteFile(filepath.Join(cfg.dir, logoBase+ext), data, 0o644); err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	reply(w, map[string]bool{"ok": true})
+}
+
+// deleteLogo takes the logo away: the work log shows the company's name again. The file is kept
+// as its .bak.
+func (s *server) deleteLogo(w http.ResponseWriter, r *http.Request) {
+	cfg, err := readConfig(s.configPath)
+	if err == nil {
+		err = setAsideLogo(cfg)
+	}
+	done(w, err)
+}
+
+// setAsideLogo renames the logo there is, if any, to its .bak: feed-my-accounting-logo.bak.png.
+func setAsideLogo(cfg *Config) error {
+	path := cfg.logoPath()
+	if path == "" {
+		return nil
+	}
+	ext := filepath.Ext(path)
+	return os.Rename(path, strings.TrimSuffix(path, ext)+".bak"+ext)
 }
 
 // harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before

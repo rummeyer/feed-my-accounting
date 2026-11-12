@@ -11,9 +11,10 @@ import (
 	"github.com/go-pdf/fpdf"
 )
 
-// The work log is laid out as Harvest's detailed time report: a head with the period and the
-// totals, then a table by day — client, project with the note beneath, task, person, hours —
-// its head on every page, the total and the page number at each page's foot.
+// The work log is laid out as Harvest's detailed time report, in German: a head with the
+// company's logo or name, the period and the totals, then a table by day — client, project with
+// the note beneath, task, person, hours — its head on every page, the total and the page number
+// at each page's foot.
 
 const (
 	logMargin  = 12.0
@@ -28,11 +29,17 @@ const (
 var logColumns = []struct {
 	title string
 	width float64
-}{{"Client", 36}, {"Project", 72}, {"Task", 28}, {"Person", 30}, {"Hours", 20}}
+}{{"Kunde", 36}, {"Projekt", 72}, {"Tätigkeit", 28}, {"Mitarbeiter", 30}, {"Stunden", 20}}
+
+// The logo's room at the head's right: no wider or taller than this, its proportions kept.
+const (
+	logoWidth  = 70.0
+	logoHeight = 20.0
+)
 
 // WorkLog is the PDF of the entries, Harvest's detailed time report as the company would have
-// it for the period from from to to.
-func WorkLog(company string, from, to time.Time, entries []Entry) ([]byte, error) {
+// it for the period from from to to: with its logo, a PNG or JPEG, else its name.
+func WorkLog(company, logo string, from, to time.Time, entries []Entry) ([]byte, error) {
 	var total, open float64
 	for _, e := range entries {
 		total += e.Hours
@@ -55,13 +62,15 @@ func WorkLog(company string, from, to time.Time, entries []Entry) ([]byte, error
 			pdf.SetY(-19)
 			pdf.SetFont("Helvetica", "B", 9)
 			pdf.SetTextColor(40, 40, 40)
-			pdf.CellFormat(186-logColumns[4].width, 5, "Total", "", 0, "R", false, 0, "")
+			pdf.CellFormat(186-logColumns[4].width, 5, "Summe", "", 0, "R", false, 0, "")
 			pdf.CellFormat(logColumns[4].width, 5, hours(total), "", 1, "R", false, 0, "")
 			pdf.SetFont("Helvetica", "", 9)
-			pdf.CellFormat(186, 6, fmt.Sprintf("Page %d of {nb}", pdf.PageNo()), "", 0, "C", false, 0, "")
+			pdf.CellFormat(186, 6, fmt.Sprintf("Seite %d von {nb}", pdf.PageNo()), "", 0, "C", false, 0, "")
 		})
 	})
-	logHead(doc, tr, company, from, to, total, open, entries)
+	if err := logHead(doc, tr, company, logo, from, to, total, open, entries); err != nil {
+		return nil, err
+	}
 	tableHead(doc.Fpdf, tr)
 
 	for _, day := range byDay(entries) {
@@ -91,51 +100,69 @@ func WorkLogName(from time.Time, invoice string) string {
 	return from.Format("01_2006") + "_Rechnung_" + invoice + "_WorkLog.pdf"
 }
 
-// logHead is the report's title, the company, and the summary of the period: its totals, and
-// the clients, projects, tasks and people in it.
-func logHead(doc *pdfdoc.Doc, tr func(string) string, company string, from, to time.Time, total, open float64, entries []Entry) {
+// logHead is the report's title, the company's logo or name, and the summary of the period: its
+// totals, and the clients, projects, tasks and people in it.
+func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry) error {
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
-	pdf.CellFormat(100, 10, "Detailed time report", "", 0, "L", false, 0, "")
-	pdf.SetFont("Helvetica", "", 16)
-	pdf.MultiCell(86, 7, tr(company), "", "R", false)
-	y := max(pdf.GetY(), logMargin+12) + 4
+	pdf.CellFormat(100, 10, "Stundenbericht", "", 0, "L", false, 0, "")
+	bottom := logMargin + 12
+	if logo != "" {
+		options := fpdf.ImageOptions{ReadDpi: false}
+		info := pdf.RegisterImageOptions(logo, options)
+		if err := pdf.Error(); err != nil {
+			return fmt.Errorf("the logo %s: %w", logo, err)
+		}
+		// As large as the room allows, its proportions kept, at the right margin.
+		w, h := logoWidth, logoWidth*info.Height()/info.Width()
+		if h > logoHeight {
+			w, h = logoHeight*info.Width()/info.Height(), logoHeight
+		}
+		pdf.ImageOptions(logo, 210-logMargin-w, logMargin, w, h, false, options, 0, "")
+		bottom = max(bottom, logMargin+h)
+	} else {
+		pdf.SetFont("Helvetica", "", 16)
+		pdf.MultiCell(86, 7, tr(company), "", "R", false)
+		bottom = max(bottom, pdf.GetY())
+	}
+	y := bottom + 4
 	pdf.SetDrawColor(200, 200, 200)
 	pdf.Line(logMargin, y, 210-logMargin, y)
 	top := y + 6
 
 	// Left: the period and its hours.
 	pdf.SetXY(logMargin, top)
-	label(pdf, "Timeframe", 22)
+	label(pdf, "Zeitraum", 22)
 	bold(pdf, tr(from.Format("02.01.2006")+" – "+to.Format("02.01.2006")), 70, 9)
 	pdf.SetX(logMargin)
-	label(pdf, "Total", 22)
-	bold(pdf, hours(total)+" Hours", 70, 9)
+	label(pdf, "Gesamt", 22)
+	bold(pdf, hours(total)+" Stunden", 70, 9)
 	pdf.SetX(logMargin + 22)
-	bold(pdf, hours(open)+" Uninvoiced billable hours", 70, 8)
+	bold(pdf, hours(open)+" Stunden abrechenbar, nicht abgerechnet", 70, 8)
 	left := pdf.GetY()
 
 	// Right: what the report covers.
 	pdf.SetXY(110, top)
 	for _, part := range []struct {
-		title  string
-		values []string
+		one, many string
+		values    []string
 	}{
-		{"Client", distinct(entries, func(e Entry) string { return e.Client })},
-		{"Project", distinct(entries, projectName)},
-		{"Task", distinct(entries, func(e Entry) string { return e.Task })},
-		{"Team", distinct(entries, func(e Entry) string { return e.Person })},
+		{"Kunde", "Kunden", distinct(entries, func(e Entry) string { return e.Client })},
+		{"Projekt", "Projekte", distinct(entries, projectName)},
+		{"Tätigkeit", "Tätigkeiten", distinct(entries, func(e Entry) string { return e.Task })},
+		{"Mitarbeiter", "Mitarbeiter", distinct(entries, func(e Entry) string { return e.Person })},
 	} {
-		title := part.title
+		title := part.one
 		if len(part.values) > 1 {
-			title += "s"
+			title = part.many
 		}
 		pdf.SetX(110)
-		label(pdf, title, 20)
-		bold(pdf, tr(strings.Join(part.values, ", ")), 68, 9)
+		label(pdf, tr(title), 22)
+		bold(pdf, tr(strings.Join(part.values, ", ")), 66, 9)
 	}
 	pdf.SetY(max(left, pdf.GetY()) + 8)
+	return nil
 }
 
 func label(pdf *fpdf.Fpdf, text string, width float64) {

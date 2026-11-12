@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Company** (`company.name`) and its **logo**, on the web interface under Einstellungen › Firma: the work log shows the logo at its head — a PNG or JPEG kept beside the configuration — else the name, else Harvest's account name. A logo replaced or removed is kept as its `.bak`.
+- The work log is in German: *Stundenbericht*, Zeitraum, Kunde, Projekt, Tätigkeit, Mitarbeiter, Stunden, Seite x von y. The upload reads it too.
 - **Employees** (`staff.names`, `staff.current`), on the web interface under Einstellungen › Mitarbeiter, the selected one shown at the top right. The selected employee is the Lieferant on the travel expenses, and only their hours in Harvest make the work log and the invoice — named as in Harvest. `travel-expense.employee` moves there by itself, as the first employee.
 
 - harvest-invoice: the month's **work log** as PDF (`10_2026_Rechnung_0202_WorkLog.pdf`, after the number of the invoice in sevDesk; `10_2026_WorkLog.pdf` without one), made from the Harvest API's time entries and laid out as Harvest's *Detailed time report* — period, hours, uninvoiced billable hours, and a table by day with the times and notes. It comes with every run, also when the draft exists already: for download on the web interface, saved in the current directory from the command line. *Nur Stundenbericht* on the web interface makes only the work log. The upload reads it like Harvest's own.
@@ -33,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Web interface: the header's logo is the same size in the dark theme — its light patch took its room from the logo, and the page beneath jumped.
 - harvest-invoice: the duplicate check waits for sevDesk's Rechnungen list to fill in — read at once, it showed no invoices, and a draft there already could be made again — and a check that fails stops the run instead of going on to make the invoice.
 - harvest-invoice: the work log's invoice number is read as sevDesk's list writes it beneath the client, "Rechnung Nr. 0203"; a draft without one takes the number after the highest of the invoices that are not drafts. After saving, the list is opened again until it shows the new draft.
 - harvest-invoice: the sevDesk login waits for the cookie banner, which comes seconds after the login form and kept it from taking input ("Element is not focusable").

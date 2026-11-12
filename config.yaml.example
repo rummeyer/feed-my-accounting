@@ -1,3 +1,6 @@
+company:
+  name: "Muster GmbH"            # the work log's head, unless there is a logo
+
 staff:                           # who works with the tool
   names: ["Max Mustermann"]
   current: Max Mustermann        # the Lieferant on the travel expenses, whose Harvest hours count

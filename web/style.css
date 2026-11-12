@@ -291,11 +291,13 @@ input.missing { border-color: var(--bad); }
 
 /* The logo instead of the name: on a light patch in the dark, where its navy would vanish. */
 .masthead h1 { text-shadow: none; line-height: 0; }
-.masthead img.logo { width: min(580px, 100%); height: auto; }
+/* The same box in both themes, only its colour changing: else the logo shrinks into the dark
+   theme's patch, and the page beneath it jumps. */
+.masthead img.logo { width: min(580px, 100%); height: auto; border-radius: 10px; padding: 8px 16px; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .masthead img.logo { background: #ececeb; border-radius: 10px; padding: 8px 16px; }
+  :root:not([data-theme="light"]) .masthead img.logo { background: #ececeb; }
 }
-:root[data-theme="dark"] .masthead img.logo { background: #ececeb; border-radius: 10px; padding: 8px 16px; }
+:root[data-theme="dark"] .masthead img.logo { background: #ececeb; }
 .grid .break { grid-column: 1 / -1; height: 0; }
 
 /* The month for the Harvest run: M/YYYY, as on the command line. */
@@ -307,3 +309,9 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* The employee selected, and beside it the next run. */
 #employee { border-right: 1px solid var(--rule); padding-right: 16px; }
+
+/* The company's logo in the settings: as the work log shows it, on white. */
+.logo-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+.logo-frame { min-width: 220px; min-height: 70px; padding: 10px 14px; background: #fff; border: 1px dotted var(--rule); display: flex; align-items: center; justify-content: center; }
+.logo-frame .muted { color: #777; font-size: 12px; }
+.logo-preview { max-width: 260px; max-height: 64px; }

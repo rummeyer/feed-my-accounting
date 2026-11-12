@@ -24,8 +24,9 @@ type ReportData struct {
 // date pattern dd.mm.yyyy
 var datePattern = regexp.MustCompile(`(\d{2})\.(\d{2})\.(\d{4})`)
 
-// totalHoursPattern matches "157,00 Hours" or "157.00 Hours"
-var totalHoursPattern = regexp.MustCompile(`([\d.,]+)\s+Hours`)
+// totalHoursPattern matches "157,00 Hours" or "157.00 Hours", and "157,00 Stunden" as the work
+// log feed-my-accounting makes has it.
+var totalHoursPattern = regexp.MustCompile(`([\d.,]+)\s+(?:Hours|Stunden)`)
 
 // ParsePDFHours extracts the total hours from a Harvest PDF report.
 // Looks for the pattern "157,00 Hours" near the top of the document.

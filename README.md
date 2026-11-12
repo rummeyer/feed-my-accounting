@@ -143,7 +143,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Stundenbericht* makes only the work log. As a fallback, drop a Harvest PDF report in below: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Below: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
-| **Einstellungen** | What all of them share: the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, and the web interface's address and password. |
+| **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, and the web interface's address and password. |
 
 Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.
 
@@ -187,6 +187,9 @@ All module output is written to both stderr and `feed-my-accounting.log` next to
 ### Full config reference
 
 ```yaml
+company:
+  name: "Muster GmbH"            # the work log's head, unless there is a logo; default: Harvest's account name
+
 staff:                           # who works with the tool
   names: ["Max Mustermann", "Erika Musterfrau"]
   current: Max Mustermann        # the Lieferant on the travel expenses, whose Harvest hours count
@@ -472,7 +475,7 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
 ### How it works
 
 1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) by the selected employee (`staff.current`, named as in Harvest; without one, everyone's) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them
-2. Makes the month's **work log**, laid out as Harvest's *Detailed time report*: the period, its hours and uninvoiced billable hours, then a table by day — client, project with the times and the note beneath, task, person, hours — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
+2. Makes the month's **work log**, laid out as Harvest's *Detailed time report*, in German — *Stundenbericht*: the company's logo (or its name: `company.name`, else Harvest's account name), the period, its hours and the hours billable and not billed yet, then a table by day — Kunde, Projekt with the times and the note beneath, Tätigkeit, Mitarbeiter, Stunden — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
 3. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the month; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
 4. Logs into sevDesk and creates a new E-Rechnung draft with:
    - **Rechnungsdatum** pre-filled as today's date by sevDesk

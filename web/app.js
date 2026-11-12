@@ -534,6 +534,7 @@ const BREAK = ['', '', 'break'];
 // The settings as the config file has them, each where it is used: per part of the page, its
 // sections with field path, label, type. Only what all of them share is under Einstellungen.
 const PARTS = {
+  company: [['Firma', [['Company.Name', 'Firmenname']]]],
   staff: [['Mitarbeiter', []]],
   mail: [['E-Mail', [
     ['Mail.SMTPHost', 'SMTP-Server'], ['Mail.SMTPPort', 'SMTP-Port', 'number'],
@@ -699,6 +700,7 @@ function renderSettings() {
       if (title === 'Kunden') children.push(renderClients(cfg));
       if (title === 'Mitarbeiter') children.push(renderStaff(cfg));
       if (fields.length) children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
+      if (title === 'Firma') children.push(renderLogo());
     }
     if (part === 'web') {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
@@ -720,6 +722,7 @@ function unsaved() {
   if (schedule && scheduleJSON() !== schedule.saved) parts.push('Zeitplan');
   if (lists.assignments.dirty) parts.push('Zuordnungen');
   if (lists.blocked.dirty) parts.push('Gesperrte Tage');
+  if (logoDraft !== undefined) parts.push('Logo');
   return parts;
 }
 
@@ -755,6 +758,17 @@ $('save-all').addEventListener('click', async () => {
     // The settings first: an assignment may name a client added just now.
     if (parts.includes('Einstellungen')) await api('PUT', '/api/settings', settings.config);
     if (parts.includes('Zeitplan')) await api('PUT', '/api/schedule', JSON.parse(scheduleJSON()));
+    if (parts.includes('Logo')) {
+      if (logoDraft) {
+        const form = new FormData();
+        form.append('logo', logoDraft);
+        await api('PUT', '/api/logo', form);
+      } else {
+        await api('DELETE', '/api/logo');
+      }
+      logoDraft = undefined;
+      logoStamp = Date.now();
+    }
     for (const name of Object.keys(lists)) {
       if (lists[name].dirty) {
         await api('PUT', lists[name].path, lists[name].draft);
@@ -779,6 +793,53 @@ $('save-all').addEventListener('click', async () => {
 // Every edit may change what is unsaved.
 document.addEventListener('input', () => setTimeout(refreshSave));
 document.addEventListener('change', () => setTimeout(refreshSave));
+
+// ── Logo: chosen here, kept with the button at the bottom ────────────────────
+
+let logoDraft; // undefined: unchanged; a File: to keep; null: to take away
+let logoStamp = Date.now(); // a new one after saving, so that the browser fetches it again
+
+/** The company's logo: in the work log's head instead of its name. PNG or JPEG. */
+function renderLogo() {
+  const preview = el('img', 'logo-preview');
+  preview.alt = 'Logo';
+  const none = el('span', 'muted', 'Kein Logo: der Stundenbericht zeigt den Firmennamen.');
+  const show = (src) => {
+    preview.hidden = !src;
+    none.hidden = !!src;
+    if (src) preview.src = src;
+  };
+  preview.onerror = () => show(null);
+  if (logoDraft) show(URL.createObjectURL(logoDraft));
+  else if (logoDraft === null) show(null);
+  else show(`/api/logo?t=${logoStamp}`);
+
+  const input = el('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg';
+  input.hidden = true;
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type)) {
+      alert('Das Logo muss ein PNG oder JPEG sein.');
+      return;
+    }
+    logoDraft = file;
+    renderSettings();
+    refreshSave();
+  });
+  const choose = button('Logo wählen', '', () => input.click());
+  const remove = button('entfernen', 'link', () => {
+    logoDraft = null;
+    renderSettings();
+    refreshSave();
+  });
+  remove.hidden = logoDraft === null;
+  return el('div', 'logo-box',
+    el('p', 'muted', 'Das Logo steht oben rechts im Stundenbericht, statt des Firmennamens. PNG oder JPEG, am besten breit und mit transparentem Hintergrund. Ohne Firmennamen nimmt der Stundenbericht den Namen des Harvest-Kontos.'),
+    el('div', 'logo-row', el('div', 'logo-frame', preview, none), el('div', 'actions', input, choose, remove)));
+}
 
 /**
  * The employees, the selected one ticked: the Lieferant on the travel expenses, and whose hours

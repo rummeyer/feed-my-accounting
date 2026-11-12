@@ -308,6 +308,8 @@ func harvestConfig(cfg *Config) harvest.Config {
 			AccountID: cfg.HarvestInvoice.Harvest.AccountID,
 			Client:    cfg.HarvestInvoice.Harvest.Client,
 			Person:    cfg.Staff.Current,
+			Logo:      cfg.logoPath(),
+			Company:   cfg.Company.Name,
 		},
 		SevDesk: harvest.SevDeskConfig{
 			Username:     cfg.HarvestInvoice.SevDesk.Username,

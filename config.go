@@ -118,6 +118,11 @@ type HarvestInvoiceConfig struct {
 // Config is the unified YAML configuration for all modules.
 // The "mail" block holds shared SMTP/IMAP credentials and addresses;
 // each module has its own section for module-specific settings.
+// CompanyConfig is the company the tool works for, as its documents name it.
+type CompanyConfig struct {
+	Name string `yaml:"name,omitempty"` // empty: the work log takes Harvest's account name
+}
+
 // StaffConfig is who works with the tool: the employees, and the one selected — the Lieferant on
 // the travel expenses, and whose hours in Harvest make the work log and the invoice.
 type StaffConfig struct {
@@ -126,6 +131,7 @@ type StaffConfig struct {
 }
 
 type Config struct {
+	Company         CompanyConfig         `yaml:"company,omitempty"`
 	Staff           StaffConfig           `yaml:"staff"`
 	Mail            email.MailConfig      `yaml:"mail"`
 	TravelExpense   TravelExpenseConfig   `yaml:"travel-expense"`
@@ -134,6 +140,29 @@ type Config struct {
 	HarvestInvoice  HarvestInvoiceConfig  `yaml:"harvest-invoice"`
 	Web             WebConfig             `yaml:"web,omitempty"`
 	Schedule        []ScheduleEntry       `yaml:"schedule,omitempty"`
+
+	dir string // the folder the configuration is in, where the logo is kept beside it
+}
+
+// logoBase is the logo's file name beside the configuration, without its extension.
+const logoBase = "feed-my-accounting-logo"
+
+// logoTypes are the logo's extensions, as the PDFs can show them.
+var logoTypes = []string{".png", ".jpg"}
+
+// logoPath is the logo kept beside the configuration; empty without one.
+func (c *Config) logoPath() string {
+	for _, ext := range logoTypes {
+		if path := filepath.Join(c.dir, logoBase+ext); fileExists(path) {
+			return path
+		}
+	}
+	return ""
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +219,7 @@ func readConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 	normalizeStaff(&cfg)
+	cfg.dir = filepath.Dir(path)
 	return &cfg, nil
 }
 
