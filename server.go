@@ -60,7 +60,7 @@ func runServe(configPath string) error {
 func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
 	web, _ := fs.Sub(webFiles, "web")
-	mux.Handle("GET /", http.FileServerFS(web))
+	mux.Handle("GET /", fresh(http.FileServerFS(web)))
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/schedule", s.getSchedule)
 	mux.HandleFunc("PUT /api/schedule", s.putSchedule)
@@ -124,6 +124,16 @@ func fromHome(r *http.Request) bool {
 }
 
 func (s *server) config() (*Config, error) { return loadConfig("", s.configPath) }
+
+// fresh has the browser ask for the page's files again each time: after an update, a page kept
+// from before would run its old script with the new page — and drop what it does not know of
+// when saving (12.11.2026: a new checkbox, not saved).
+func fresh(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		next.ServeHTTP(w, r)
+	})
+}
 
 // ---------------------------------------------------------------------------
 // Overview
