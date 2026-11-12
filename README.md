@@ -130,7 +130,7 @@ feed-my-accounting serve          # http://<host>:8595
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the two PDFs it made" width="380">
 </p>
 
-<p align="center"><sub>Screenshots with made-up companies and data. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>.</sub></p>
+<p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>.</sub></p>
 
 `serve` starts a small web server — one Go binary, the page embedded — with a register card per area of work. Everything it does is also what the command line does; it reads `config.yaml` afresh on every request, so edits by hand count at once.
 
@@ -471,6 +471,10 @@ var contractTypes = map[string]string{
 ## Module: harvest-invoice
 
 Reads a month's hours of a client from the Harvest API and creates a draft invoice (Entwurf) for them in sevDesk via browser automation. The month is the current one, the one given on the command line (`harvest-invoice 10/2026`) or on the web interface (`10/2026`).
+
+<p align="center">
+  <img src="docs/worklog.png" alt="A Zeitnachweis for November 2026 with made-up entries: the company's logo at the top right, the period and its hours, and a table by day — Kunde Acme GmbH, Projekt with the times and notes beneath, Tätigkeit, Mitarbeiter Max Mustermann, Stunden" width="560">
+</p>
 
 ### How it works
 

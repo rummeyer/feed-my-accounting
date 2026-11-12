@@ -314,4 +314,4 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 .logo-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
 .logo-frame { min-width: 220px; min-height: 70px; padding: 10px 14px; background: #fff; border: 1px dotted var(--rule); display: flex; align-items: center; justify-content: center; }
 .logo-frame .muted { color: #777; font-size: 12px; }
-.logo-preview { max-width: 260px; max-height: 64px; }
+.logo-preview { max-width: 300px; max-height: 130px; }
