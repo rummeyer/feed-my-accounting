@@ -408,7 +408,7 @@ func (s *server) saveAssignments(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// Apple, Vodafone, Harvest
+// Belege (Anthropic, Apple, Vodafone), Harvest
 // ---------------------------------------------------------------------------
 
 // receipts are a mail-based kind of receipt: how to collect a month's PDFs, and send them.
@@ -457,18 +457,6 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 			}
 			return files, err
 		})
-	}
-}
-
-// simpleRun runs a module as the command line does, with the configuration as it is.
-func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
-			return
-		}
-		s.start(w, kind, title, func() ([]File, error) { return run(cfg) })
 	}
 }
 

@@ -83,6 +83,16 @@ type Attachment struct {
 	Data     []byte
 }
 
+// SendPDFs mails a module's PDFs under "Deine PDF-Rechnungen von <vendor>", if there are any.
+func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
+	if len(attachments) == 0 {
+		logger.Printf("No %s PDFs to send", vendor)
+		return nil
+	}
+	logger.Printf("Sending %d %s PDF(s)...", len(attachments), vendor)
+	return Send(cfg, "Deine PDF-Rechnungen von "+vendor, attachments...)
+}
+
 // Send sends an email with the given attachments via SMTP.
 func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 	msg := gomail.NewMessage()
@@ -341,13 +351,31 @@ func readParts(r io.Reader) (Message, error) {
 		}
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
-			if ct, _, _ := h.ContentType(); ct == "text/html" && m.HTMLBody == "" {
+			ct, params, _ := h.ContentType()
+			if ct == "text/html" && m.HTMLBody == "" {
 				body, err := io.ReadAll(p.Body)
 				if err != nil {
 					return m, fmt.Errorf("reading HTML body: %w", err)
 				}
 				m.HTMLBody = string(body)
+				continue
 			}
+			// A file sent inline — a PDF with Content-Disposition: inline — is an attachment too.
+			if strings.HasPrefix(ct, "text/") || strings.HasPrefix(ct, "multipart/") {
+				continue
+			}
+			name := params["name"]
+			if _, dp, err := h.ContentDisposition(); err == nil && dp["filename"] != "" {
+				name = dp["filename"]
+			}
+			if name == "" {
+				continue
+			}
+			data, err := io.ReadAll(p.Body)
+			if err != nil {
+				return m, fmt.Errorf("reading attachment %q: %w", name, err)
+			}
+			m.Attachments = append(m.Attachments, Attachment{Filename: name, Data: data})
 		case *mail.AttachmentHeader:
 			name, _ := h.Filename()
 			data, err := io.ReadAll(p.Body)

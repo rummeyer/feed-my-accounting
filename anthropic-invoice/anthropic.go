@@ -65,12 +65,7 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 
 // Send mails the receipts, if there are any.
 func Send(cfg Config, attachments []email.Attachment) error {
-	if len(attachments) == 0 {
-		logger.Println("No Anthropic receipts to send")
-		return nil
-	}
-	logger.Printf("Sending email with %d Anthropic PDF attachment(s)...", len(attachments))
-	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Anthropic", attachments...)
+	return email.SendPDFs(cfg.Mail, "Anthropic", attachments)
 }
 
 // Receipts are the receipt PDFs of the emails — Receipt-2999-5691-3003.pdf beside the invoice —

@@ -89,12 +89,7 @@ func Run(cfg Config) error {
 
 // Send mails the invoices, if there are any.
 func Send(cfg Config, attachments []email.Attachment) error {
-	if len(attachments) == 0 {
-		logger.Println("No Vodafone invoices to send")
-		return nil
-	}
-	logger.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
-	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Vodafone", attachments...)
+	return email.SendPDFs(cfg.Mail, "Vodafone", attachments)
 }
 
 // Collect downloads the current Vodafone invoices — MeinVodafone has the current month's, or with

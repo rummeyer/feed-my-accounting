@@ -277,7 +277,8 @@ func (c *cronSpec) isWorkday(date time.Time) bool {
 // the blocked days and, when off, the Christmas week, as the Reisekosten have them.
 func scheduleSpec(cfg *Config, expr string) (*cronSpec, error) {
 	spec, err := parseCron(expr)
-	if err == nil {
+	// The holiday calendar only for the expressions that ask for it: it is built anew each time.
+	if err == nil && (len(spec.nearest) > 0 || spec.lastWorkday) {
 		spec.workday = workdays(cfg)
 	}
 	return spec, err

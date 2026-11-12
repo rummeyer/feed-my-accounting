@@ -55,12 +55,7 @@ func Run(cfg Config) error {
 
 // Send mails the PDFs, if there are any.
 func Send(cfg Config, attachments []email.Attachment) error {
-	if len(attachments) == 0 {
-		logger.Println("No Apple PDFs to send")
-		return nil
-	}
-	logger.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
-	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Apple", attachments...)
+	return email.SendPDFs(cfg.Mail, "Apple", attachments)
 }
 
 // Collect is the month's Apple invoices as PDFs — the current month's for a zero month — without
@@ -90,12 +85,16 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 	var attachments []email.Attachment
 	seen := map[string]bool{} // the same invoice found in two folders: the first, the inbox's
 	for i, msg := range messages {
-		if order := extractOrderNumber(msg.HTMLBody); order != "" {
-			if seen[order] {
-				continue
-			}
-			seen[order] = true
+		orderNum := extractOrderNumber(msg.HTMLBody)
+		// Without an order number, the same email is known by its subject and time.
+		key := orderNum
+		if key == "" {
+			key = msg.Subject + "\x00" + msg.Date.UTC().Format(time.RFC3339)
 		}
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		logger.Printf("[%d/%d] Converting %q to PDF...", i+1, len(messages), msg.Subject)
 
 		cleaned, err := cleanHTML(msg.HTMLBody)
@@ -110,11 +109,11 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 		}
 		logger.Printf("[%d/%d] PDF generated (%d bytes)", i+1, len(messages), len(pdf))
 
-		orderNum := extractOrderNumber(msg.HTMLBody)
 		var filename string
 		if orderNum != "" {
+			date := msg.Date.Local() // the month it was filtered by
 			filename = fmt.Sprintf("%02d_%04d_Rechnung_Apple_%s",
-				msg.Date.Month(), msg.Date.Year(), sanitizeFilename(orderNum))
+				date.Month(), date.Year(), sanitizeFilename(orderNum))
 		} else {
 			filename = sanitizeFilename(msg.Subject)
 			if len(messages) > 1 {
@@ -133,7 +132,7 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 
 // orderLabel is the order number's label: "Bestellnummer:" in subscription invoices, "BESTELLNR."
 // in App Store ones, the number after it in the same text or the next.
-var orderLabel = regexp.MustCompile(`(?i)^bestell(?:nummer|nr\.?)\s*:?\s*(.*)$`)
+var orderLabel = regexp.MustCompile(`(?i)^bestell(?:nummer|nr)\b\.?\s*:?\s*(.*)$`)
 
 // extractOrderNumber parses the invoice HTML for the order number following its label. Returns
 // empty string if not found.

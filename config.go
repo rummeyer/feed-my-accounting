@@ -72,7 +72,8 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// apple-invoice, vodafone-invoice or harvest-invoice.
+// anthropic-invoice, apple-invoice,
+// vodafone-invoice or harvest-invoice.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
@@ -92,24 +93,21 @@ type WebConfig struct {
 // homeOnly says whether only the home network may reach the web interface: unless switched off.
 func (w WebConfig) homeOnly() bool { return w.HomeOnly == nil || *w.HomeOnly }
 
-// AnthropicInvoiceConfig finds Anthropic's receipt emails: in the inbox first, then where they
-// may have been filed away.
+// MailFilterConfig finds a module's emails: in the inbox first, then where they may have been
+// filed away.
+type MailFilterConfig struct {
+	Count   int      `yaml:"count"`   // how many recent emails to scan, in each folder
+	From    string   `yaml:"from"`    // sender domains, comma-separated
+	Subject string   `yaml:"subject"` // Anthropic: the subject's start; Apple: the whole subject
+	Folders []string `yaml:"folders"` // searched in this order
+}
+
 type AnthropicInvoiceConfig struct {
-	Filter struct {
-		Count   int      `yaml:"count"`
-		From    string   `yaml:"from"`    // sender domain filter
-		Subject string   `yaml:"subject"` // the subject's start
-		Folders []string `yaml:"folders"` // searched in this order
-	} `yaml:"filter"`
+	Filter MailFilterConfig `yaml:"filter"`
 }
 
 type AppleInvoiceConfig struct {
-	Filter struct {
-		Count   int      `yaml:"count"`
-		From    string   `yaml:"from"` // sender domain filter
-		Subject string   `yaml:"subject"`
-		Folders []string `yaml:"folders"` // searched in this order
-	} `yaml:"filter"`
+	Filter MailFilterConfig `yaml:"filter"`
 }
 
 type VodafoneInvoiceConfig struct {

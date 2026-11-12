@@ -236,10 +236,6 @@ async function start(name, method, path, body, onDone) {
   }
 }
 
-for (const b of document.querySelectorAll('[data-run]')) {
-  b.addEventListener('click', () => start(b.dataset.run, 'POST', `/api/${b.dataset.run}/run`));
-}
-
 // Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
 const NAMES = { anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' };
