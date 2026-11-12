@@ -195,8 +195,9 @@ label.check input { width: auto; }
 .day .eur { margin-top: auto; color: var(--muted); font-size: 11px; }
 .day .eur { display: flex; flex-wrap: wrap; gap: 1px 8px; }
 
-/* Pixel icons, as the theme switch's: crisp, in the text's colour. */
+/* Pixel icons: crisp, in shades of the text's colour. */
 .px { width: 9px; height: 9px; fill: currentColor; shape-rendering: crispEdges; vertical-align: -1px; margin-right: 4px; flex: none; }
+.px16 { width: 16px; height: 16px; vertical-align: -4px; margin-right: 3px; } /* one screen pixel each */
 .amount { white-space: nowrap; display: inline-flex; align-items: center; }
 .totals dt .px { margin-right: 6px; }
 .legend-icons { margin-top: -8px; }

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Web interface: on Kundenrechnung, *Einstellungen Kundenrechnung* comes right after *Aus Harvest*, and the PDF upload, the fallback, is folded away beneath it behind *Zeitnachweis hochladen*.
-- Web interface: the Reisekosten calendar shows each client in its own colour, in the order of the client list — light blue, green, sand, lavender, rose, turquoise — the legend naming them; an overnight trip's days carry a moon, as the colour no longer tells them. Pixel icons, drawn as the theme switch's, mark what an amount is for — fork and knife the meals, a car the mileage, a bed the night — in the calendar, the totals and a second line of the legend.
+- Web interface: the Reisekosten calendar shows each client in its own colour, in the order of the client list — light blue, green, sand, lavender, rose, turquoise — the legend naming them; an overnight trip's days carry a moon, as the colour no longer tells them. Pixel icons of 16 × 16, shaded, mark what an amount is for — fork and knife the meals, a car the mileage, a bed the night — in the calendar, the totals and a second line of the legend; in shades of the text's colour, light on dark in the dark theme.
 
 ## [1.11.0] - 2026-11-12
 

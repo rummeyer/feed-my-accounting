@@ -263,31 +263,103 @@ loaders.travel = () => { loadTravel(); loadSettings(); };
 
 const KIND_TEXT = { weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' };
 
-// Pixel icons, 8 × 8, as the theme switch's: what an amount is for. Each a list of rectangles,
-// x y width height.
-const PIXELS = {
-  meal: [[0, 0, 1, 3], [2, 0, 1, 3], [0, 3, 3, 1], [1, 4, 1, 4], [5, 0, 1, 8], [6, 0, 1, 4]], // fork and knife
-  car: [[2, 1, 4, 1], [1, 2, 1, 1], [3, 2, 1, 1], [6, 2, 1, 1], [0, 3, 8, 2], [1, 5, 2, 2], [5, 5, 2, 2]], // roof, pillars between two windows, body, wheels
-  bed: [[0, 1, 1, 6], [1, 3, 2, 1], [1, 4, 7, 2], [7, 6, 1, 1]], // headboard, pillow, mattress, foot
-  moon: [[2, 0, 4, 1], [1, 1, 3, 1], [0, 2, 3, 4], [1, 6, 3, 1], [2, 7, 4, 1], [6, 6, 1, 1]],
+// Pixel icons, 16 × 16: what an amount is for — fork and knife, a car, a bed. Drawn by pixel,
+// '#' the outline, '+' the shade, '.' the light: shades of the text's colour, so that they turn
+// light on dark with the theme.
+const GRIDS = {
+  meal: [
+    '                ',
+    '   # # #   ##   ',
+    '   #.#.#  #.#   ',
+    '   #.#.# #..#   ',
+    '   #.#.# #..#   ',
+    '   #...# #..#   ',
+    '    #+#  #..#   ',
+    '    #+#  #..#   ',
+    '    #+#  ##+#   ',
+    '    #+#   #+#   ',
+    '    #+#   #+#   ',
+    '    #+#   #+#   ',
+    '    #+#   #+#   ',
+    '     ##    ##   ',
+    '                ',
+    '                ',
+  ],
+  car: [
+    '                ',
+    '                ',
+    '                ',
+    '     ######     ',
+    '    ##..#.##    ',
+    '    #...#..##   ',
+    '  ###...#...##  ',
+    '.#++++++++++++#.',
+    '#+++++++++++++.#',
+    '#.+###++++###+.#',
+    '#+##..#++#..##+#',
+    ' ###..####..### ',
+    '   ###    ###   ',
+    '                ',
+    '                ',
+    '                ',
+  ],
+  bed: [
+    '                ',
+    '                ',
+    '                ',
+    '##              ',
+    '##              ',
+    '#####           ',
+    '##...#          ',
+    '##...####### ## ',
+    '##++++++++++### ',
+    '##+++++++++++## ',
+    '############### ',
+    '############### ',
+    '##           ## ',
+    '                ',
+    '                ',
+    '                ',
+  ],
 };
+const SHADES = { '#': 1, '+': 0.55, '.': 0.28 };
 
-/** A pixel icon, in the text's colour, its meaning as its title. */
+// The moon on a day away, 8 × 8 and solid, a marker in the corner: rectangles x y width height.
+const MOON = [[2, 0, 4, 1], [1, 1, 3, 1], [0, 2, 3, 4], [1, 6, 3, 1], [2, 7, 4, 1], [6, 6, 1, 1]];
+
+/** A pixel icon, its meaning as its title: meal, car and bed of GRIDS, or the moon. */
 function icon(name, title) {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', '0 0 8 8');
-  svg.setAttribute('class', `px px-${name}`);
-  svg.setAttribute('aria-label', title);
+  const rect = (x, y, w, h, shade) => {
+    const r = document.createElementNS(ns, 'rect');
+    for (const [k, v] of Object.entries({ x, y, width: w, height: h })) r.setAttribute(k, v);
+    if (shade < 1) r.setAttribute('fill-opacity', shade);
+    svg.append(r);
+  };
   svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', title);
   const t = document.createElementNS(ns, 'title');
   t.textContent = title;
   svg.append(t);
-  for (const [x, y, w, h] of PIXELS[name]) {
-    const r = document.createElementNS(ns, 'rect');
-    for (const [k, v] of Object.entries({ x, y, width: w, height: h })) r.setAttribute(k, v);
-    svg.append(r);
+  if (name === 'moon') {
+    svg.setAttribute('viewBox', '0 0 8 8');
+    svg.setAttribute('class', 'px px-moon');
+    for (const [x, y, w, h] of MOON) rect(x, y, w, h, 1);
+    return svg;
   }
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('class', `px px16 px-${name}`);
+  // A run of pixels of one shade in a row is one rectangle.
+  GRIDS[name].forEach((row, y) => {
+    for (let x = 0; x < row.length;) {
+      const c = row[x];
+      let end = x + 1;
+      while (end < row.length && row[end] === c) end++;
+      if (SHADES[c]) rect(x, y, end - x, 1, SHADES[c]);
+      x = end;
+    }
+  });
   return svg;
 }
 
