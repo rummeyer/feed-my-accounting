@@ -46,7 +46,7 @@ func TestWorkLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Zeitnachweis", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
+	for _, want := range []string{"Zeitnachweis 10/2026", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("work log without %q", want)
 		}

@@ -110,7 +110,8 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
-	pdf.CellFormat(100, 10, "Zeitnachweis", "", 0, "L", false, 0, "")
+	// The month in the title, as the runs name it: "Zeitnachweis 11/2026".
+	pdf.CellFormat(110, 10, fmt.Sprintf("Zeitnachweis %d/%d", from.Month(), from.Year()), "", 0, "L", false, 0, "")
 	bottom := logMargin + 12
 	if logo != "" {
 		options := fpdf.ImageOptions{ReadDpi: false}
