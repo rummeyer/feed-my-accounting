@@ -1280,8 +1280,8 @@ function renderMailboxes(cfg) {
   }));
   return el('div', '',
     el('h2', '', T('Weitere Postfächer', 'Other mailboxes')),
-    el('p', 'muted', T('Weitere Postfächer mit Belegen, etwa Anthropic an eine andere Adresse. Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.',
-      'Other mailboxes with receipts, Anthropic\'s to another address, say. Searched after the one above, in the same folders; mail goes out from the one above. IMAP server empty: the one above.')),
+    el('p', 'muted', T('Weitere Postfächer mit Belegen. Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.',
+      'Other mailboxes with receipts. Searched after the one above, in the same folders; mail goes out from the one above. IMAP server empty: the one above.')),
     boxes.length ? list : el('p', 'muted', T('Keine.', 'None.')),
     el('div', 'actions', button(T('Postfach hinzufügen', 'Add mailbox'), '', () => { boxes.push({ Username: '' }); changed(); })));
 }
