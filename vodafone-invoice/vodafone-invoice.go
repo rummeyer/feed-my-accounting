@@ -80,12 +80,32 @@ var (
 
 // Run downloads Vodafone invoices and sends them via email.
 func Run(cfg Config) error {
+	attachments, err := Collect(cfg)
+	if err != nil {
+		return err
+	}
+	return Send(cfg, attachments)
+}
+
+// Send mails the invoices, if there are any.
+func Send(cfg Config, attachments []email.Attachment) error {
+	if len(attachments) == 0 {
+		logger.Println("No Vodafone invoices to send")
+		return nil
+	}
+	logger.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
+	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Vodafone", attachments...)
+}
+
+// Collect downloads the current Vodafone invoices — MeinVodafone has the current month's, or with
+// FallbackToLastMonth the last one — without sending them.
+func Collect(cfg Config) ([]email.Attachment, error) {
 	ctx, cancel := browser.NewContext()
 	defer cancel()
 
 	logger.Println("Logging in to Vodafone...")
 	if err := login(ctx, cfg.Username, cfg.Password); err != nil {
-		return fmt.Errorf("login failed: %w", err)
+		return nil, fmt.Errorf("login failed: %w", err)
 	}
 
 	now := time.Now()
@@ -102,7 +122,7 @@ func Run(cfg Config) error {
 
 	if len(results) == 0 {
 		logger.Println("No Vodafone invoices found")
-		return nil
+		return nil, nil
 	}
 
 	attachments := make([]email.Attachment, 0, len(results))
@@ -111,9 +131,7 @@ func Run(cfg Config) error {
 			attachments = append(attachments, email.Attachment{Filename: inv.Filename, Data: inv.PDFData})
 		}
 	}
-
-	logger.Printf("Sending email with %d Vodafone invoice(s)...", len(attachments))
-	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Vodafone", attachments...)
+	return attachments, nil
 }
 
 // ---------------------------------------------------------------------------

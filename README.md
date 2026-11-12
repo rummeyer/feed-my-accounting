@@ -141,7 +141,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | Card | What it does |
 |------|--------------|
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
-| **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. Anthropic and Apple by month — `11/2026`, the current one at first: *PDFs ansehen* fetches them for download, *Per Mail senden* sends them too, after asking. The schedule sends the current month's. |
+| **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. Each with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking: Anthropic and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. As a fallback, behind its own flap at the foot of the card, *Zeitnachweis hochladen*: drop a Harvest PDF report in hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Folded away beneath the buttons, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
@@ -288,7 +288,7 @@ travel-expense:
 anthropic-invoice:
   filter:
     count: 50                      # in each folder
-    from: "mail.anthropic.com"
+    from: "mail.anthropic.com, stripe.com"
     subject: "Your receipt from Anthropic"   # the subject's start
     folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
 
@@ -463,7 +463,7 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 
 ## Module: anthropic-invoice
 
-Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5691-3003*, from `invoice+statements@mail.anthropic.com` — and sends the receipt PDF each brings, not the invoice beside it, in one email.
+Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5691-3003*, from `invoice+statements@mail.anthropic.com`, or for Anthropic Ireland from Stripe (`stripe.com`) — and sends the receipt PDF each brings, not the invoice beside it, in one email.
 
 1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same receipt found twice counts once, the first
 2. Takes the current month's emails — on the web interface any month's, to look at or to send
@@ -475,7 +475,7 @@ Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5
 | Field | Description | Default |
 |-------|-------------|---------|
 | `filter.count` | Number of recent emails to scan, in each folder | `50` |
-| `filter.from` | Sender domain to match | `mail.anthropic.com` |
+| `filter.from` | Sender domains to match, comma-separated | `mail.anthropic.com, stripe.com` |
 | `filter.subject` | The subject's start | `Your receipt from Anthropic` |
 | `filter.folders` | Folders to search, in this order | `INBOX`, `Rechnungen` |
 

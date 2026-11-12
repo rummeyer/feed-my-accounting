@@ -315,7 +315,7 @@ func applyDefaults(cfg *Config) {
 		cfg.AnthropicInvoice.Filter.Count = 50
 	}
 	if cfg.AnthropicInvoice.Filter.From == "" {
-		cfg.AnthropicInvoice.Filter.From = "mail.anthropic.com"
+		cfg.AnthropicInvoice.Filter.From = "mail.anthropic.com, stripe.com"
 	}
 	if cfg.AnthropicInvoice.Filter.Subject == "" {
 		cfg.AnthropicInvoice.Filter.Subject = "Your receipt from Anthropic"

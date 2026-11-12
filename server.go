@@ -28,6 +28,7 @@ import (
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
+	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
 //go:embed web
@@ -97,7 +98,14 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/anthropic/send", s.receiptsRun(anthropicReceipts, true))
 	mux.HandleFunc("POST /api/apple/view", s.receiptsRun(appleReceipts, false))
 	mux.HandleFunc("POST /api/apple/send", s.receiptsRun(appleReceipts, true))
-	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
+	// Vodafone's current invoices: the month is not chosen, MeinVodafone has the current one only.
+	vodafoneReceipts := receipts{"vodafone-invoice", "Vodafone-Rechnungen",
+		func(cfg *Config, _ time.Time) ([]email.Attachment, error) {
+			return vodafone.Collect(vodafoneConfig(cfg))
+		},
+		func(cfg *Config, a []email.Attachment) error { return vodafone.Send(vodafoneConfig(cfg), a) }}
+	mux.HandleFunc("POST /api/vodafone/view", s.receiptsRun(vodafoneReceipts, false))
+	mux.HandleFunc("POST /api/vodafone/send", s.receiptsRun(vodafoneReceipts, true))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
 	mux.HandleFunc("GET /api/bmf-table", s.bmfTable)

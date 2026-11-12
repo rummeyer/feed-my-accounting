@@ -242,7 +242,7 @@ for (const b of document.querySelectorAll('[data-run]')) {
 
 // Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
-const NAMES = { anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen' };
+const NAMES = { anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' };
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
@@ -749,7 +749,7 @@ const PARTS = {
   ]]],
   anthropic: [['', [
     ['AnthropicInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 50],
-    ['AnthropicInvoice.Filter.From', 'Absender-Domain', 'text', 'mail.anthropic.com'],
+    ['AnthropicInvoice.Filter.From', 'Absender-Domains', 'text', 'mail.anthropic.com, stripe.com'],
     ['AnthropicInvoice.Filter.Subject', 'Betreff beginnt mit', 'text', 'Your receipt from Anthropic'],
     ['AnthropicInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],
   ]]],

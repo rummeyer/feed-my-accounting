@@ -118,7 +118,7 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 // IMAPFilter defines which emails to fetch from the inbox.
 type IMAPFilter struct {
 	Count            int       // how many recent messages to scan (0 = all)
-	FromDomain       string    // sender hostname must contain this string
+	FromDomain       string    // sender hostname must contain this string, or one of them, comma-separated
 	Subject          string    // exact subject match
 	SubjectPrefix    string    // the subject starts with this, receipt numbers after it
 	CurrentMonthOnly bool      // only return emails received in the current month
@@ -226,6 +226,21 @@ func fetchFolder(c *client.Client, folder string, filter IMAPFilter, attachments
 	return fetchBodies(c, matchUIDs, attachments)
 }
 
+// fromDomain tells whether a sender's hostname contains one of the comma-separated domains.
+func fromDomain(from []*imap.Address, domains string) bool {
+	for _, d := range strings.Split(strings.ToLower(domains), ",") {
+		if d = strings.TrimSpace(d); d == "" {
+			continue
+		}
+		for _, addr := range from {
+			if strings.Contains(strings.ToLower(addr.HostName), d) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter) []uint32 {
 	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}
 	messages := make(chan *imap.Message, 10)
@@ -239,17 +254,8 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 			continue
 		}
 		env := msg.Envelope
-		if filter.FromDomain != "" {
-			matched := false
-			for _, addr := range env.From {
-				if strings.Contains(strings.ToLower(addr.HostName), strings.ToLower(filter.FromDomain)) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				continue
-			}
+		if filter.FromDomain != "" && !fromDomain(env.From, filter.FromDomain) {
+			continue
 		}
 		if filter.CurrentMonthOnly && (env.Date.Year() != now.Year() || env.Date.Month() != now.Month()) {
 			continue

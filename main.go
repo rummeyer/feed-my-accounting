@@ -319,14 +319,16 @@ func appleConfig(cfg *Config) apple.Config {
 
 func runAppleInvoice(cfg *Config) error { return apple.Run(appleConfig(cfg)) }
 
-func runVodafoneInvoice(cfg *Config) error {
-	return vodafone.Run(vodafone.Config{
+func vodafoneConfig(cfg *Config) vodafone.Config {
+	return vodafone.Config{
 		Mail:                cfg.Mail,
 		Username:            cfg.VodafoneInvoice.Username,
 		Password:            cfg.VodafoneInvoice.Password,
 		FallbackToLastMonth: *cfg.VodafoneInvoice.FallbackToLastMonth,
-	})
+	}
 }
+
+func runVodafoneInvoice(cfg *Config) error { return vodafone.Run(vodafoneConfig(cfg)) }
 
 func harvestConfig(cfg *Config) harvest.Config {
 	return harvest.Config{

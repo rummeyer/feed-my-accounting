@@ -1,6 +1,10 @@
 package email
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/emersion/go-imap"
+)
 
 func TestAccounts(t *testing.T) {
 	cfg := MailConfig{IMAPHost: "imap.strato.de", IMAPPort: 993, Username: "max@example.com", Password: "a",
@@ -25,6 +29,23 @@ func TestAccounts(t *testing.T) {
 		a := got[i]
 		if a.Username != want.user || a.Password != want.pass || a.IMAPHost != want.host || a.IMAPPort != want.port || len(a.Mailboxes) != 0 {
 			t.Errorf("account %d: %+v", i, a)
+		}
+	}
+}
+
+func TestFromDomain(t *testing.T) {
+	stripe := []*imap.Address{{MailboxName: "invoice+statements", HostName: "stripe.com"}}
+	for _, c := range []struct {
+		domains string
+		want    bool
+	}{
+		{"mail.anthropic.com", false},
+		{"mail.anthropic.com, stripe.com", true},
+		{"STRIPE.com", true},
+		{" , ", false},
+	} {
+		if got := fromDomain(stripe, c.domains); got != c.want {
+			t.Errorf("fromDomain(%q) = %v, want %v", c.domains, got, c.want)
 		}
 	}
 }
