@@ -801,19 +801,6 @@ let logoStamp = Date.now(); // a new one after saving, so that the browser fetch
 
 /** The company's logo: in the work log's head instead of its name. PNG or JPEG. */
 function renderLogo() {
-  const preview = el('img', 'logo-preview');
-  preview.alt = 'Logo';
-  const none = el('span', 'muted', 'Kein Logo: der Zeitnachweis zeigt den Firmennamen.');
-  const show = (src) => {
-    preview.hidden = !src;
-    none.hidden = !!src;
-    if (src) preview.src = src;
-  };
-  preview.onerror = () => show(null);
-  if (logoDraft) show(URL.createObjectURL(logoDraft));
-  else if (logoDraft === null) show(null);
-  else show(`/api/logo?t=${logoStamp}`);
-
   const input = el('input');
   input.type = 'file';
   input.accept = 'image/png,image/jpeg';
@@ -829,16 +816,35 @@ function renderLogo() {
     renderSettings();
     refreshSave();
   });
-  const choose = button('Logo wählen', '', () => input.click());
-  const remove = button('entfernen', 'link', () => {
+
+  // The frame is the button: a click chooses a logo, a new one over the old.
+  const preview = el('img', 'logo-preview');
+  preview.alt = 'Logo';
+  const empty = el('span', 'logo-empty', el('span', 'logo-arrow', '↑'), 'Logo hochladen');
+  const frame = button('', 'logo-frame', () => input.click());
+  frame.append(preview, empty);
+  const remove = button('×', 'logo-remove', () => {
     logoDraft = null;
     renderSettings();
     refreshSave();
   });
-  remove.hidden = logoDraft === null;
+  remove.title = 'Logo entfernen';
+  remove.setAttribute('aria-label', 'Logo entfernen');
+  const show = (src) => {
+    preview.hidden = !src;
+    empty.hidden = !!src;
+    remove.hidden = !src;
+    frame.title = src ? 'Anderes Logo wählen' : 'Logo hochladen';
+    if (src) preview.src = src;
+  };
+  preview.onerror = () => show(null);
+  if (logoDraft) show(URL.createObjectURL(logoDraft));
+  else if (logoDraft === null) show(null);
+  else show(`/api/logo?t=${logoStamp}`);
+
   return el('div', 'logo-box',
     el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos. PNG oder JPEG.'),
-    el('div', 'logo-row', el('div', 'logo-frame', preview, none), el('div', 'actions', input, choose, remove)));
+    el('div', 'logo-holder', frame, remove, input));
 }
 
 /**

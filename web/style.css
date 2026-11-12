@@ -311,7 +311,21 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 #employee { border-right: 1px solid var(--rule); padding-right: 16px; }
 
 /* The company's logo in the settings: as the work log shows it, on white. */
-.logo-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
-.logo-frame { min-width: 220px; min-height: 70px; padding: 10px 14px; background: #fff; border: 1px dotted var(--rule); display: flex; align-items: center; justify-content: center; }
-.logo-frame .muted { color: #777; font-size: 12px; }
-.logo-preview { max-width: 300px; max-height: 130px; }
+/* The frame is the button that chooses a logo; the red × at its corner takes it away. On white,
+   as the work log shows it. */
+.logo-holder { position: relative; display: inline-block; margin-top: 8px; }
+.logo-frame, .logo-frame:hover, .logo-frame:active {
+  min-width: 240px; min-height: 90px; padding: 12px 16px; background: #fff; color: #555;
+  border: 1px dashed var(--rule); box-shadow: none; transform: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; text-transform: none; letter-spacing: 0;
+}
+.logo-frame:hover { border-color: var(--headline); }
+.logo-preview { max-width: 300px; max-height: 130px; display: block; }
+.logo-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
+.logo-empty .logo-arrow { font-size: 26px; line-height: 1; }
+.logo-remove, .logo-remove:hover, .logo-remove:active {
+  position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; padding: 0;
+  border-radius: 50%; border: 0; background: var(--bad); color: #fff; box-shadow: none; transform: none;
+  font-size: 16px; line-height: 24px; text-align: center; cursor: pointer; letter-spacing: 0;
+}
+.logo-remove:hover { filter: brightness(1.15); }
