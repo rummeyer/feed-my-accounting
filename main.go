@@ -10,6 +10,7 @@
 //
 //	all [M/YYYY]              Run all modules (default when no command given)
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
+//	anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
 //	apple-invoice             Fetch Apple invoice emails and send as PDFs
 //	vodafone-invoice          Download Vodafone invoices and send via email
 //	harvest-invoice           Create sevDesk invoice from Harvest monthly report
@@ -28,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
@@ -67,6 +69,7 @@ func setupLogging() (io.Closer, error) {
 
 // setModuleLogs routes every module's log output to w.
 func setModuleLogs(w io.Writer) {
+	anthropic.SetLogOutput(w)
 	apple.SetLogOutput(w)
 	vodafone.SetLogOutput(w)
 	harvest.SetLogOutput(w)
@@ -134,6 +137,10 @@ func main() {
 			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
+		if err := runAnthropicInvoice(cfg); err != nil {
+			fmt.Fprintf(logOut, "anthropic-invoice error: %v\n", err)
+			os.Exit(1)
+		}
 		if err := runAppleInvoice(cfg); err != nil {
 			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
 			os.Exit(1)
@@ -151,6 +158,12 @@ func main() {
 		year, month := parseMonthArg(remaining)
 		if err := runTravelExpense(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
+			os.Exit(1)
+		}
+
+	case "anthropic-invoice":
+		if err := runAnthropicInvoice(cfg); err != nil {
+			fmt.Fprintf(logOut, "anthropic-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -282,6 +295,14 @@ func findClient(clients []Client, key string) int {
 	return -1
 }
 
+func runAnthropicInvoice(cfg *Config) error {
+	f := cfg.AnthropicInvoice.Filter
+	return anthropic.Run(anthropic.Config{
+		Mail:   cfg.Mail,
+		Filter: anthropic.FilterConfig{Count: f.Count, Subject: f.Subject, From: f.From, Folders: f.Folders},
+	})
+}
+
 func runAppleInvoice(cfg *Config) error {
 	return apple.Run(apple.Config{
 		Mail: cfg.Mail,
@@ -385,6 +406,7 @@ Usage:
 Commands:
   all [M/YYYY]              Run all modules (default when no command given)
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
+  anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
   harvest-invoice [M/YYYY]  Create sevDesk draft invoice from the month's Harvest hours

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **anthropic-invoice**: Anthropic's receipt emails — the inbox first, then the folder *Rechnungen* — and the receipt PDF each brings, named `11_2026_Rechnung_Anthropic_12112026.pdf` by the email's date, sent like Apple's and Vodafone's. On the web interface first under Belege, in the schedule as *Anthropic-Belege abholen*, and part of `all`.
+- The mail module searches several folders in turn and reads attachments; the settings page takes lists, comma-separated.
+
 ## [1.13.0] - 2026-11-12
 
 ### Added

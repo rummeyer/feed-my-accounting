@@ -92,6 +92,17 @@ type WebConfig struct {
 // homeOnly says whether only the home network may reach the web interface: unless switched off.
 func (w WebConfig) homeOnly() bool { return w.HomeOnly == nil || *w.HomeOnly }
 
+// AnthropicInvoiceConfig finds Anthropic's receipt emails: in the inbox first, then where they
+// may have been filed away.
+type AnthropicInvoiceConfig struct {
+	Filter struct {
+		Count   int      `yaml:"count"`
+		From    string   `yaml:"from"`    // sender domain filter
+		Subject string   `yaml:"subject"` // the subject's start
+		Folders []string `yaml:"folders"` // searched in this order
+	} `yaml:"filter"`
+}
+
 type AppleInvoiceConfig struct {
 	Filter struct {
 		Count   int    `yaml:"count"`
@@ -146,15 +157,16 @@ type StaffConfig struct {
 }
 
 type Config struct {
-	Company         CompanyConfig         `yaml:"company,omitempty"`
-	Staff           StaffConfig           `yaml:"staff"`
-	Mail            email.MailConfig      `yaml:"mail"`
-	TravelExpense   TravelExpenseConfig   `yaml:"travel-expense"`
-	AppleInvoice    AppleInvoiceConfig    `yaml:"apple-invoice"`
-	VodafoneInvoice VodafoneInvoiceConfig `yaml:"vodafone-invoice"`
-	HarvestInvoice  HarvestInvoiceConfig  `yaml:"harvest-invoice"`
-	Web             WebConfig             `yaml:"web,omitempty"`
-	Schedule        []ScheduleEntry       `yaml:"schedule,omitempty"`
+	Company          CompanyConfig          `yaml:"company,omitempty"`
+	Staff            StaffConfig            `yaml:"staff"`
+	Mail             email.MailConfig       `yaml:"mail"`
+	TravelExpense    TravelExpenseConfig    `yaml:"travel-expense"`
+	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
+	AppleInvoice     AppleInvoiceConfig     `yaml:"apple-invoice"`
+	VodafoneInvoice  VodafoneInvoiceConfig  `yaml:"vodafone-invoice"`
+	HarvestInvoice   HarvestInvoiceConfig   `yaml:"harvest-invoice"`
+	Web              WebConfig              `yaml:"web,omitempty"`
+	Schedule         []ScheduleEntry        `yaml:"schedule,omitempty"`
 
 	dir string // the folder the configuration is in, where the logo is kept beside it
 }
@@ -297,6 +309,18 @@ func normalizeStaff(cfg *Config) {
 func applyDefaults(cfg *Config) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username
+	}
+	if cfg.AnthropicInvoice.Filter.Count == 0 {
+		cfg.AnthropicInvoice.Filter.Count = 50
+	}
+	if cfg.AnthropicInvoice.Filter.From == "" {
+		cfg.AnthropicInvoice.Filter.From = "mail.anthropic.com"
+	}
+	if cfg.AnthropicInvoice.Filter.Subject == "" {
+		cfg.AnthropicInvoice.Filter.Subject = "Your receipt from Anthropic"
+	}
+	if len(cfg.AnthropicInvoice.Filter.Folders) == 0 {
+		cfg.AnthropicInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
 	}
 	if cfg.AppleInvoice.Filter.Count == 0 {
 		cfg.AppleInvoice.Filter.Count = 10

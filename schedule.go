@@ -125,8 +125,9 @@ var scheduledJobs = map[string]scheduledJob{
 		now := time.Now()
 		return runTravelExpense(cfg, now.Year(), now.Month())
 	})},
-	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
-	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
+	"anthropic-invoice": {"Anthropic-Belege abholen", noFiles(runAnthropicInvoice)},
+	"apple-invoice":     {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
+	"vodafone-invoice":  {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
 	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", func(cfg *Config) ([]File, error) {
 		now := time.Now()
 		return withFile(runHarvestInvoice(cfg, now.Year(), now.Month(), false))

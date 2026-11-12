@@ -16,6 +16,7 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
+| **anthropic-invoice** | IMAP inbox and *Rechnungen* | Fetches Anthropic's receipt emails and takes the receipt PDF each brings | Email → sevDesk Autobox |
 | **apple-invoice** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, creates draft invoice in sevDesk | Direct browser automation |
@@ -57,7 +58,7 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
   └─────────────────┘              └─────────────────┘
 ```
 
-Three modules collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fourth module (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
+Four modules collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
 
 Run once a month with a single command — or schedule it with cron — and your accounting is fed.
 
@@ -96,6 +97,7 @@ feed-my-accounting travel-expense 3/2026
 feed-my-accounting travel-expense 12/2025
 
 # Apple invoice emails → PDF → email
+feed-my-accounting anthropic-invoice
 feed-my-accounting apple-invoice
 
 # Vodafone invoices → email
@@ -139,7 +141,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | Card | What it does |
 |------|--------------|
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
-| **Belege** | Apple and Vodafone invoices on demand, each with its settings: the Apple mail filter, the Vodafone login. |
+| **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. As a fallback, behind its own flap at the foot of the card, *Zeitnachweis hochladen*: drop a Harvest PDF report in hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Folded away beneath the buttons, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
@@ -261,6 +263,13 @@ travel-expense:
       overnight: true
       note: Miami
 
+anthropic-invoice:
+  filter:
+    count: 50                      # in each folder
+    from: "mail.anthropic.com"
+    subject: "Your receipt from Anthropic"   # the subject's start
+    folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
+
 apple-invoice:
   filter:
     count: 10
@@ -291,7 +300,7 @@ web:                               # optional, for feed-my-accounting serve
   password: ""                     # optional: asked for by the browser
 
 schedule:                          # optional, run by feed-my-accounting serve
-  - job: travel-expense            # travel-expense, apple-invoice, vodafone-invoice, harvest-invoice
+  - job: travel-expense            # travel-expense, anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice
     cron: "0 6 5 * *"              # minute hour day month weekday
     enabled: true
   - job: harvest-invoice
@@ -428,6 +437,24 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 | `assignments` | Date ranges for one client: `client` (id or name), `from`, `to`, `overnight`, `hotel` (the nights have a hotel invoice: no flat rate), `nightFlight` (home through the night before arrival: no flat rate for it), `note` | — |
 
 ---
+
+## Module: anthropic-invoice
+
+Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5691-3003*, from `invoice+statements@mail.anthropic.com` — and sends the receipt PDF each brings, not the invoice beside it, in one email.
+
+1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are; the same receipt found in both counts once, the inbox's
+2. Takes this month's emails, as apple-invoice does
+3. Names each receipt by its email's date, as the other receipts are: `11_2026_Rechnung_Anthropic_12112026.pdf`; a second of the same day `…_12112026_2.pdf`
+4. Sends them via SMTP — nothing if there are none
+
+### anthropic-invoice config options
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `filter.count` | Number of recent emails to scan, in each folder | `50` |
+| `filter.from` | Sender domain to match | `mail.anthropic.com` |
+| `filter.subject` | The subject's start | `Your receipt from Anthropic` |
+| `filter.folders` | Folders to search, in this order | `INBOX`, `Rechnungen` |
 
 ## Module: apple-invoice
 
@@ -567,6 +594,8 @@ feed-my-accounting/
 │   └── pdf.go                     # the PDF's layout
 ├── pdfdoc/
 │   └── pdfdoc.go                 # shared PDF basics: A4 pages, blocks never split, Document
+├── anthropic-invoice/
+│   └── anthropic.go               # Config, Run(), the receipts and their names
 ├── apple-invoice/
 │   ├── apple-invoice.go            # Config, Run(), invoice parsing
 │   └── pdf.go                      # HTML→PDF conversion, HTML cleanup

@@ -86,20 +86,34 @@ type IMAPFilter struct {
 	Count            int    // how many recent messages to scan (0 = all)
 	FromDomain       string // sender hostname must contain this string
 	Subject          string // exact subject match
+	SubjectPrefix    string // the subject starts with this, receipt numbers after it
 	CurrentMonthOnly bool   // only return emails received in the current month
+	// Folders are searched one after the other, the latest Count of each: INBOX if none.
+	Folders []string
 }
 
-// Message holds an email's subject, date, and HTML body.
+// Message holds an email's subject, date, and HTML body — and with FetchEmails its attachments.
 type Message struct {
-	Subject  string
-	Date     time.Time
-	HTMLBody string
+	Subject     string
+	Date        time.Time
+	HTMLBody    string
+	Attachments []Attachment
 }
 
 // FetchHTMLEmails connects to the IMAP server, scans the inbox for emails matching
 // the filter, and returns their HTML bodies.
 // Uses a two-pass approach: lightweight envelope fetch first, full body fetch only for matches.
 func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
+	return fetch(cfg, filter, false)
+}
+
+// FetchEmails is FetchHTMLEmails with the emails' attachments too, and their HTML where there
+// is some: in every folder of the filter.
+func FetchEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
+	return fetch(cfg, filter, true)
+}
+
+func fetch(cfg MailConfig, filter IMAPFilter, attachments bool) ([]Message, error) {
 	addr := fmt.Sprintf("%s:%d", cfg.IMAPHost, cfg.IMAPPort)
 	c, err := client.DialTLS(addr, &tls.Config{ServerName: cfg.IMAPHost})
 	if err != nil {
@@ -112,9 +126,30 @@ func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	}
 	logger.Println("Logged in to IMAP server")
 
-	mbox, err := c.Select("INBOX", true)
+	folders := filter.Folders
+	if len(folders) == 0 {
+		folders = []string{"INBOX"}
+	}
+	var all []Message
+	for _, folder := range folders {
+		got, err := fetchFolder(c, folder, filter, attachments)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, got...)
+	}
+	return all, nil
+}
+
+// fetchFolder is the matching emails of one folder; none if it is not there.
+func fetchFolder(c *client.Client, folder string, filter IMAPFilter, attachments bool) ([]Message, error) {
+	mbox, err := c.Select(folder, true)
 	if err != nil {
-		return nil, fmt.Errorf("selecting INBOX: %w", err)
+		if folder == "INBOX" {
+			return nil, fmt.Errorf("selecting INBOX: %w", err)
+		}
+		logger.Printf("No folder %q: %v", folder, err)
+		return nil, nil
 	}
 	if mbox.Messages == 0 {
 		return nil, nil
@@ -134,8 +169,8 @@ func FetchHTMLEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	if len(matchUIDs) == 0 {
 		return nil, nil
 	}
-	logger.Printf("Found %d matching email(s), fetching bodies...", len(matchUIDs))
-	return fetchBodies(c, matchUIDs)
+	logger.Printf("Found %d matching email(s) in %s, fetching bodies...", len(matchUIDs), folder)
+	return fetchBodies(c, matchUIDs, attachments)
 }
 
 func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter) []uint32 {
@@ -169,6 +204,9 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 		if filter.Subject != "" && env.Subject != filter.Subject {
 			continue
 		}
+		if filter.SubjectPrefix != "" && !strings.HasPrefix(env.Subject, filter.SubjectPrefix) {
+			continue
+		}
 		logger.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
 		uids = append(uids, msg.Uid)
 	}
@@ -178,7 +216,7 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 	return uids
 }
 
-func fetchBodies(c *client.Client, uids []uint32) ([]Message, error) {
+func fetchBodies(c *client.Client, uids []uint32, attachments bool) ([]Message, error) {
 	uidSet := new(imap.SeqSet)
 	for _, uid := range uids {
 		uidSet.AddNum(uid)
@@ -197,6 +235,16 @@ func fetchBodies(c *client.Client, uids []uint32) ([]Message, error) {
 			logger.Printf("WARNING: no body for UID %d", msg.Uid)
 			continue
 		}
+		if attachments {
+			m, err := readParts(r)
+			if err != nil {
+				logger.Printf("WARNING: reading UID %d: %v", msg.Uid, err)
+				continue
+			}
+			m.Subject, m.Date = msg.Envelope.Subject, msg.Envelope.Date
+			results = append(results, m)
+			continue
+		}
 		htmlBody, err := extractHTMLBody(r)
 		if err != nil {
 			logger.Printf("WARNING: extracting HTML from UID %d: %v", msg.Uid, err)
@@ -212,6 +260,41 @@ func fetchBodies(c *client.Client, uids []uint32) ([]Message, error) {
 		return nil, fmt.Errorf("fetching bodies: %w", err)
 	}
 	return results, nil
+}
+
+// readParts is an email's HTML, if it has some, and its attachments.
+func readParts(r io.Reader) (Message, error) {
+	var m Message
+	mr, err := mail.CreateReader(r)
+	if err != nil {
+		return m, fmt.Errorf("creating mail reader: %w", err)
+	}
+	for {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			return m, nil
+		}
+		if err != nil {
+			return m, fmt.Errorf("reading mail part: %w", err)
+		}
+		switch h := p.Header.(type) {
+		case *mail.InlineHeader:
+			if ct, _, _ := h.ContentType(); ct == "text/html" && m.HTMLBody == "" {
+				body, err := io.ReadAll(p.Body)
+				if err != nil {
+					return m, fmt.Errorf("reading HTML body: %w", err)
+				}
+				m.HTMLBody = string(body)
+			}
+		case *mail.AttachmentHeader:
+			name, _ := h.Filename()
+			data, err := io.ReadAll(p.Body)
+			if err != nil {
+				return m, fmt.Errorf("reading attachment %q: %w", name, err)
+			}
+			m.Attachments = append(m.Attachments, Attachment{Filename: name, Data: data})
+		}
+	}
 }
 
 func extractHTMLBody(r io.Reader) (string, error) {

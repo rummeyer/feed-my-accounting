@@ -104,7 +104,7 @@ async function loadOverview() {
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': 'Reisekosten', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': 'Kundenrechnung' };
+const SHORT = { 'travel-expense': 'Reisekosten', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': 'Kundenrechnung' };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -726,6 +726,12 @@ const PARTS = {
     BREAK,
     ['HarvestInvoice.SkipExisting', 'Nicht doppelt anlegen (sevDesk prüfen)', 'bool', true],
   ]]],
+  anthropic: [['', [
+    ['AnthropicInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 50],
+    ['AnthropicInvoice.Filter.From', 'Absender-Domain', 'text', 'mail.anthropic.com'],
+    ['AnthropicInvoice.Filter.Subject', 'Betreff beginnt mit', 'text', 'Your receipt from Anthropic'],
+    ['AnthropicInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],
+  ]]],
   apple: [['', [
     ['AppleInvoice.Filter.Count', 'Mails durchsuchen', 'number', 10],
     ['AppleInvoice.Filter.From', 'Absender-Domain', 'text', 'apple.com'],
@@ -811,10 +817,11 @@ function field(obj, [path, label, type, extra]) {
         input.placeholder = `Standard: ${extra} (gesetzlich)`;
       }
     }
-    input.value = type === 'secret' ? '' : value || (type === 'number' || type === 'money' ? '' : value ?? '');
+    input.value = type === 'secret' ? '' : type === 'list' ? (value ?? []).join(', ')
+      : value || (type === 'number' || type === 'money' ? '' : value ?? '');
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? 'gespeichert — zum Ändern eingeben' : '';
     // Left empty, the default applies: shown as the hint.
-    if ((type === 'text' || type === 'number') && extra !== undefined) input.placeholder = `Standard: ${extra}`;
+    if ((type === 'text' || type === 'number' || type === 'list') && extra !== undefined) input.placeholder = `Standard: ${extra}`;
     // Left empty, another field's value applies: shown as the hint, as it is typed there.
     if (type === 'shadow') {
       input.dataset.shadowOf = extra;
@@ -822,7 +829,10 @@ function field(obj, [path, label, type, extra]) {
     }
     input.autocomplete = 'off';
   }
-  bind(input, () => setPath(obj, path, type === 'number' || type === 'money' ? Number(input.value) || 0 : input.value));
+  // A list is written with commas between: "INBOX, Rechnungen".
+  const valueOf = () => (type === 'number' || type === 'money' ? Number(input.value) || 0
+    : type === 'list' ? input.value.split(',').map((s) => s.trim()).filter(Boolean) : input.value);
+  bind(input, () => setPath(obj, path, valueOf()));
   return el('label', '', label, input);
 }
 
@@ -872,7 +882,7 @@ function renderSettings() {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie auch von außen — durch Caddy etwa —, aber nur, wenn ein Mitarbeiter ein Passwort hat, und dann nur nach der Anmeldung mit Passwort. Hinter Caddy zählt die Adresse des Besuchers, nicht die von Caddy.'));
     }
     if (part === 'mail') {
-      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
+      children.push(el('p', 'muted', `Gespeichert in ${settings.path}; die vorige Fassung liegt daneben als config.yaml.bak. Die übrigen Einstellungen stehen bei ihrem Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen, der Zeitplan unter Zeitplan.`));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
