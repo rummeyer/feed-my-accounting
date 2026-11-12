@@ -228,7 +228,14 @@ for (const b of document.querySelectorAll('[data-run]')) {
 
 // The month the Harvest API is asked for, as on the command line: the current one, or an
 // earlier one after the fact.
-{ const now = new Date(); $('harvest-month').value = `${now.getMonth() + 1}/${now.getFullYear()}`; }
+// Not restored by the browser on reloading — an emptied field came back empty over it — and the
+// hint the same month, should it be emptied.
+{
+  const now = new Date();
+  const month = `${now.getMonth() + 1}/${now.getFullYear()}`;
+  $('harvest-month').value = month;
+  $('harvest-month').placeholder = month;
+}
 $('harvest-run').addEventListener('click', () =>
   start('harvest', 'POST', '/api/harvest/run', { month: $('harvest-month').value }));
 $('harvest-worklog').addEventListener('click', () =>
