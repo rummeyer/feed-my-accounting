@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-11-12
+
+Security fixes from a check of the page on the internet: a Docker container is no longer at home, and the login gives away less. **Caddy in Docker needs the new proxy token** — see *Behind Caddy with HTTPS* in the README; without it, every visitor through it is asked for a password, at home too.
+
 ### Security
 
 - Web interface: Docker's addresses, `172.16–31.…`, are no longer home, and `X-Forwarded-For` from there is not believed: a container on the Pi, open to the internet, could have logged in without a password. Caddy in Docker sends a token instead, `web.proxyToken` (*Proxy-Token* on the web interface), in `X-Proxy-Token`.
@@ -17,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Web interface: a session ends after 24 hours without a request, not after 30 days; every request renews it, and its cookie with it. The page's polling for the next run does not count: a tab left open logs out too, and shows the login. Sessions from before are cut to 24 hours.
+- Protokoll: a run's files one under the other.
 
 ## [1.14.0] - 2026-11-12
 
