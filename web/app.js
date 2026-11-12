@@ -229,6 +229,8 @@ for (const b of document.querySelectorAll('[data-run]')) {
 { const now = new Date(); $('harvest-month').value = `${now.getMonth() + 1}/${now.getFullYear()}`; }
 $('harvest-run').addEventListener('click', () =>
   start('harvest', 'POST', '/api/harvest/run', { month: $('harvest-month').value }));
+$('harvest-worklog').addEventListener('click', () =>
+  start('harvest', 'POST', '/api/harvest/worklog', { month: $('harvest-month').value }));
 
 // ── Travel expenses ────────────────────────────────────────────────────────
 

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -60,46 +62,117 @@ func apiAccount(creds HarvestAPI) (string, error) {
 	return "", fmt.Errorf("the token has no Harvest account")
 }
 
-// APIHours is the hours booked for client — all clients if empty — from from to to, as
-// Harvest's reports count them: rounded, when the account rounds.
-func APIHours(creds HarvestAPI, client string, from, to time.Time) (float64, int, error) {
+// Entry is one time entry, as Harvest's detailed time report lists it.
+type Entry struct {
+	Date     time.Time
+	Started  string // "7:00", empty without timestamps
+	Ended    string
+	Client   string
+	Project  string
+	Code     string // the project's code, "0043"
+	Task     string
+	Person   string
+	Notes    string
+	Hours    float64 // rounded, when the account rounds, as Harvest's reports count
+	Billable bool
+	Billed   bool
+}
+
+// APIEntries is the time entries of client — all clients if empty — from from to to, in the
+// order of the day: by date, then by start.
+func APIEntries(creds HarvestAPI, client string, from, to time.Time) ([]Entry, error) {
 	account, err := apiAccount(creds)
 	if err != nil {
-		return 0, 0, err
+		return nil, err
 	}
 	next := "https://api.harvestapp.com/v2/time_entries?" + url.Values{
 		"from":     {from.Format("2006-01-02")},
 		"to":       {to.Format("2006-01-02")},
 		"per_page": {"2000"},
 	}.Encode()
-	var hours float64
-	entries, matched := 0, false
+	type named struct {
+		Name string `json:"name"`
+	}
+	var entries []Entry
 	for next != "" {
 		var page struct {
 			TimeEntries []struct {
+				SpentDate    string  `json:"spent_date"`
+				StartedTime  string  `json:"started_time"`
+				EndedTime    string  `json:"ended_time"`
 				RoundedHours float64 `json:"rounded_hours"`
-				Client       struct {
+				Notes        string  `json:"notes"`
+				Billable     bool    `json:"billable"`
+				IsBilled     bool    `json:"is_billed"`
+				Client       named   `json:"client"`
+				Task         named   `json:"task"`
+				User         named   `json:"user"`
+				Project      struct {
 					Name string `json:"name"`
-				} `json:"client"`
+					Code string `json:"code"`
+				} `json:"project"`
 			} `json:"time_entries"`
 			Links struct {
 				Next string `json:"next"`
 			} `json:"links"`
 		}
 		if err := apiGet(creds, account, next, &page); err != nil {
-			return 0, 0, fmt.Errorf("reading time entries: %w", err)
+			return nil, fmt.Errorf("reading time entries: %w", err)
 		}
 		for _, e := range page.TimeEntries {
-			if client == "" || e.Client.Name == client {
-				hours += e.RoundedHours
-				entries++
-				matched = true
+			if client != "" && e.Client.Name != client {
+				continue
 			}
+			date, err := time.ParseInLocation("2006-01-02", e.SpentDate, time.Local)
+			if err != nil {
+				return nil, fmt.Errorf("time entry of %q: %w", e.SpentDate, err)
+			}
+			entries = append(entries, Entry{
+				Date: date, Started: e.StartedTime, Ended: e.EndedTime,
+				Client: e.Client.Name, Project: e.Project.Name, Code: e.Project.Code, Task: e.Task.Name,
+				Person: e.User.Name, Notes: strings.TrimSpace(e.Notes), Hours: e.RoundedHours,
+				Billable: e.Billable, Billed: e.IsBilled,
+			})
 		}
 		next = page.Links.Next
 	}
-	if !matched {
-		return 0, 0, fmt.Errorf("no time entries for %q from %s to %s", client, from.Format("02.01.2006"), to.Format("02.01.2006"))
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("no time entries for %q from %s to %s", client, from.Format("02.01.2006"), to.Format("02.01.2006"))
 	}
-	return hours, entries, nil
+	sort.SliceStable(entries, func(i, j int) bool {
+		if !entries[i].Date.Equal(entries[j].Date) {
+			return entries[i].Date.Before(entries[j].Date)
+		}
+		return minutes(entries[i].Started) < minutes(entries[j].Started)
+	})
+	return entries, nil
+}
+
+// minutes is "7:30" in minutes since midnight; -1 without a time, so that such entries come first.
+func minutes(clock string) int {
+	h, m, ok := strings.Cut(clock, ":")
+	if !ok {
+		return -1
+	}
+	hours, err1 := strconv.Atoi(h)
+	mins, err2 := strconv.Atoi(m)
+	if err1 != nil || err2 != nil {
+		return -1
+	}
+	return hours*60 + mins
+}
+
+// APICompany is the account's company name, for the report's head.
+func APICompany(creds HarvestAPI) (string, error) {
+	account, err := apiAccount(creds)
+	if err != nil {
+		return "", err
+	}
+	var company struct {
+		Name string `json:"name"`
+	}
+	if err := apiGet(creds, account, "https://api.harvestapp.com/v2/company", &company); err != nil {
+		return "", fmt.Errorf("reading the company: %w", err)
+	}
+	return company.Name, nil
 }

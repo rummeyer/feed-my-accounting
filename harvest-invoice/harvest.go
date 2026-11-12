@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"feed-my-accounting/browser"
+	"feed-my-accounting/pdfdoc"
 )
 
 var logger = log.New(os.Stderr, "[harvest-invoice] ", log.LstdFlags)
@@ -33,15 +34,13 @@ type HarvestAPI struct {
 	Client    string `yaml:"client"`    // client in Harvest; empty: the sevDesk client's name
 }
 
-// Run reads the month's hours of the client from the Harvest API and creates a sevDesk draft
-// invoice for them via browser automation — unless sevDesk has one for the month already.
-func Run(cfg Config) error {
-	if cfg.Harvest.Token == "" {
-		return fmt.Errorf("no Harvest API token: set harvest.token")
-	}
-	report, err := apiReport(cfg)
+// Run reads the month's time entries of the client from the Harvest API, makes their work log,
+// and creates a sevDesk draft invoice for their hours via browser automation — unless sevDesk has
+// one for the month already. The work log comes back either way, once made.
+func Run(cfg Config) (*pdfdoc.Document, error) {
+	report, log, err := monthReport(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ctx, cancel := browser.NewContext(browser.WithGermanLocale())
@@ -50,19 +49,28 @@ func Run(cfg Config) error {
 	// Guard: check if sevDesk already has an invoice for this client+period
 	exists, sevdeskLoggedIn := alreadyInvoiced(ctx, cfg, report)
 	if exists {
-		return nil
+		return log, nil
 	}
 
 	logger.Println("Creating sevDesk invoice...")
 	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
-		return fmt.Errorf("creating sevDesk invoice: %w", err)
+		return log, fmt.Errorf("creating sevDesk invoice: %w", err)
 	}
-	return nil
+	return log, nil
 }
 
-// apiReport is the month's report from the Harvest API: the client's hours in it. Before the
-// sevDesk check — which is slower — so an empty month stops early.
-func apiReport(cfg Config) (*ReportData, error) {
+// WorkLogOnly makes the month's work log, and nothing in sevDesk.
+func WorkLogOnly(cfg Config) (*pdfdoc.Document, error) {
+	_, log, err := monthReport(cfg)
+	return log, err
+}
+
+// monthReport is the month's report from the Harvest API — the client's hours in it — and its
+// work log. Before the sevDesk check, which is slower, so that an empty month stops early.
+func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
+	if cfg.Harvest.Token == "" {
+		return nil, nil, fmt.Errorf("no Harvest API token: set harvest.token")
+	}
 	month := cfg.Month
 	if month.IsZero() {
 		month = time.Now()
@@ -74,19 +82,32 @@ func apiReport(cfg Config) (*ReportData, error) {
 		client = cfg.SevDesk.ClientName
 	}
 	if client == "" {
-		return nil, fmt.Errorf("no client: set harvest.client or sevdesk.clientName")
+		return nil, nil, fmt.Errorf("no client: set harvest.client or sevdesk.clientName")
 	}
 	if report.ClientName == "" {
 		report.ClientName = client
 	}
-	logger.Printf("Reading the hours of %s for %s from the Harvest API...", client, from.Format("01/2006"))
-	hours, entries, err := APIHours(cfg.Harvest, client, report.PeriodFrom, report.PeriodTo)
+	logger.Printf("Reading the time entries of %s for %s from the Harvest API...", client, from.Format("01/2006"))
+	entries, err := APIEntries(cfg.Harvest, client, report.PeriodFrom, report.PeriodTo)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	report.TotalHours = hours
-	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), entries, hours)
-	return report, nil
+	for _, e := range entries {
+		report.TotalHours += e.Hours
+	}
+	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), len(entries), report.TotalHours)
+
+	company, err := APICompany(cfg.Harvest)
+	if err != nil {
+		return nil, nil, err
+	}
+	data, err := WorkLog(company, report.PeriodFrom, report.PeriodTo, entries)
+	if err != nil {
+		return nil, nil, fmt.Errorf("making the work log: %w", err)
+	}
+	log := &pdfdoc.Document{Filename: WorkLogName(from), Data: data}
+	logger.Printf("Work log: %s, %d KB", log.Filename, (len(data)+1023)/1024)
+	return report, log, nil
 }
 
 // ErrAlreadyInvoiced is a report sevDesk already has an invoice for: same client, a Rechnungsdatum

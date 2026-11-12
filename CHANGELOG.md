@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- harvest-invoice: the month's **work log** as PDF (`10_2026_WorkLog.pdf`), made from the Harvest API's time entries and laid out as Harvest's *Detailed time report* — period, hours, uninvoiced billable hours, and a table by day with the times and notes. It comes with every run, also when the draft exists already: for download on the web interface, saved in the current directory from the command line. *Nur Stundenbericht* on the web interface makes only the work log. The upload reads it like Harvest's own.
+- `pdfdoc`: what the PDFs have in common — A4 pages, blocks never split across them, the `Document` — for the travel expenses and the work log.
+
 - harvest-invoice: the hours come from the Harvest API v2, with a personal access token (`harvest.token`, required; optionally `harvest.accountId`): the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month — the current one, the one given (`harvest-invoice 10/2026`) or the one given on the web interface next to *Aus Harvest anlegen*, as `10/2026`. Works on the free plan.
 
 ### Removed

@@ -141,7 +141,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Belege** | Apple and Vodafone invoices on demand, each with its settings: the Apple mail filter, the Vodafone login. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
-| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API. As a fallback, drop a Harvest PDF report in below: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Below: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
+| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Stundenbericht* makes only the work log. As a fallback, drop a Harvest PDF report in below: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Below: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
 | **Einstellungen** | What all of them share: the mail account, and the web interface's address and password. |
 
@@ -469,17 +469,20 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
 
 ### How it works
 
-1. Sums the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month from the Harvest API v2 — rounded hours, as Harvest's reports count them
-2. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the month; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
-3. Logs into sevDesk and creates a new E-Rechnung draft with:
+1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them
+2. Makes the month's **work log** (`10_2026_WorkLog.pdf`), laid out as Harvest's *Detailed time report*: the period, its hours and uninvoiced billable hours, then a table by day — client, project with the times and the note beneath, task, person, hours — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
+3. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the month; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
+4. Logs into sevDesk and creates a new E-Rechnung draft with:
    - **Rechnungsdatum** pre-filled as today's date by sevDesk
    - **Leistungszeitraum** set to the whole month (e.g. 01.04.2026 - 30.04.2026)
    - **Referenznummer** and **Kundenreferenz** from config
    - **Product** selected via typeahead search (search term + article number)
    - **Menge** set to the total hours
-4. Saves the invoice as draft — it is never sent to the client
+5. Saves the invoice as draft — it is never sent to the client
 
 The Harvest API needs a personal access token from [id.getharvest.com/developers](https://id.getharvest.com/developers) — on every plan, the free one too. sevDesk is used through its web interface with headless Chrome — no sevDesk API token needed.
+
+The work log is made before the sevDesk check, so it comes even when the draft exists already. Uploaded again, it is read like Harvest's own report.
 
 On the web interface a Harvest PDF report can be uploaded instead: the hours (`157,00 Hours`) and the period (the first two dates as `dd.mm.yyyy`) are read from the PDF and can be corrected before the draft is created. The client is `sevdesk.clientName`.
 
@@ -522,7 +525,9 @@ feed-my-accounting/
 ├── travel-expense/
 │   ├── travel-expense.go          # Config, day plan, Generate(), Send(), Run()
 │   ├── doc.go                     # document content builders
-│   └── pdf.go                     # PDF generation
+│   └── pdf.go                     # the PDF's layout
+├── pdfdoc/
+│   └── pdfdoc.go                 # shared PDF basics: A4 pages, blocks never split, Document
 ├── apple-invoice/
 │   ├── apple-invoice.go            # Config, Run(), invoice parsing
 │   └── pdf.go                      # HTML→PDF conversion, HTML cleanup
@@ -530,7 +535,8 @@ feed-my-accounting/
 │   └── vodafone-invoice.go         # Config, browser automation, Run()
 ├── harvest-invoice/
 │   ├── harvest.go                 # Config, Run(), CreateDraft()
-│   ├── api.go                     # Harvest API v2: a month's hours
+│   ├── api.go                     # Harvest API v2: a month's time entries, the company
+│   ├── worklog.go                 # the work log PDF, as Harvest's detailed time report
 │   ├── parser.go                  # uploaded PDF: hours and period
 │   └── sevdesk.go                 # sevDesk browser automation (login, form, save, duplicate check)
 ├── web/                           # the web interface's page, embedded in the binary

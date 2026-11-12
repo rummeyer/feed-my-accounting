@@ -66,7 +66,8 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
 	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", noFiles(runAppleInvoice)))
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
-	mux.HandleFunc("POST /api/harvest/run", s.harvestRun)
+	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
+	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
@@ -376,31 +377,39 @@ func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)
 	}
 }
 
-// harvestRun makes the sevDesk draft for a month's hours in Harvest: "11/2026", as on the
-// command line; empty is the current month.
-func (s *server) harvestRun(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Month string `json:"month"`
+// harvestRun makes the sevDesk draft for a month's hours in Harvest and their work log — with
+// logOnly just the work log. The month is "11/2026", as on the command line; empty is the
+// current one.
+func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Month string `json:"month"`
+		}
+		if !read(w, r, &in) {
+			return
+		}
+		year, month, err := slashMonth(in.Month)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		cfg, err := s.config()
+		if err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		if cfg.HarvestInvoice.Harvest.Token == "" {
+			fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter „Einstellungen Kundenrechnung“ eintragen"))
+			return
+		}
+		title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
+		if logOnly {
+			title = fmt.Sprintf("Stundenbericht %d/%d aus Harvest", month, year)
+		}
+		s.start(w, "harvest-invoice", title, func() ([]File, error) {
+			return withFile(runHarvestInvoice(cfg, year, month, logOnly))
+		})
 	}
-	if !read(w, r, &in) {
-		return
-	}
-	year, month, err := slashMonth(in.Month)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err)
-		return
-	}
-	cfg, err := s.config()
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	if cfg.HarvestInvoice.Harvest.Token == "" {
-		fail(w, http.StatusBadRequest, errors.New("kein Harvest-API-Token: unter „Einstellungen Kundenrechnung“ eintragen"))
-		return
-	}
-	title := fmt.Sprintf("Kundenrechnung %d/%d aus Harvest", month, year)
-	s.start(w, "harvest-invoice", title, func() ([]File, error) { return nil, runHarvestInvoice(cfg, year, month) })
 }
 
 // harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before

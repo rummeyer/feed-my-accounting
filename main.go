@@ -17,6 +17,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -30,6 +31,7 @@ import (
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
+	"feed-my-accounting/pdfdoc"
 	travelexpense "feed-my-accounting/travel-expense"
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
@@ -140,7 +142,7 @@ func main() {
 			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
 		}
-		if err := runHarvestInvoice(cfg, year, month); err != nil {
+		if err := harvestFromCommandLine(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
@@ -166,7 +168,7 @@ func main() {
 
 	case "harvest-invoice":
 		year, month := parseMonthArg(remaining)
-		if err := runHarvestInvoice(cfg, year, month); err != nil {
+		if err := harvestFromCommandLine(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
 			os.Exit(1)
 		}
@@ -314,11 +316,27 @@ func harvestConfig(cfg *Config) harvest.Config {
 	}
 }
 
-// runHarvestInvoice makes the sevDesk draft for the month's hours in Harvest.
-func runHarvestInvoice(cfg *Config, year int, month time.Month) error {
+// runHarvestInvoice makes the sevDesk draft for the month's hours in Harvest, and their work
+// log; with logOnly just the work log.
+func runHarvestInvoice(cfg *Config, year int, month time.Month, logOnly bool) (*pdfdoc.Document, error) {
 	hc := harvestConfig(cfg)
 	hc.Month = time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+	if logOnly {
+		return harvest.WorkLogOnly(hc)
+	}
 	return harvest.Run(hc)
+}
+
+// harvestFromCommandLine is runHarvestInvoice with the work log saved in the current directory.
+func harvestFromCommandLine(cfg *Config, year int, month time.Month) error {
+	log, err := runHarvestInvoice(cfg, year, month, false)
+	if log != nil {
+		if werr := os.WriteFile(log.Filename, log.Data, 0o644); werr != nil {
+			return errors.Join(err, werr)
+		}
+		fmt.Fprintf(logOut, "Work log saved as %s\n", log.Filename)
+	}
+	return err
 }
 
 // slashMonth reads a month as the command line takes it, "11/2026"; empty is the current one.

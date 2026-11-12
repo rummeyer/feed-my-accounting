@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"feed-my-accounting/pdfdoc"
 )
 
 // cronSpec is a parsed five-field cron expression: minute, hour, day of month, month, day of
@@ -125,10 +127,18 @@ var scheduledJobs = map[string]scheduledJob{
 	})},
 	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
-	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", noFiles(func(cfg *Config) error {
+	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", func(cfg *Config) ([]File, error) {
 		now := time.Now()
-		return runHarvestInvoice(cfg, now.Year(), now.Month())
-	})},
+		return withFile(runHarvestInvoice(cfg, now.Year(), now.Month(), false))
+	}},
+}
+
+// withFile is a run's document as the file it offers for download, if it made one.
+func withFile(doc *pdfdoc.Document, err error) ([]File, error) {
+	if doc == nil {
+		return nil, err
+	}
+	return []File{{Name: doc.Filename, Size: len(doc.Data), data: doc.Data}}, err
 }
 
 // noFiles is a module run that makes no files to download.

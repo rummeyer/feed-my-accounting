@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"feed-my-accounting/email"
+	"feed-my-accounting/pdfdoc"
 
 	"github.com/rickar/cal/v2"
 	"github.com/rickar/cal/v2/ar"
@@ -518,10 +519,7 @@ func blockedNote(blocked []BlockedRange, date time.Time) *string {
 var ErrNoTravelDays = errors.New("no travel days")
 
 // Document is a generated PDF.
-type Document struct {
-	Filename string
-	Data     []byte
-}
+type Document = pdfdoc.Document
 
 // Result is a month's travel expense PDFs and their totals. Mileage is nil for a month without
 // any driving, as one spent abroad.
