@@ -232,8 +232,10 @@ ul.rows li .grow { flex: 1; }
 ul.rows li .when { color: var(--headline); }
 .inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /* Zuordnungen on one line: a short note. With an overnight trip's checkboxes, note and button go beneath. */
-#a-client { width: 170px; }
-#a-note { width: 96px; }
+#a-client { width: 190px; }
+#a-note { width: 120px; }
+#assignment-form input[type=date] { padding-left: 6px; padding-right: 4px; }
+#assignment-form button[type=submit] { padding-left: 12px; padding-right: 12px; }
 
 /* Invoice. */
 .drop {
