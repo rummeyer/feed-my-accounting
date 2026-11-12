@@ -173,6 +173,8 @@ Five fields, `minute hour day month weekday`, as in crontab — `*`, numbers, ra
 | `L-n` | day | n days before it | `0 7 L-2 * *` |
 | `nW` | day | the workday nearest the nth, within the month | `0 7 15W * *` |
 | `LW` | day | the month's last workday | `0 7 LW * *` |
+
+A workday for `W` and `LW` is one as the Reisekosten count it: Monday to Friday, no public holiday — Germany's, in the state of the first German client — no blocked day, and not in the Christmas week if that is off. With the 31st of December blocked, `LW` in December 2026 is the 30th.
 | `nL` | weekday | the month's last such weekday | `0 7 * * 5L` — the last Friday |
 | `n#k` | weekday | the kth such weekday | `0 7 * * 1#2` — the second Monday |
 | `JAN`–`DEC`, `SUN`–`SAT` | month, weekday | names for the numbers | `0 7 * * MON-FRI` |

@@ -261,6 +261,22 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 	return tc, nil
 }
 
+// workdays says which days are workdays, as the Reisekosten have them: Monday to Friday without
+// the public holidays at home, the blocked days and, when off, the Christmas week.
+func workdays(cfg *Config) func(time.Time) bool {
+	te := cfg.TravelExpense
+	tc := travelexpense.Config{ChristmasWeekOff: te.ChristmasWeekOff}
+	for _, c := range te.Clients {
+		tc.Clients = append(tc.Clients, travelexpense.Client{Country: c.Country, Province: c.Province})
+	}
+	for _, b := range te.Blocked {
+		if from, to, err := parseRange(b.From, b.To); err == nil {
+			tc.Blocked = append(tc.Blocked, travelexpense.BlockedRange{From: from, To: to})
+		}
+	}
+	return tc.Workdays()
+}
+
 // parseRange reads YYYY-MM-DD dates; an empty to is the from day.
 func parseRange(from, to string) (time.Time, time.Time, error) {
 	f, err := time.Parse(time.DateOnly, from)

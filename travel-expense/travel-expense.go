@@ -313,6 +313,23 @@ func isWorkday(c *cal.BusinessCalendar, date time.Time, christmasWeekOff bool) b
 	return c.IsWorkday(date) && !(christmasWeekOff && christmasWeek(date))
 }
 
+// Workdays says which dates, at midnight UTC, are days of work at home: Monday to Friday
+// without Germany's public holidays — of the first German client's state, Baden-Württemberg if
+// none — the blocked days and, when off, the Christmas week. Assignments do not change it.
+func (cfg *Config) Workdays() func(time.Time) bool {
+	province := ""
+	for _, c := range cfg.Clients {
+		if !c.Abroad() {
+			province = c.Province
+			break
+		}
+	}
+	home, christmas := newBusinessCalendar("DE", province), cfg.christmasWeekOffEnabled()
+	return func(date time.Time) bool {
+		return isWorkday(home, date, christmas) && blockedNote(cfg.Blocked, date) == nil
+	}
+}
+
 // christmasWeek says whether date is Dec 24 or Dec 27–31, the days off with christmasWeekOff;
 // Dec 25 and 26 are holidays anyway.
 func christmasWeek(date time.Time) bool {

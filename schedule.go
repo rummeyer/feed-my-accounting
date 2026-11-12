@@ -28,6 +28,9 @@ type cronSpec struct {
 	lastWorkday bool  // LW
 	nthDays     []nthDay
 	lastOfDays  []int // 5L: the weekday's last in the month
+
+	// workday says which days W and LW count, a date at midnight UTC: Monday to Friday if nil.
+	workday func(time.Time) bool
 }
 
 // nthDay is a weekday's nth time in the month: 1#2, the second Monday.
@@ -215,11 +218,11 @@ func (c *cronSpec) domMatches(t time.Time) bool {
 		}
 	}
 	for _, n := range c.nearest {
-		if t.Day() == nearestWorkday(t, min(n, last)) {
+		if t.Day() == c.nearestWorkday(t, min(n, last)) {
 			return true
 		}
 	}
-	return c.lastWorkday && t.Day() == nearestWorkday(t, last)
+	return c.lastWorkday && t.Day() == c.nearestWorkday(t, last)
 }
 
 // dowMatches says whether t's weekday is one of the day of week field's: a day, nL, or n#k.
@@ -246,24 +249,38 @@ func daysIn(t time.Time) int {
 	return time.Date(t.Year(), t.Month()+1, 0, 0, 0, 0, 0, t.Location()).Day()
 }
 
-// nearestWorkday is the Monday to Friday nearest the day of t's month, as Quartz has W: a
-// Saturday's the Friday before, a Sunday's the Monday after — never into the month before or
-// after: the 1st a Saturday is Monday the 3rd, the last a Sunday is the Friday before.
-func nearestWorkday(t time.Time, day int) int {
-	d := time.Date(t.Year(), t.Month(), day, 0, 0, 0, 0, t.Location())
-	switch d.Weekday() {
-	case time.Saturday:
-		if day == 1 {
-			return 3
+// nearestWorkday is the workday nearest the day of t's month, as Quartz has W: a Saturday's the
+// Friday before, a Sunday's the Monday after — the day before first at the same distance — and
+// never into the month before or after: the 1st a Saturday is Monday the 3rd, the last a Sunday
+// is the Friday before. 0 if the month has none.
+func (c *cronSpec) nearestWorkday(t time.Time, day int) int {
+	last := daysIn(t)
+	for d := 0; d < last; d++ {
+		for _, n := range []int{day - d, day + d} {
+			if n >= 1 && n <= last && c.isWorkday(time.Date(t.Year(), t.Month(), n, 0, 0, 0, 0, time.UTC)) {
+				return n
+			}
 		}
-		return day - 1
-	case time.Sunday:
-		if day == daysIn(t) {
-			return day - 2
-		}
-		return day + 1
 	}
-	return day
+	return 0
+}
+
+// isWorkday says whether the date counts for W and LW.
+func (c *cronSpec) isWorkday(date time.Time) bool {
+	if c.workday != nil {
+		return c.workday(date)
+	}
+	return date.Weekday() != time.Saturday && date.Weekday() != time.Sunday
+}
+
+// scheduleSpec is the expression as the schedule runs it: its W and LW skipping public holidays,
+// the blocked days and, when off, the Christmas week, as the Reisekosten have them.
+func scheduleSpec(cfg *Config, expr string) (*cronSpec, error) {
+	spec, err := parseCron(expr)
+	if err == nil {
+		spec.workday = workdays(cfg)
+	}
+	return spec, err
 }
 
 // next is the first minute after t the spec fires in, within a year and a day; zero if none.
@@ -324,7 +341,7 @@ func nextRun(cfg *Config, now time.Time) map[string]string {
 	var job string
 	var at time.Time
 	for _, e := range cfg.Schedule {
-		spec, err := parseCron(e.Cron)
+		spec, err := scheduleSpec(cfg, e.Cron)
 		if !e.Enabled || err != nil {
 			continue
 		}
@@ -355,7 +372,7 @@ func (s *server) scheduler() {
 			if !entry.Enabled {
 				continue
 			}
-			spec, err := parseCron(entry.Cron)
+			spec, err := scheduleSpec(cfg, entry.Cron)
 			if err != nil {
 				log.Printf("schedule: %v", err)
 				continue

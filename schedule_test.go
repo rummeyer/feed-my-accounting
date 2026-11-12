@@ -129,3 +129,33 @@ func TestCronQuartzDays(t *testing.T) {
 		}
 	}
 }
+
+func TestScheduleWorkdays(t *testing.T) {
+	off := false
+	cfg := &Config{TravelExpense: TravelExpenseConfig{
+		ChristmasWeekOff: &off,
+		Clients:          []Client{{ID: "1", Province: "BW"}, {ID: "2", Country: "US"}},
+		Blocked:          []DateRange{{From: "2026-12-24"}, {From: "2026-12-31"}},
+	}}
+	for _, tt := range []struct{ expr, from, want string }{
+		// The 31st blocked: the 30th.
+		{"0 7 LW * *", "2026-12-01 10:00", "2026-12-30 07:00"},
+		// The 6th of January 2027 Epiphany in Baden-Württemberg: the day before, the 5th.
+		{"0 7 6W * *", "2026-12-31 10:00", "2027-01-05 07:00"},
+		// November without blocked days: still the 30th.
+		{"0 7 LW * *", "2026-11-12 10:00", "2026-11-30 07:00"},
+	} {
+		spec, err := scheduleSpec(cfg, tt.expr)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.expr, err)
+		}
+		if got := spec.next(at(tt.from)).Format("2006-01-02 15:04"); got != tt.want {
+			t.Errorf("%s after %s: %s, want %s", tt.expr, tt.from, got, tt.want)
+		}
+	}
+	on := true
+	cfg.TravelExpense.ChristmasWeekOff = &on // the 24th and 27th to 31st off: the 23rd
+	if spec, _ := scheduleSpec(cfg, "0 7 LW * *"); spec.next(at("2026-12-01 10:00")).Day() != 23 {
+		t.Errorf("LW with the Christmas week off: %v", spec.next(at("2026-12-01 10:00")))
+	}
+}

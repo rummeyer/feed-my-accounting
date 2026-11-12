@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Further mailboxes** (`mail.mailboxes`, on the web interface under Einstellungen › E-Mail › *Weitere Postfächer*): accounts receipts come to besides the main one — Anthropic's to another address, say — searched after it, each in the same folders; the mail still goes out from the main one. Their passwords are kept as the others are: never sent back to the page. One failing does not stop the others.
 - Belege: Anthropic and Apple by month — `11/2026`, the current one at first; Vodafone shows its month too, not to be changed — with *PDFs ansehen*, the month's PDFs for download without sending, and *Per Mail senden*, after asking, as the Reisekosten have it. The schedule still sends the current month's. The mail module takes any month.
 - Vodafone under Belege too: *PDFs ansehen* and *Per Mail senden*, the current month's invoices.
+- Schedule: `W` and `LW` count workdays as the Reisekosten do — no public holidays, blocked days or, when off, the Christmas week. `LW` in December 2026, the 31st blocked, is the 30th.
 - Sender filters take several domains, comma-separated. Anthropic's default is `mail.anthropic.com, stripe.com`: receipts from Anthropic Ireland come through Stripe.
 - apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once. It scans the latest 50 emails of each folder by default, not 10.
 

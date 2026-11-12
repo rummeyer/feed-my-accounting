@@ -204,7 +204,7 @@ func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 		if job, ok := last[e.Job]; ok {
 			out.Last = &job
 		}
-		if spec, err := parseCron(e.Cron); err != nil {
+		if spec, err := scheduleSpec(cfg, e.Cron); err != nil {
 			out.Error = err.Error()
 		} else {
 			for t, i := time.Now(), 0; i < 3; i++ {
