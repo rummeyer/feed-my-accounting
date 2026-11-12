@@ -198,6 +198,9 @@ func runTravelExpense(cfg *Config, year int, month time.Month) error {
 // assignments pointing at their client.
 func travelConfig(cfg *Config) (travelexpense.Config, error) {
 	te := cfg.TravelExpense
+	if cfg.Staff.Current == "" {
+		return travelexpense.Config{}, errors.New("travel-expense: no employee for the PDF's Lieferant: add one under Einstellungen › Mitarbeiter (staff.names)")
+	}
 	clients := make([]travelexpense.Client, len(te.Clients))
 	for i, c := range te.Clients {
 		clients[i] = travelexpense.Client{
@@ -215,7 +218,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 	}
 	tc := travelexpense.Config{
 		Mail:             cfg.Mail,
-		Employee:         te.Employee,
+		Employee:         cfg.Staff.Current,
 		Clients:          clients,
 		ChristmasWeekOff: te.ChristmasWeekOff,
 		InlandRates:      travelexpense.MealRates{Day: te.MealRates.Day, FullDay: te.MealRates.FullDay, TravelDay: te.MealRates.TravelDay},
@@ -304,6 +307,7 @@ func harvestConfig(cfg *Config) harvest.Config {
 			Token:     cfg.HarvestInvoice.Harvest.Token,
 			AccountID: cfg.HarvestInvoice.Harvest.AccountID,
 			Client:    cfg.HarvestInvoice.Harvest.Client,
+			Person:    cfg.Staff.Current,
 		},
 		SevDesk: harvest.SevDeskConfig{
 			Username:     cfg.HarvestInvoice.SevDesk.Username,

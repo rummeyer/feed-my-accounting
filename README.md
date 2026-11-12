@@ -143,7 +143,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Stundenbericht* makes only the work log. As a fallback, drop a Harvest PDF report in below: hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Below: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | Every run, its live output, and the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts. |
-| **Einstellungen** | What all of them share: the mail account, and the web interface's address and password. |
+| **Einstellungen** | What all of them share: the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, and the web interface's address and password. |
 
 Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.
 
@@ -187,6 +187,10 @@ All module output is written to both stderr and `feed-my-accounting.log` next to
 ### Full config reference
 
 ```yaml
+staff:                           # who works with the tool
+  names: ["Max Mustermann", "Erika Musterfrau"]
+  current: Max Mustermann        # the Lieferant on the travel expenses, whose Harvest hours count
+
 mail:
   smtpHost: "smtp.example.com"
   smtpPort: 587
@@ -199,7 +203,6 @@ mail:
   cc: "autobox@sevdesk.email"    # optional
 
 travel-expense:
-  employee: Max Mustermann
   christmasWeekOff: true         # optional, default: true
   mealRates:                     # optional: inland rates, default the legal 14 / 28 / 14
     day: 14
@@ -292,7 +295,7 @@ Generates two PDF documents per month for German business travel expense reporti
 - `MM_YYYY_Reisekosten_Kilometergelderstattung.pdf`
 - `MM_YYYY_Reisekosten_Verpflegungsmehraufwand.pdf`
 
-PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are formatted for sevDesk OCR recognition. The `employee` name is rendered prominently at the top as the Lieferant.
+PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are formatted for sevDesk OCR recognition. The selected employee (`staff.current`) is rendered prominently at the top as the Lieferant.
 
 ### Clients
 
@@ -383,7 +386,6 @@ A month without any travel day — all of it vacation, say — is logged as noth
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `employee` | Employee name shown as Lieferant in PDF header for sevDesk OCR | — |
 | `christmasWeekOff` | Exclude Dec 24 and Dec 27–31 | `true` |
 | `clients` | List of client/trip configurations | required |
 | `mealRates` | Inland meal rates in EUR: `day`, `fullDay`, `travelDay` | 14 / 28 / 14 |
@@ -469,7 +471,7 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
 
 ### How it works
 
-1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them
+1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) by the selected employee (`staff.current`, named as in Harvest; without one, everyone's) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them
 2. Makes the month's **work log** (`10_2026_WorkLog.pdf`), laid out as Harvest's *Detailed time report*: the period, its hours and uninvoiced billable hours, then a table by day — client, project with the times and the note beneath, task, person, hours — with the table's head on every page and the total and page number at its foot. The web interface offers it with the run; the command line saves it in the current directory
 3. **Guard: `skipExisting`** — logs into sevDesk, navigates to the Rechnungen list via the menu, and checks if any invoice for the same client has a Rechnungsdatum within the month; skips if found (works for Entwurf, Offen, and Bezahlt invoices)
 4. Logs into sevDesk and creates a new E-Rechnung draft with:

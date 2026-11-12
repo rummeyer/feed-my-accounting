@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	"feed-my-accounting/email"
 
@@ -55,7 +57,7 @@ type MealRates struct {
 }
 
 type TravelExpenseConfig struct {
-	Employee         string       `yaml:"employee"`
+	Employee         string       `yaml:"employee,omitempty"`  // until 1.10: now staff.current, moved there on reading
 	MealRates        MealRates    `yaml:"mealRates,omitempty"` // inland rates, for clients without their own
 	Clients          []Client     `yaml:"clients"`
 	ChristmasWeekOff *bool        `yaml:"christmasWeekOff,omitempty"` // default: true
@@ -116,7 +118,15 @@ type HarvestInvoiceConfig struct {
 // Config is the unified YAML configuration for all modules.
 // The "mail" block holds shared SMTP/IMAP credentials and addresses;
 // each module has its own section for module-specific settings.
+// StaffConfig is who works with the tool: the employees, and the one selected — the Lieferant on
+// the travel expenses, and whose hours in Harvest make the work log and the invoice.
+type StaffConfig struct {
+	Names   []string `yaml:"names"`
+	Current string   `yaml:"current"`
+}
+
 type Config struct {
+	Staff           StaffConfig           `yaml:"staff"`
 	Mail            email.MailConfig      `yaml:"mail"`
 	TravelExpense   TravelExpenseConfig   `yaml:"travel-expense"`
 	AppleInvoice    AppleInvoiceConfig    `yaml:"apple-invoice"`
@@ -179,6 +189,7 @@ func readConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
+	normalizeStaff(&cfg)
 	return &cfg, nil
 }
 
@@ -203,6 +214,35 @@ func saveConfig(path string, cfg *Config) error {
 }
 
 // applyDefaults fills in what the configuration leaves out.
+// normalizeStaff is the employees as read, on the web interface as well: the one name of before
+// 1.10 among them, empty rows and names given twice left out, and one selected if there are any.
+func normalizeStaff(cfg *Config) {
+	// The one name of before 1.10, the travel expenses' Lieferant, is the first employee.
+	if old := strings.TrimSpace(cfg.TravelExpense.Employee); old != "" {
+		if !slices.Contains(cfg.Staff.Names, old) {
+			cfg.Staff.Names = append([]string{old}, cfg.Staff.Names...)
+		}
+		if cfg.Staff.Current == "" {
+			cfg.Staff.Current = old
+		}
+		cfg.TravelExpense.Employee = ""
+	}
+	// Rows added on the web interface and left empty, and names given twice, are not employees.
+	var names []string
+	for _, n := range cfg.Staff.Names {
+		if n = strings.TrimSpace(n); n != "" && !slices.Contains(names, n) {
+			names = append(names, n)
+		}
+	}
+	cfg.Staff.Names, cfg.Staff.Current = names, strings.TrimSpace(cfg.Staff.Current)
+	if !slices.Contains(cfg.Staff.Names, cfg.Staff.Current) {
+		cfg.Staff.Current = ""
+		if len(cfg.Staff.Names) > 0 {
+			cfg.Staff.Current = cfg.Staff.Names[0]
+		}
+	}
+}
+
 func applyDefaults(cfg *Config) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username

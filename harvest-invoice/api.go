@@ -3,8 +3,10 @@ package harvest
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -78,9 +80,9 @@ type Entry struct {
 	Billed   bool
 }
 
-// APIEntries is the time entries of client — all clients if empty — from from to to, in the
-// order of the day: by date, then by start.
-func APIEntries(creds HarvestAPI, client string, from, to time.Time) ([]Entry, error) {
+// APIEntries is the time entries of client and person — all clients, everyone, if empty — from
+// from to to, in the order of the day: by date, then by start.
+func APIEntries(creds HarvestAPI, client, person string, from, to time.Time) ([]Entry, error) {
 	account, err := apiAccount(creds)
 	if err != nil {
 		return nil, err
@@ -94,6 +96,7 @@ func APIEntries(creds HarvestAPI, client string, from, to time.Time) ([]Entry, e
 		Name string `json:"name"`
 	}
 	var entries []Entry
+	others := map[string]bool{} // the client's people other than person, should none match
 	for next != "" {
 		var page struct {
 			TimeEntries []struct {
@@ -123,6 +126,10 @@ func APIEntries(creds HarvestAPI, client string, from, to time.Time) ([]Entry, e
 			if client != "" && e.Client.Name != client {
 				continue
 			}
+			if person != "" && !strings.EqualFold(strings.TrimSpace(e.User.Name), strings.TrimSpace(person)) {
+				others[e.User.Name] = true
+				continue
+			}
 			date, err := time.ParseInLocation("2006-01-02", e.SpentDate, time.Local)
 			if err != nil {
 				return nil, fmt.Errorf("time entry of %q: %w", e.SpentDate, err)
@@ -135,6 +142,11 @@ func APIEntries(creds HarvestAPI, client string, from, to time.Time) ([]Entry, e
 			})
 		}
 		next = page.Links.Next
+	}
+	if len(entries) == 0 && len(others) > 0 {
+		names := slices.Sorted(maps.Keys(others))
+		return nil, fmt.Errorf("no time entries of %q for %q from %s to %s; Harvest has some of %s — is the employee named as in Harvest?",
+			person, client, from.Format("02.01.2006"), to.Format("02.01.2006"), strings.Join(names, ", "))
 	}
 	if len(entries) == 0 {
 		return nil, fmt.Errorf("no time entries for %q from %s to %s", client, from.Format("02.01.2006"), to.Format("02.01.2006"))

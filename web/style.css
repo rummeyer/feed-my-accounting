@@ -300,3 +300,10 @@ input.missing { border-color: var(--bad); }
 
 /* The month for the Harvest run: M/YYYY, as on the command line. */
 .actions input.month { width: calc(7ch + 18px + 2ch); text-align: center; }
+
+/* The employees: the selected one by its radio button, the name to edit beside it. */
+ul.rows.staff li { align-items: center; }
+ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
+
+/* The employee selected, and beside it the next run. */
+#employee { border-right: 1px solid var(--rule); padding-right: 16px; }

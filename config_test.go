@@ -65,8 +65,9 @@ vodafone-invoice:
 	if cfg.Mail.CC != "cc@example.com" {
 		t.Errorf("Mail.CC = %q, want cc@example.com", cfg.Mail.CC)
 	}
-	if cfg.TravelExpense.Employee != "Max Mustermann" {
-		t.Errorf("TravelExpense.Employee = %q, want Max Mustermann", cfg.TravelExpense.Employee)
+	// The travel expenses' employee of before 1.10 is the first employee now, and the selected one.
+	if cfg.Staff.Current != "Max Mustermann" || len(cfg.Staff.Names) != 1 || cfg.TravelExpense.Employee != "" {
+		t.Errorf("Staff = %+v, TravelExpense.Employee = %q; want Max Mustermann moved over", cfg.Staff, cfg.TravelExpense.Employee)
 	}
 	if len(cfg.TravelExpense.Clients) != 1 {
 		t.Fatalf("TravelExpense.Clients len = %d, want 1", len(cfg.TravelExpense.Clients))
@@ -164,5 +165,29 @@ travel-expense:
 	}
 	if cfg.TravelExpense.ChristmasWeekOff != nil {
 		t.Errorf("ChristmasWeekOff should be nil (omitted) by default, got %v", *cfg.TravelExpense.ChristmasWeekOff)
+	}
+}
+
+func TestStaffCurrent(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		staff StaffConfig
+		old   string
+		want  string
+		names int
+	}{
+		{"selected stays", StaffConfig{Names: []string{"A", "B"}, Current: "B"}, "", "B", 2},
+		{"removed one: the first", StaffConfig{Names: []string{"A", "B"}, Current: "C"}, "", "A", 2},
+		{"none", StaffConfig{}, "", "", 0},
+		{"old name added in front", StaffConfig{Names: []string{"B"}, Current: "B"}, "A", "B", 2},
+		{"old name already there", StaffConfig{Names: []string{"A"}}, "A", "A", 1},
+		{"empty rows and twins dropped", StaffConfig{Names: []string{"A", " ", "B ", "B"}, Current: "B"}, "", "B", 2},
+	} {
+		cfg := &Config{Staff: c.staff}
+		cfg.TravelExpense.Employee = c.old
+		normalizeStaff(cfg)
+		if cfg.Staff.Current != c.want || len(cfg.Staff.Names) != c.names {
+			t.Errorf("%s: %+v, want current %q and %d names", c.name, cfg.Staff, c.want, c.names)
+		}
 	}
 }

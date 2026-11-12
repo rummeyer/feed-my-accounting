@@ -32,6 +32,7 @@ type HarvestAPI struct {
 	Token     string `yaml:"token"`
 	AccountID string `yaml:"accountId"` // empty: the token's Harvest account
 	Client    string `yaml:"client"`    // client in Harvest; empty: the sevDesk client's name
+	Person    string `yaml:"-"`         // whose hours, as Harvest names them; empty: everyone's
 }
 
 // Run reads the month's time entries of the client from the Harvest API, makes their work log,
@@ -87,8 +88,12 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	if report.ClientName == "" {
 		report.ClientName = client
 	}
-	logger.Printf("Reading the time entries of %s for %s from the Harvest API...", client, from.Format("01/2006"))
-	entries, err := APIEntries(cfg.Harvest, client, report.PeriodFrom, report.PeriodTo)
+	who := ""
+	if cfg.Harvest.Person != "" {
+		who = ", " + cfg.Harvest.Person + "'s"
+	}
+	logger.Printf("Reading the time entries of %s%s for %s from the Harvest API...", client, who, from.Format("01/2006"))
+	entries, err := APIEntries(cfg.Harvest, client, cfg.Harvest.Person, report.PeriodFrom, report.PeriodTo)
 	if err != nil {
 		return nil, nil, err
 	}

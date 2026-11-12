@@ -84,6 +84,8 @@ async function loadOverview() {
   const status = $('status');
   status.classList.toggle('busy', !!overview.running);
   status.textContent = overview.running ? overview.running.title : nextText(overview.next);
+  $('employee').hidden = !overview.employee;
+  $('employee').textContent = `Mitarbeiter: ${overview.employee}`;
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
@@ -532,6 +534,7 @@ const BREAK = ['', '', 'break'];
 // The settings as the config file has them, each where it is used: per part of the page, its
 // sections with field path, label, type. Only what all of them share is under Einstellungen.
 const PARTS = {
+  staff: [['Mitarbeiter', []]],
   mail: [['E-Mail', [
     ['Mail.SMTPHost', 'SMTP-Server'], ['Mail.SMTPPort', 'SMTP-Port', 'number'],
     ['Mail.IMAPHost', 'IMAP-Server'], ['Mail.IMAPPort', 'IMAP-Port', 'number'],
@@ -544,7 +547,6 @@ const PARTS = {
     ['Web.HomeOnly', 'Nur im Heimnetz erreichbar', 'bool', true],
   ]]],
   travel: [['Kunden', [
-    ['TravelExpense.Employee', 'Name (Lieferant im PDF)'],
     ['TravelExpense.ChristmasWeekOff', 'Weihnachtswoche frei (24. und 27.–31.12.)', 'bool', true],
   ]], ['Verpflegung Inland', [
     ['TravelExpense.MealRates.Day', 'Tagesreise > 8 h (€)', 'money', 14],
@@ -695,7 +697,8 @@ function renderSettings() {
         children.push(el('p', 'muted', 'Gilt für alle Kunden ohne eigene Sätze. Leer: die gesetzlichen Pauschalen (14 / 28 / 14 €). Ändert sich das Gesetz, hier anpassen. Die Sätze fürs Ausland: ', bmfLink(), '.'));
       }
       if (title === 'Kunden') children.push(renderClients(cfg));
-      children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
+      if (title === 'Mitarbeiter') children.push(renderStaff(cfg));
+      if (fields.length) children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
     }
     if (part === 'web') {
       children.push(el('p', 'muted', 'Nur im Heimnetz: Die Oberfläche antwortet nur Geräten mit privater Adresse (192.168.…, 10.…, localhost), allen anderen nicht — auch wenn der Port versehentlich offen ist. Ausgeschaltet antwortet sie jedem, der sie erreicht. Passwort: HTTP Basic Auth, beliebiger Benutzername.'));
@@ -776,6 +779,53 @@ $('save-all').addEventListener('click', async () => {
 // Every edit may change what is unsaved.
 document.addEventListener('input', () => setTimeout(refreshSave));
 document.addEventListener('change', () => setTimeout(refreshSave));
+
+/**
+ * The employees, the selected one ticked: the Lieferant on the travel expenses, and whose hours
+ * in Harvest make the work log and the invoice. Saved with the button at the bottom.
+ */
+function renderStaff(cfg) {
+  cfg.Staff ??= {};
+  cfg.Staff.Names ??= [];
+  const staff = cfg.Staff;
+  const changed = () => { renderSettings(); refreshSave(); };
+  const list = el('ul', 'rows staff', ...staff.Names.map((name, i) => {
+    const pick = el('input');
+    pick.type = 'radio';
+    pick.name = 'staff-current';
+    pick.checked = name === staff.Current;
+    pick.setAttribute('aria-label', `${name || 'Mitarbeiter'} auswählen`);
+    pick.addEventListener('change', () => { staff.Current = staff.Names[i]; changed(); });
+    const input = el('input', 'grow');
+    input.value = name;
+    input.placeholder = 'Vorname Nachname, wie in Harvest';
+    input.setAttribute('aria-label', 'Name');
+    // Renaming the selected one keeps it selected; the list redraws once the field is left.
+    input.addEventListener('input', () => {
+      if (staff.Current === staff.Names[i]) staff.Current = input.value;
+      staff.Names[i] = input.value;
+      refreshSave();
+    });
+    input.addEventListener('change', changed);
+    return el('li', '', pick, input, button('entfernen', 'link', () => {
+      staff.Names.splice(i, 1);
+      if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
+      changed();
+    }));
+  }));
+  const add = button('Mitarbeiter hinzufügen', '', () => {
+    staff.Names.push('');
+    if (!staff.Current) staff.Current = '';
+    renderSettings();
+    refreshSave();
+    const inputs = document.querySelectorAll('.staff input.grow');
+    inputs[inputs.length - 1]?.focus();
+  });
+  return el('div', '',
+    el('p', 'muted', 'Der ausgewählte Mitarbeiter steht als Lieferant auf den Reisekosten, und seine Stunden aus Harvest ergeben Stundenbericht und Kundenrechnung — den Namen so schreiben wie in Harvest. Oben rechts steht, wer ausgewählt ist.'),
+    staff.Names.length ? list : el('p', 'muted', 'Noch niemand eingetragen.'),
+    el('div', 'actions', add));
+}
 
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];

@@ -1,3 +1,7 @@
+staff:                           # who works with the tool
+  names: ["Max Mustermann"]
+  current: Max Mustermann        # the Lieferant on the travel expenses, whose Harvest hours count
+
 mail:
   smtpHost: "smtp.example.com"
   smtpPort: 587
@@ -11,7 +15,6 @@ mail:
 
 
 travel-expense:
-  employee: Max Mustermann
   christmasWeekOff: true         # optional, default: true (exclude Dec 24, 27-31)
   clients:
     - id: "1"
