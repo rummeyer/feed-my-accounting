@@ -127,6 +127,9 @@ const loaders = {};
 function showTab() {
   const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cron';
   for (const t of TABS) $(`tab-${t}`).hidden = t !== name;
+  // The Protokoll has nothing to save: its button empties it instead.
+  $('save-all').hidden = name === 'log';
+  $('clear-log').hidden = name !== 'log';
   for (const a of document.querySelectorAll('.tabs a')) a.classList.toggle('on', a.getAttribute('href') === `#${name}`);
   loaders[name]?.();
 }
@@ -818,6 +821,7 @@ let openJob = null;
 async function loadLog() {
   const jobs = await api('GET', '/api/jobs').catch(() => []);
   $('no-jobs').hidden = jobs.length > 0;
+  $('clear-log').disabled = jobs.length === 0;
   $('jobs').replaceChildren(...jobs.flatMap((job) => {
     const li = el('li', '',
       el('span', 'when', new Date(job.started).toLocaleString(LOCALE, { dateStyle: 'short', timeStyle: 'short' })),
@@ -841,6 +845,31 @@ async function loadLog() {
   }));
 }
 loaders.log = loadLog;
+
+// Löschen: the runs gone, their files with them — asked once more, as Speichern asks.
+let clearArmed = null;
+function disarmClear() {
+  clearTimeout(clearArmed);
+  clearArmed = null;
+  $('clear-log').replaceChildren(T('Löschen', 'Delete'));
+}
+$('clear-log').addEventListener('click', async () => {
+  if (!clearArmed) {
+    $('clear-log').textContent = T('Sicher?', 'Sure?');
+    clearArmed = setTimeout(disarmClear, 4000);
+    return;
+  }
+  disarmClear();
+  try {
+    await api('DELETE', '/api/jobs');
+  } catch (err) {
+    alert(err.message);
+    return;
+  }
+  openJob = null;
+  loadLog();
+  loadOverview();
+});
 
 // ── Settings ───────────────────────────────────────────────────────────────
 

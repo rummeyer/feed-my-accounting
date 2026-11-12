@@ -115,6 +115,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
+	mux.HandleFunc("DELETE /api/jobs", s.clearJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
 	mux.HandleFunc("GET /api/jobs/{id}/files/{name}", s.getFile)
 	mux.HandleFunc("GET /api/settings", s.getSettings)
@@ -744,6 +745,11 @@ func (s *server) start(w http.ResponseWriter, kind, title string, work work) {
 }
 
 func (s *server) listJobs(w http.ResponseWriter, r *http.Request) { reply(w, s.jobs.List()) }
+
+func (s *server) clearJobs(w http.ResponseWriter, r *http.Request) {
+	s.jobs.Clear()
+	reply(w, map[string]bool{"ok": true})
+}
 
 func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
 	job, ok := s.jobs.Get(r.PathValue("id"))

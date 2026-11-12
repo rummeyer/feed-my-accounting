@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -162,6 +163,14 @@ func (j *Jobs) File(id, name string) (File, bool) {
 		}
 	}
 	return File{}, false
+}
+
+// Clear forgets the finished jobs, their files with them; one running goes on.
+func (j *Jobs) Clear() {
+	j.mu.Lock()
+	j.jobs = slices.DeleteFunc(j.jobs, func(job *Job) bool { return job != j.running })
+	j.mu.Unlock()
+	j.save()
 }
 
 // Running is the job running now, if any.

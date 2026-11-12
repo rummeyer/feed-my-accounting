@@ -29,3 +29,13 @@ func TestNewJobsKeepsFiftyAndMarksFilesGone(t *testing.T) {
 		t.Error("a gone file is served")
 	}
 }
+
+func TestClearKeepsTheRunningJob(t *testing.T) {
+	j := NewJobs(filepath.Join(t.TempDir(), "jobs.json"))
+	j.jobs = []*Job{{ID: "a", Status: "ok"}, {ID: "b", Status: "running"}}
+	j.running = j.jobs[1]
+	j.Clear()
+	if list := j.List(); len(list) != 1 || list[0].ID != "b" {
+		t.Errorf("after Clear: %+v", list)
+	}
+}
