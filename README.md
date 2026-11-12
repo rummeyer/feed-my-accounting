@@ -130,7 +130,7 @@ feed-my-accounting serve          # http://<host>:8595
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the two PDFs it made" width="380">
 </p>
 
-<p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>.</sub></p>
+<p align="center"><sub>Screenshots with made-up customers, people and data — the company, its name and logo, is the author's. Dark mode follows the system, or the ◑ switch: <a href="docs/travel-dark.png">Reisekosten in dark</a>, <a href="docs/invoice.png">Kundenrechnung</a>, <a href="docs/settings.png">Kunden</a>, <a href="docs/company.png">Firma und Mitarbeiter</a>, <a href="docs/worklog.png">a Zeitnachweis</a>, <a href="docs/login.png">the login</a>.</sub></p>
 
 `serve` starts a small web server — one Go binary, the page embedded — with a register card per area of work. Everything it does is also what the command line does; it reads `config.yaml` afresh on every request, so edits by hand count at once.
 
@@ -171,6 +171,8 @@ Every employee can have a **password** (Einstellungen › Mitarbeiter, at least 
 
 - **At home**, the login page asks only for the employee — a dropdown and *Anmelden*, no password. A password lost is set anew from there; no reset by mail is needed.
 - **From outside** — `web.homeOnly` switched off, through a reverse proxy with HTTPS — it asks for the employee and their password. Only employees with a password are offered.
+
+<p align="center"><img src="docs/login.png" alt="The login page from outside: the employee chosen from a list, Max Mustermann, and the password field beneath, with Anmelden" width="480"></p>
 
 As long as no employee has a password, the page answers the home network only, whatever `web.homeOnly` says. A session lasts 30 days, in a cookie the page's scripts cannot read, sent over HTTPS only when the browser talks HTTPS, and only from this site's pages; the Pi keeps the sessions' hashes, not their tokens, in `feed-my-accounting-sessions.json`, so a restart logs no one out. A new password ends the employee's other sessions. Five failed logins from one address lock it for 15 minutes. Calls that change something are taken only from the page itself, and the page loads only its own scripts and cannot be framed.
 
