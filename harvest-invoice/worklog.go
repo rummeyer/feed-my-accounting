@@ -1,6 +1,7 @@
 package harvest
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -114,8 +115,12 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	pdf.CellFormat(110, 10, fmt.Sprintf("Zeitnachweis %d/%d", from.Month(), from.Year()), "", 0, "L", false, 0, "")
 	bottom := logMargin + 12
 	if logo != "" {
-		options := fpdf.ImageOptions{ReadDpi: false}
-		info := pdf.RegisterImageOptions(logo, options)
+		data, err := logoJPEG(logo)
+		if err != nil {
+			return fmt.Errorf("the logo %s: %w", logo, err)
+		}
+		options := fpdf.ImageOptions{ImageType: "JPG"}
+		info := pdf.RegisterImageOptionsReader("logo", options, bytes.NewReader(data))
 		if err := pdf.Error(); err != nil {
 			return fmt.Errorf("the logo %s: %w", logo, err)
 		}
@@ -123,7 +128,7 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 		if h > logoMaxHeight {
 			w, h = logoMaxHeight*info.Width()/info.Height(), logoMaxHeight
 		}
-		pdf.ImageOptions(logo, 210-logoRight-w, logoTop, w, h, false, options, 0, "")
+		pdf.ImageOptions("logo", 210-logoRight-w, logoTop, w, h, false, options, 0, "")
 		bottom = max(bottom, logoTop+h)
 	} else {
 		pdf.SetFont("Helvetica", "", 16)

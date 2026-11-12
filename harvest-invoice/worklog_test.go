@@ -1,6 +1,7 @@
 package harvest
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"image/png"
@@ -112,5 +113,45 @@ func TestWorkLogLogo(t *testing.T) {
 	}
 	if _, err := WorkLog("Muster GmbH", filepath.Join(t.TempDir(), "none.png"), day, day, entries); err == nil {
 		t.Error("a logo that is not there: no error")
+	}
+}
+
+func TestLogoShrunk(t *testing.T) {
+	// A logo as uploaded: large, transparent around a dark mark.
+	img := image.NewNRGBA(image.Rect(0, 0, 1536, 1024))
+	for x := 400; x < 1100; x++ {
+		for y := 300; y < 700; y++ {
+			img.Set(x, y, color.NRGBA{uint8(x), uint8(y), 0x40, 0xff})
+		}
+	}
+	logo := filepath.Join(t.TempDir(), "logo.png")
+	f, _ := os.Create(logo)
+	png.Encode(f, img)
+	f.Close()
+	data, err := logoJPEG(logo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b := got.Bounds(); b.Dx() != logoPixels || b.Dy() != 1024*logoPixels/1536 {
+		t.Errorf("shrunk to %v, want %d wide, proportions kept", b, logoPixels)
+	}
+	// Transparent is white, the mark stays dark.
+	if r, g, b, _ := got.At(5, 5).RGBA(); r>>8 < 245 || g>>8 < 245 || b>>8 < 245 {
+		t.Errorf("transparent corner not white: %d %d %d", r>>8, g>>8, b>>8)
+	}
+	if _, _, b, _ := got.At(340, 220).RGBA(); b>>8 > 120 {
+		t.Errorf("the mark lost: blue %d", b>>8)
+	}
+	day := time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
+	pdfData, err := WorkLog("Muster GmbH", logo, day, day, []Entry{{Date: day, Client: "Acme GmbH", Hours: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pdfData) > 150<<10 {
+		t.Errorf("work log with a logo: %d KB", len(pdfData)>>10)
 	}
 }
