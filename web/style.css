@@ -311,21 +311,33 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 #employee { border-right: 1px solid var(--rule); padding-right: 16px; }
 
 /* The company's logo in the settings: as the work log shows it, on white. */
-/* The frame is the button that chooses a logo; the red × at its corner takes it away. On white,
-   as the work log shows it. */
-.logo-holder { position: relative; display: inline-block; margin-top: 8px; }
-.logo-frame, .logo-frame:hover, .logo-frame:active {
-  min-width: 240px; min-height: 90px; padding: 12px 16px; background: #fff; color: #555;
-  border: 1px dashed var(--rule); box-shadow: none; transform: none; cursor: pointer;
-  display: flex; align-items: center; justify-content: center; text-transform: none; letter-spacing: 0;
+/* The logo's card, as sevDesk has it: empty, a button and room to drop a file; with a logo, a
+   red × over it on hovering, and one more question before it goes. */
+.logo-card {
+  width: 340px; max-width: 100%; aspect-ratio: 1 / 0.85; margin-top: 10px; padding: 14px;
+  background: #f2f2f0; color: #555; border-radius: 18px; display: flex;
 }
-.logo-frame:hover { border-color: var(--headline); }
-.logo-preview { max-width: 300px; max-height: 130px; display: block; }
-.logo-empty { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
-.logo-empty .logo-arrow { font-size: 26px; line-height: 1; }
+/* Light in the dark theme too: the logo as it looks on paper. */
+.logo-card .muted { color: #6f6f6c; }
+.logo-card button:not(.danger):not(.logo-remove) { background: #fff; color: #222; border-color: #c9c9c5; }
+.logo-empty, .logo-filled { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.logo-empty { border: 1.5px dashed #c4c4c0; border-radius: 12px; text-align: center; font-size: 12px; }
+.logo-empty button { margin-bottom: 8px; }
+.logo-card.over .logo-empty { border-color: #444; background: #fafaf8; }
+.logo-filled { position: relative; }
+.logo-preview { max-width: 100%; max-height: 100%; object-fit: contain; transition: opacity .15s; }
 .logo-remove, .logo-remove:hover, .logo-remove:active {
-  position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; padding: 0;
+  position: absolute; top: 50%; left: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; padding: 0;
   border-radius: 50%; border: 0; background: var(--bad); color: #fff; box-shadow: none; transform: none;
-  font-size: 16px; line-height: 24px; text-align: center; cursor: pointer; letter-spacing: 0;
+  font-size: 34px; line-height: 56px; text-align: center; cursor: pointer; letter-spacing: 0;
 }
-.logo-remove:hover { filter: brightness(1.15); }
+.logo-confirm { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.logo-confirm button.danger, .logo-confirm button.danger:hover { background: var(--bad); color: #fff; border-color: var(--bad); }
+.logo-filled.confirming .logo-preview { opacity: .25; }
+/* With a mouse, the × and the faded logo only while it is over the logo; a touch screen has no
+   hovering, there the × stays. */
+@media (hover: hover) {
+  .logo-remove { opacity: 0; transition: opacity .15s; }
+  .logo-filled:hover .logo-remove, .logo-remove:focus-visible { opacity: 1; }
+  .logo-filled:hover .logo-preview { opacity: .35; }
+}

@@ -798,43 +798,68 @@ document.addEventListener('change', () => setTimeout(refreshSave));
 
 let logoDraft; // undefined: unchanged; a File: to keep; null: to take away
 let logoStamp = Date.now(); // a new one after saving, so that the browser fetches it again
+let logoConfirm = false; // the × clicked: asking whether the logo should go
 
 /** The company's logo: in the work log's head instead of its name. PNG or JPEG. */
 function renderLogo() {
-  const input = el('input');
-  input.type = 'file';
-  input.accept = 'image/png,image/jpeg';
-  input.hidden = true;
-  input.addEventListener('change', () => {
-    const file = input.files[0];
+  // A file chosen or dropped: checked, and kept as the draft until Speichern.
+  const take = (file) => {
     if (!file) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
       alert('Das Logo muss ein PNG oder JPEG sein.');
       return;
     }
+    if (file.size > 4 << 20) {
+      alert('Das Logo ist größer als 4 MB.');
+      return;
+    }
     logoDraft = file;
+    logoConfirm = false;
     renderSettings();
     refreshSave();
+  };
+  const input = el('input');
+  input.type = 'file';
+  input.accept = 'image/png,image/jpeg';
+  input.hidden = true;
+  input.addEventListener('change', () => take(input.files[0]));
+
+  const card = el('div', 'logo-card');
+  card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('over'); });
+  card.addEventListener('dragleave', () => card.classList.remove('over'));
+  card.addEventListener('drop', (e) => {
+    e.preventDefault();
+    card.classList.remove('over');
+    take(e.dataTransfer.files[0]);
   });
 
-  // The frame is the button: a click chooses a logo, a new one over the old.
+  // Empty: the button, and where a file may be dropped instead.
+  const empty = el('div', 'logo-empty',
+    button('Logo hochladen', '', () => input.click()),
+    el('span', 'muted', 'oder hier hineinziehen'),
+    el('span', 'muted', '.jpg, .jpeg, .png (max. 4 MB, 1 Datei)'));
+
+  // With a logo: a red × over it, and asked once more before it goes.
   const preview = el('img', 'logo-preview');
   preview.alt = 'Logo';
-  const empty = el('span', 'logo-empty', el('span', 'logo-arrow', '↑'), 'Logo hochladen');
-  const frame = button('', 'logo-frame', () => input.click());
-  frame.append(preview, empty);
-  const remove = button('×', 'logo-remove', () => {
-    logoDraft = null;
-    renderSettings();
-    refreshSave();
-  });
-  remove.title = 'Logo entfernen';
-  remove.setAttribute('aria-label', 'Logo entfernen');
+  const remove = button('×', 'logo-remove', () => { logoConfirm = true; renderSettings(); });
+  remove.title = 'Firmenlogo löschen';
+  remove.setAttribute('aria-label', 'Firmenlogo löschen');
+  const confirmBox = el('div', 'logo-confirm',
+    button('Firmenlogo löschen', 'danger', () => {
+      logoDraft = null;
+      logoConfirm = false;
+      renderSettings();
+      refreshSave();
+    }),
+    button('Abbrechen', '', () => { logoConfirm = false; renderSettings(); }));
+  const filled = el('div', `logo-filled${logoConfirm ? ' confirming' : ''}`, preview, remove, confirmBox);
+  confirmBox.hidden = !logoConfirm;
+  remove.hidden = logoConfirm;
+
   const show = (src) => {
-    preview.hidden = !src;
     empty.hidden = !!src;
-    remove.hidden = !src;
-    frame.title = src ? 'Anderes Logo wählen' : 'Logo hochladen';
+    filled.hidden = !src;
     if (src) preview.src = src;
   };
   preview.onerror = () => show(null);
@@ -842,9 +867,10 @@ function renderLogo() {
   else if (logoDraft === null) show(null);
   else show(`/api/logo?t=${logoStamp}`);
 
+  card.append(empty, filled, input);
   return el('div', 'logo-box',
-    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos. PNG oder JPEG.'),
-    el('div', 'logo-holder', frame, remove, input));
+    el('p', 'muted', 'Das Logo steht oben rechts im Zeitnachweis, so groß und so platziert wie auf den Rechnungen aus sevDesk — am besten dieselbe Datei. Ohne Logo steht dort der Firmenname, ohne den der Name des Harvest-Kontos.'),
+    card);
 }
 
 /**
