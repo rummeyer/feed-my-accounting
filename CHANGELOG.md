@@ -5,12 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.12.0] - 2026-11-12
 
 ### Changed
 
 - Web interface: the link to the BMF's table of the rates abroad goes to the table in the Lohnsteuer-Handbuch of the year of the month shown — the year before's while the year's is not out yet — through `/api/bmf-table`: no new link each year.
-- Web interface: on Kundenrechnung, *Einstellungen Kundenrechnung* comes right after *Aus Harvest*, and the PDF upload, the fallback, is folded away beneath it behind *Zeitnachweis hochladen*.
+- Web interface: on Kundenrechnung, *Einstellungen Kundenrechnung* comes right after *Aus Harvest*, and the PDF upload, the fallback, is folded away beneath it behind *Zeitnachweis hochladen* — Harvest's report or one from here.
+- Web interface: the Reisekosten totals say *Übernachtung* without the count of nights, every box's heading one line high.
 - Web interface: the Reisekosten calendar shows each client in its own colour, in the order of the client list — light blue, green, sand, lavender, rose, turquoise — the legend naming them; an overnight trip's days carry a moon, as the colour no longer tells them. Pixel icons of 16 × 16, shaded, mark what an amount is for — fork and knife the meals, a car the mileage, a bed the night — in the calendar, the totals and a second line of the legend; in shades of the text's colour, light on dark in the dark theme.
 
 ## [1.11.0] - 2026-11-12
