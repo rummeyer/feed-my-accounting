@@ -851,10 +851,12 @@ let clearArmed = null;
 function disarmClear() {
   clearTimeout(clearArmed);
   clearArmed = null;
+  $('clear-log').classList.remove('armed');
   $('clear-log').replaceChildren(T('Löschen', 'Delete'));
 }
 $('clear-log').addEventListener('click', async () => {
   if (!clearArmed) {
+    $('clear-log').classList.add('armed');
     $('clear-log').textContent = T('Sicher?', 'Sure?');
     clearArmed = setTimeout(disarmClear, 4000);
     return;
