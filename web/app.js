@@ -1324,7 +1324,7 @@ function renderStaff(cfg) {
   cfg.Staff.Names ??= [];
   const staff = cfg.Staff;
   const changed = () => { renderSettings(); refreshSave(); };
-  const list = el('ul', 'rows staff', ...staff.Names.map((name, i) => {
+  const list = el('ul', 'rows staff employees', ...staff.Names.map((name, i) => {
     const pick = el('input');
     pick.type = 'radio';
     pick.name = 'staff-current';
@@ -1347,7 +1347,7 @@ function renderStaff(cfg) {
     const password = el('input', 'password');
     password.type = 'password';
     password.autocomplete = 'new-password';
-    password.placeholder = has ? T('Passwort gesetzt — neu eingeben', 'password set — type anew') : T('Passwort (für die Anmeldung)', 'Password (for logging in)');
+    password.placeholder = has ? T('gesetzt — neu eingeben', 'set — type anew') : T('Passwort für Anmeldung', 'password for login');
     password.value = staff.Passwords?.[name] ?? '';
     password.setAttribute('aria-label', T(`Passwort für ${name || 'den Mitarbeiter'}`, `Password for ${name || 'the employee'}`));
     password.addEventListener('input', () => {
@@ -1356,10 +1356,11 @@ function renderStaff(cfg) {
       else delete staff.Passwords[name];
       refreshSave();
     });
-    const noLogin = has && button(T('Passwort entfernen', 'remove password'), 'link', () => {
+    // Its place kept empty without a password: the columns stay where they are.
+    const noLogin = has ? button(T('Passwort entfernen', 'remove password'), 'link', () => {
       staff.NoLogin = [...(staff.NoLogin ?? []), name];
       changed();
-    });
+    }) : el('span');
     return el('li', '', pick, input, password, noLogin, button(T('entfernen', 'remove'), 'link', () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';

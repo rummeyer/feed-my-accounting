@@ -404,6 +404,11 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* An employee's password beside the name; the logout beside the employee at the top. */
 ul.rows.staff li input.password { width: 15em; flex: none; }
+/* Employees: fixed columns — choice, name, password, its removal, the row's removal — the same in
+   every row, whether a password is set or not. */
+ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 12em 6em; gap: 12px; }
+ul.rows.staff.employees li input.password { width: 100%; }
+ul.rows.staff.employees li .link { justify-self: end; }
 #logout, #logout:hover { padding: 0; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--muted); }
 #logout:hover { color: var(--headline); }
 /* The login: the masthead, and a small form beneath it. */
