@@ -652,16 +652,15 @@ loaders.log = loadLog;
 
 // ── Settings ───────────────────────────────────────────────────────────────
 
-// The BMF's table of meal and overnight rates abroad, for the current year: a new one comes each
-// December, then this link moves on.
-const BMF_TABLE = {
-  year: 2026,
-  url: 'https://www.bundesfinanzministerium.de/Content/DE/Downloads/BMF_Schreiben/Steuerarten/Lohnsteuer/2025-12-05-steuerliche-behandlung-reisekosten-2026.html',
-};
-
+/**
+ * The BMF's table of meal and overnight rates abroad, for the year of the month shown: the
+ * server finds that year's in the Lohnsteuer-Handbuch, or the year before's while it is not out
+ * yet — no link to move on each year.
+ */
 function bmfLink() {
-  const a = el('a', '', `BMF-Ländertabelle ${BMF_TABLE.year}`);
-  a.href = BMF_TABLE.url;
+  const year = plan?.month ? Number(plan.month.slice(0, 4)) : new Date().getFullYear();
+  const a = el('a', '', 'BMF-Ländertabelle');
+  a.href = `/api/bmf-table?year=${year}`;
   a.target = '_blank';
   a.rel = 'noopener';
   return a;

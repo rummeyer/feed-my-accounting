@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"embed"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -73,6 +75,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
+	mux.HandleFunc("GET /api/bmf-table", s.bmfTable)
 	mux.HandleFunc("GET /api/logo", s.getLogo)
 	mux.HandleFunc("PUT /api/logo", s.putLogo)
 	mux.HandleFunc("DELETE /api/logo", s.deleteLogo)
@@ -448,6 +451,53 @@ func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
 			return withFile(runHarvestInvoice(cfg, year, month, logOnly))
 		})
 	}
+}
+
+// ---------------------------------------------------------------------------
+// The BMF's table
+// ---------------------------------------------------------------------------
+
+// bmfTableURL is the BMF's table of the rates abroad — meals and nights, by country — in the
+// Lohnsteuer-Handbuch of a year: the same address each year, but for the year.
+func bmfTableURL(year int) string {
+	return fmt.Sprintf("https://lsth.bundesfinanzministerium.de/lsth/%d/B-Anhaenge/Anhang-25/I/inhalt.html", year)
+}
+
+// bmfTables keeps the years whose table was found: it stays where it is.
+var bmfTables sync.Map
+
+// bmfTable sends the browser to the year's table, or to the year before's while the year's is
+// not out yet — the handbook comes in the year's first weeks.
+func (s *server) bmfTable(w http.ResponseWriter, r *http.Request) {
+	year, err := strconv.Atoi(r.URL.Query().Get("year"))
+	if err != nil || year < 2025 || year > 2100 {
+		year = time.Now().Year()
+	}
+	for _, y := range []int{year, year - 1} {
+		if _, found := bmfTables.Load(y); found || bmfTableThere(r.Context(), bmfTableURL(y)) {
+			bmfTables.Store(y, true)
+			http.Redirect(w, r, bmfTableURL(y), http.StatusFound)
+			return
+		}
+	}
+	// Neither found — the BMF's site slow or down, say: the year's, as asked.
+	http.Redirect(w, r, bmfTableURL(year), http.StatusFound)
+}
+
+// bmfTableThere says whether the page is there: a year's handbook not out yet is a 404.
+func bmfTableThere(ctx context.Context, url string) bool {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		return false
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false
+	}
+	res.Body.Close()
+	return res.StatusCode == http.StatusOK
 }
 
 // ---------------------------------------------------------------------------
