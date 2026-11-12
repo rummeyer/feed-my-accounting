@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **anthropic-invoice**: Anthropic's receipt emails — the inbox first, then the folder *Rechnungen* — and the receipt PDF each brings, named `11_2026_Rechnung_Anthropic_12112026.pdf` by the email's date, sent like Apple's and Vodafone's. On the web interface first under Belege, in the schedule as *Anthropic-Belege abholen*, and part of `all`.
 - The mail module searches several folders in turn and reads attachments; the settings page takes lists, comma-separated.
+- apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once.
 
 ## [1.13.0] - 2026-11-12
 

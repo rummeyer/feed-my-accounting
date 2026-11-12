@@ -105,9 +105,10 @@ type AnthropicInvoiceConfig struct {
 
 type AppleInvoiceConfig struct {
 	Filter struct {
-		Count   int    `yaml:"count"`
-		From    string `yaml:"from"` // sender domain filter
-		Subject string `yaml:"subject"`
+		Count   int      `yaml:"count"`
+		From    string   `yaml:"from"` // sender domain filter
+		Subject string   `yaml:"subject"`
+		Folders []string `yaml:"folders"` // searched in this order
 	} `yaml:"filter"`
 }
 
@@ -330,6 +331,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.AppleInvoice.Filter.Subject == "" {
 		cfg.AppleInvoice.Filter.Subject = "Deine Rechnung von Apple"
+	}
+	if len(cfg.AppleInvoice.Filter.Folders) == 0 {
+		cfg.AppleInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
 	}
 	if cfg.VodafoneInvoice.FallbackToLastMonth == nil {
 		t := true

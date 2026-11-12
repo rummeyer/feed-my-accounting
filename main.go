@@ -310,6 +310,7 @@ func runAppleInvoice(cfg *Config) error {
 			Count:   cfg.AppleInvoice.Filter.Count,
 			Subject: cfg.AppleInvoice.Filter.Subject,
 			From:    cfg.AppleInvoice.Filter.From,
+			Folders: cfg.AppleInvoice.Filter.Folders,
 		},
 	})
 }

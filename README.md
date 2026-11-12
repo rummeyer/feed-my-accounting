@@ -17,7 +17,7 @@ It connects four data sources to your sevDesk account, each handled by a dedicat
 |--------|--------|-------------|----------|
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung + Verpflegungsmehraufwand PDFs | Email → sevDesk Autobox |
 | **anthropic-invoice** | IMAP inbox and *Rechnungen* | Fetches Anthropic's receipt emails and takes the receipt PDF each brings | Email → sevDesk Autobox |
-| **apple-invoice** | IMAP inbox | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
+| **apple-invoice** | IMAP inbox and *Rechnungen* | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, creates draft invoice in sevDesk | Direct browser automation |
 
@@ -272,9 +272,10 @@ anthropic-invoice:
 
 apple-invoice:
   filter:
-    count: 10
+    count: 10                      # in each folder
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
+    folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
 
 vodafone-invoice:
   username: "your-vodafone-email@example.com"
@@ -462,8 +463,8 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 ### How it works
 
-1. Connects to the IMAP server and scans the last N recent emails
-2. Filters by subject, sender domain, and current month
+1. Connects to the IMAP server and scans the last N recent emails of each folder, the inbox first and then *Rechnungen*, where invoices filed by hand are
+2. Filters by subject, sender domain, and current month; the same invoice found in both folders counts once, the inbox's
 3. Extracts the HTML body and converts each to an A4 PDF via headless Chrome
 4. Embeds external images as base64 data URIs for reliable rendering
 5. Names each PDF as `MM_YYYY_Rechnung_Apple_BESTELLNUMMER.pdf` using the order number extracted from the invoice HTML; falls back to subject-based naming if not found
@@ -476,6 +477,7 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 | `filter.count` | Number of recent emails to scan (without token, as all `filter` fields and `currentMonthOnly`) | `10` |
 | `filter.from` | Sender domain to match | `apple.com` |
 | `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
+| `filter.folders` | Folders to search, in this order; the same invoice in two counts once | `INBOX`, `Rechnungen` |
 
 The IMAP host and port are configured under the top-level `mail:` section.
 

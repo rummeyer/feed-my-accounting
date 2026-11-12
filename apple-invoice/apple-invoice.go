@@ -1,4 +1,5 @@
-// Package apple fetches Apple invoice emails via IMAP, converts their HTML to PDF
+// Package apple fetches Apple invoice emails via IMAP — from the inbox and where they were filed
+// away — converts their HTML to PDF
 // using headless Chrome, and sends all PDFs as attachments via SMTP.
 package apple
 
@@ -26,9 +27,10 @@ func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 
 // FilterConfig defines which Apple invoice emails to look for.
 type FilterConfig struct {
-	Count   int    `yaml:"count"`   // how many recent emails to scan
-	Subject string `yaml:"subject"` // exact subject to match
-	From    string `yaml:"from"`    // sender domain filter
+	Count   int      `yaml:"count"`   // how many recent emails to scan, in each folder
+	Subject string   `yaml:"subject"` // exact subject to match
+	From    string   `yaml:"from"`    // sender domain filter
+	Folders []string `yaml:"folders"` // where they are, in this order: the inbox first
 }
 
 type Config struct {
@@ -46,6 +48,7 @@ func Run(cfg Config) error {
 		Count:            cfg.Filter.Count,
 		Subject:          cfg.Filter.Subject,
 		FromDomain:       cfg.Filter.From,
+		Folders:          cfg.Filter.Folders,
 		CurrentMonthOnly: true,
 	}
 
@@ -60,7 +63,14 @@ func Run(cfg Config) error {
 
 	logger.Printf("Processing %d Apple invoice(s)...", len(messages))
 	var attachments []email.Attachment
+	seen := map[string]bool{} // the same invoice found in two folders: the first, the inbox's
 	for i, msg := range messages {
+		if order := extractOrderNumber(msg.HTMLBody); order != "" {
+			if seen[order] {
+				continue
+			}
+			seen[order] = true
+		}
 		logger.Printf("[%d/%d] Converting %q to PDF...", i+1, len(messages), msg.Subject)
 
 		cleaned, err := cleanHTML(msg.HTMLBody)
