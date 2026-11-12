@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sender filters take several domains, comma-separated. Anthropic's default is `mail.anthropic.com, stripe.com`: receipts from Anthropic Ireland come through Stripe.
 - apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once. It scans the latest 50 emails of each folder by default, not 10.
 
+- Protokoll: a run's output opens under its entry, a second click closes it. 50 runs are kept, not 100, the oldest going first. Files gone with a restart are listed by name, not as links; a page left open across a restart turns its dead links into text when shown again.
+
 ### Fixed
 
 - apple-invoice: App Store invoices — an app or in-app purchase — are named by their order number as well, `11_2026_Rechnung_Apple_MK5YH4MJ4X.pdf`, not by the subject: their label is *BESTELLNR.*, the number in the next cell, where subscription invoices have *Bestellnummer:*.

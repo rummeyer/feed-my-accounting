@@ -27,10 +27,12 @@ type Job struct {
 	Files   []File    `json:"files,omitempty"`
 }
 
-// File is a document a job made, kept in memory for downloading until the server stops.
+// File is a document a job made, kept in memory for downloading until the server stops; after
+// that only its name is left, Gone.
 type File struct {
 	Name string `json:"name"`
 	Size int    `json:"size"`
+	Gone bool   `json:"gone,omitempty"`
 	data []byte
 }
 
@@ -47,7 +49,7 @@ type Jobs struct {
 	running *Job
 }
 
-const keepJobs = 100
+const keepJobs = 50 // the oldest goes when a new one comes
 
 var errBusy = errors.New("another job is running: wait for it to finish")
 
@@ -59,7 +61,12 @@ func NewJobs(path string) *Jobs {
 			if job.Status == "running" { // the server stopped while it ran
 				job.Status, job.Error = "failed", "interrupted"
 			}
-			job.Files = nil // kept in memory only: gone with the restart
+			for i := range job.Files {
+				job.Files[i].Gone = true // kept in memory only: gone with the restart
+			}
+		}
+		if len(j.jobs) > keepJobs {
+			j.jobs = j.jobs[len(j.jobs)-keepJobs:]
 		}
 	}
 	return j

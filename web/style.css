@@ -259,7 +259,9 @@ ul.rows li .when { color: var(--headline); }
 .badge.failed { color: var(--bad); }
 .badge.running { color: var(--headline); animation: blink 1s steps(1) infinite; }
 .jobs li { cursor: pointer; }
-.jobs li:hover .title { color: var(--headline); }
+.jobs li:not(.detail):hover .title { color: var(--headline); }
+.jobs li.detail { display: block; cursor: default; padding: 0 0 12px; }
+.jobs li.detail .console { margin-top: 0; }
 .jobs li.on { background: var(--cell); }
 
 /* Settings. */

@@ -211,6 +211,7 @@ async function follow(name, job, onDone) {
 function renderJob(box, job) {
   const pre = el('pre', '', (job.output ?? []).join('\n') || '…');
   const files = (job.files ?? []).map((f) => {
+    if (f.gone) return el('span', 'muted', `${f.name} (nicht mehr verfügbar)`);
     const a = el('a', '', `${f.name} (${Math.round(f.size / 1024)} KB)`);
     a.href = `/api/jobs/${job.id}/files/${encodeURIComponent(f.name)}`;
     a.target = '_blank';
@@ -225,6 +226,15 @@ function renderJob(box, job) {
   ].filter(Boolean));
   pre.scrollTop = pre.scrollHeight;
 }
+
+// A page left open across a restart of the server: its file links lead nowhere, so plain text.
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return;
+  for (const a of document.querySelectorAll('.console .files a')) {
+    const ok = await fetch(a.href, { method: 'HEAD' }).then((r) => r.ok, () => true);
+    if (!ok) a.replaceWith(el('span', 'muted', `${a.textContent.replace(/ \(\d+ KB\)$/, '')} (nicht mehr verfügbar)`));
+  }
+});
 
 async function start(name, method, path, body, onDone) {
   try {
@@ -670,20 +680,34 @@ $('draft-form').addEventListener('submit', (e) => {
 
 // ── Log ────────────────────────────────────────────────────────────────────
 
+// The open run's output, under its entry; a second click closes it.
+const logConsole = el('div', 'console');
+logConsole.dataset.console = 'log';
+let openJob = null;
+
 async function loadLog() {
   const jobs = await api('GET', '/api/jobs').catch(() => []);
   $('no-jobs').hidden = jobs.length > 0;
-  $('jobs').replaceChildren(...jobs.map((job) => {
+  $('jobs').replaceChildren(...jobs.flatMap((job) => {
     const li = el('li', '',
       el('span', 'when', new Date(job.started).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })),
       el('span', 'grow title', job.title),
       el('span', `badge ${job.status}`, { running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen' }[job.status] || job.status));
     li.addEventListener('click', () => {
+      $('jobs').querySelector('li.detail')?.remove();
       for (const other of $('jobs').children) other.classList.remove('on');
+      if (openJob === job.id) {
+        openJob = null;
+        return;
+      }
+      openJob = job.id;
       li.classList.add('on');
+      li.after(el('li', 'detail', logConsole));
       follow('log', job, () => {});
     });
-    return li;
+    if (job.id !== openJob) return [li];
+    li.classList.add('on');
+    return [li, el('li', 'detail', logConsole)];
   }));
 }
 loaders.log = loadLog;
