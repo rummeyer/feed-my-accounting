@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Zuordnungen: *über Nacht* is *Übernachtung*, *Hotel mit Rechnung* *Hotel*, *Rückflug über Nacht* *Nachtflug*, each with its pixel icon — moon, bed and a new plane; day trips with the car. An entry shows *Hotel* or *Übernachtung*, not both. In the calendar's legend the moon is *Übernachtung* and the bed *Übernachtungspauschale*. The trip on one line, note and *Zuordnen* beneath it; the entries show the icons too.
+- Zuordnungen: *über Nacht* is *Übernachtung*, *Hotel mit Rechnung* *Hotel*, *Rückflug über Nacht* *Nachtflug*, each with its pixel icon — moon, bed and a new plane; day trips with the car. An entry shows *Hotel* or *Übernachtung*, not both. In the calendar's legend the moon is *Übernachtung* and the bed *Übernachtungspauschale*. On one line with a short note; with an overnight trip's checkboxes, note and *Zuordnen* go beneath; the entries show the icons too.
 
 ## [1.15.0] - 2026-11-12
 
