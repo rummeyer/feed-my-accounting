@@ -13,26 +13,71 @@ import (
 // cronSpec is a parsed five-field cron expression: minute, hour, day of month, month, day of
 // week. As in cron, a day matches if day of month or day of week does, when both are
 // restricted — "0 12 25-31 * 1-5" runs on the 25th to 31st and on every weekday.
+//
+// Beyond standard cron, what Quartz has for days, in the same five fields: in day of month L
+// (the last day), L-3 (three days before it), 15W (the workday nearest the 15th, within the
+// month) and LW (the last workday); in day of week 5L (the last Friday) and 1#2 (the second
+// Monday). Names for months and weekdays, JAN-DEC and SUN-SAT; ? for *; and the shorthands
+// @yearly, @monthly, @weekly, @daily and @hourly.
 type cronSpec struct {
 	minute, hour, dom, month, dow [64]bool
 	domAny, dowAny                bool
+
+	lastDays    []int // L-n: n days before the month's last day; L itself is 0
+	nearest     []int // 15W: the workday nearest the day
+	lastWorkday bool  // LW
+	nthDays     []nthDay
+	lastOfDays  []int // 5L: the weekday's last in the month
 }
+
+// nthDay is a weekday's nth time in the month: 1#2, the second Monday.
+type nthDay struct{ weekday, n int }
 
 var cronFields = []struct {
 	name     string
 	min, max int
-}{{"minute", 0, 59}, {"hour", 0, 23}, {"day of month", 1, 31}, {"month", 1, 12}, {"day of week", 0, 7}}
+	names    []string // the values' names from min on, for months and weekdays
+}{
+	{"minute", 0, 59, nil}, {"hour", 0, 23, nil}, {"day of month", 1, 31, nil},
+	{"month", 1, 12, strings.Fields("JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC")},
+	{"day of week", 0, 7, strings.Fields("SUN MON TUE WED THU FRI SAT")},
+}
 
-// parseCron reads "m h dom mon dow" with *, numbers, ranges a-b, lists a,b and steps */n or a-b/n.
+// cronShorthands are what the @ forms stand for.
+var cronShorthands = map[string]string{
+	"@yearly": "0 0 1 1 *", "@annually": "0 0 1 1 *", "@monthly": "0 0 1 * *",
+	"@weekly": "0 0 * * 0", "@daily": "0 0 * * *", "@midnight": "0 0 * * *", "@hourly": "0 * * * *",
+}
+
+// parseCron reads "m h dom mon dow" with *, numbers, ranges a-b, lists a,b and steps */n or a-b/n,
+// and the Quartz forms above.
 func parseCron(expr string) (*cronSpec, error) {
-	fields := strings.Fields(expr)
+	if long, ok := cronShorthands[strings.ToLower(strings.TrimSpace(expr))]; ok {
+		expr = long
+	}
+	fields := strings.Fields(strings.ToUpper(expr))
 	if len(fields) != 5 {
 		return nil, fmt.Errorf("cron %q: want 5 fields: minute hour day month weekday", expr)
+	}
+	for i, f := range fields {
+		if f == "?" {
+			fields[i] = "*"
+		}
 	}
 	spec := &cronSpec{domAny: fields[2] == "*", dowAny: fields[4] == "*"}
 	sets := []*[64]bool{&spec.minute, &spec.hour, &spec.dom, &spec.month, &spec.dow}
 	for i, field := range fields {
-		if err := parseCronField(field, cronFields[i].min, cronFields[i].max, sets[i]); err != nil {
+		var err error
+		switch i {
+		case 2:
+			field, err = spec.domSpecials(field)
+		case 4:
+			field, err = spec.dowSpecials(field)
+		}
+		if err == nil && field != "" {
+			err = parseCronField(field, cronFields[i].min, cronFields[i].max, cronFields[i].names, sets[i])
+		}
+		if err != nil {
 			return nil, fmt.Errorf("cron %q, %s: %w", expr, cronFields[i].name, err)
 		}
 	}
@@ -40,7 +85,71 @@ func parseCron(expr string) (*cronSpec, error) {
 	return spec, nil
 }
 
-func parseCronField(field string, min, max int, set *[64]bool) error {
+// domSpecials takes L, L-n, nW and LW out of a day of month field; what is left is plain cron.
+func (c *cronSpec) domSpecials(field string) (string, error) {
+	var rest []string
+	for _, part := range strings.Split(field, ",") {
+		switch {
+		case part == "L":
+			c.lastDays = append(c.lastDays, 0)
+		case part == "LW":
+			c.lastWorkday = true
+		case strings.HasPrefix(part, "L-"):
+			n, err := strconv.Atoi(part[2:])
+			if err != nil || n < 0 || n > 30 {
+				return "", fmt.Errorf("bad %q: L-0 to L-30", part)
+			}
+			c.lastDays = append(c.lastDays, n)
+		case strings.HasSuffix(part, "W"):
+			n, err := strconv.Atoi(strings.TrimSuffix(part, "W"))
+			if err != nil || n < 1 || n > 31 {
+				return "", fmt.Errorf("bad %q: 1W to 31W", part)
+			}
+			c.nearest = append(c.nearest, n)
+		default:
+			rest = append(rest, part)
+		}
+	}
+	return strings.Join(rest, ","), nil
+}
+
+// dowSpecials takes nL and n#k out of a day of week field; what is left is plain cron.
+func (c *cronSpec) dowSpecials(field string) (string, error) {
+	var rest []string
+	for _, part := range strings.Split(field, ",") {
+		switch {
+		case strings.Contains(part, "#"):
+			day, nth, _ := strings.Cut(part, "#")
+			wd, err1 := cronValue(day, 0, 7, cronFields[4].names)
+			n, err2 := strconv.Atoi(nth)
+			if err1 != nil || err2 != nil || wd < 0 || wd > 7 || n < 1 || n > 5 {
+				return "", fmt.Errorf("bad %q: weekday#1 to #5", part)
+			}
+			c.nthDays = append(c.nthDays, nthDay{wd % 7, n})
+		case len(part) > 1 && strings.HasSuffix(part, "L"):
+			wd, err := cronValue(strings.TrimSuffix(part, "L"), 0, 7, cronFields[4].names)
+			if err != nil || wd < 0 || wd > 7 {
+				return "", fmt.Errorf("bad %q: weekday L", part)
+			}
+			c.lastOfDays = append(c.lastOfDays, wd%7)
+		default:
+			rest = append(rest, part)
+		}
+	}
+	return strings.Join(rest, ","), nil
+}
+
+// cronValue is a number, or a name of the field's: JAN, MON.
+func cronValue(s string, min, max int, names []string) (int, error) {
+	for i, name := range names {
+		if s == name {
+			return min + i, nil
+		}
+	}
+	return strconv.Atoi(s)
+}
+
+func parseCronField(field string, min, max int, names []string, set *[64]bool) error {
 	for _, part := range strings.Split(field, ",") {
 		rng, step := part, 1
 		if i := strings.Index(part, "/"); i >= 0 {
@@ -54,12 +163,12 @@ func parseCronField(field string, min, max int, set *[64]bool) error {
 		if rng != "*" {
 			a, b, isRange := strings.Cut(rng, "-")
 			var err error
-			if from, err = strconv.Atoi(a); err != nil {
+			if from, err = cronValue(a, min, max, names); err != nil {
 				return fmt.Errorf("bad value %q", part)
 			}
 			to = from
 			if isRange {
-				if to, err = strconv.Atoi(b); err != nil {
+				if to, err = cronValue(b, min, max, names); err != nil {
 					return fmt.Errorf("bad range %q", part)
 				}
 			} else if step > 1 {
@@ -81,7 +190,7 @@ func (c *cronSpec) matches(t time.Time) bool {
 	if !c.minute[t.Minute()] || !c.hour[t.Hour()] || !c.month[int(t.Month())] {
 		return false
 	}
-	dom, dow := c.dom[t.Day()], c.dow[int(t.Weekday())]
+	dom, dow := c.domMatches(t), c.dowMatches(t)
 	switch {
 	case c.domAny && c.dowAny:
 		return true
@@ -92,6 +201,69 @@ func (c *cronSpec) matches(t time.Time) bool {
 	default:
 		return dom || dow
 	}
+}
+
+// domMatches says whether t's day is one of the day of month field's: a number, or L, L-n, nW, LW.
+func (c *cronSpec) domMatches(t time.Time) bool {
+	if c.dom[t.Day()] {
+		return true
+	}
+	last := daysIn(t)
+	for _, n := range c.lastDays {
+		if t.Day() == last-n {
+			return true
+		}
+	}
+	for _, n := range c.nearest {
+		if t.Day() == nearestWorkday(t, min(n, last)) {
+			return true
+		}
+	}
+	return c.lastWorkday && t.Day() == nearestWorkday(t, last)
+}
+
+// dowMatches says whether t's weekday is one of the day of week field's: a day, nL, or n#k.
+func (c *cronSpec) dowMatches(t time.Time) bool {
+	wd := int(t.Weekday())
+	if c.dow[wd] {
+		return true
+	}
+	for _, n := range c.nthDays {
+		if wd == n.weekday && (t.Day()-1)/7+1 == n.n {
+			return true
+		}
+	}
+	for _, d := range c.lastOfDays {
+		if wd == d && t.Day()+7 > daysIn(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// daysIn is the number of days in t's month.
+func daysIn(t time.Time) int {
+	return time.Date(t.Year(), t.Month()+1, 0, 0, 0, 0, 0, t.Location()).Day()
+}
+
+// nearestWorkday is the Monday to Friday nearest the day of t's month, as Quartz has W: a
+// Saturday's the Friday before, a Sunday's the Monday after — never into the month before or
+// after: the 1st a Saturday is Monday the 3rd, the last a Sunday is the Friday before.
+func nearestWorkday(t time.Time, day int) int {
+	d := time.Date(t.Year(), t.Month(), day, 0, 0, 0, 0, t.Location())
+	switch d.Weekday() {
+	case time.Saturday:
+		if day == 1 {
+			return 3
+		}
+		return day - 1
+	case time.Sunday:
+		if day == daysIn(t) {
+			return day - 2
+		}
+		return day + 1
+	}
+	return day
 }
 
 // next is the first minute after t the spec fires in, within a year and a day; zero if none.

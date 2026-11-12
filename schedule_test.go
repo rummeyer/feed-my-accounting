@@ -85,3 +85,47 @@ func TestSlashMonth(t *testing.T) {
 		t.Errorf("slashMonth(\"\") = %d/%d, want the current month", m, y)
 	}
 }
+
+func TestCronQuartzDays(t *testing.T) {
+	for _, tt := range []struct {
+		expr, from, want string
+	}{
+		// The last day, and days before it.
+		{"0 7 L * *", "2026-11-12 10:00", "2026-11-30 07:00"},
+		{"0 7 L * *", "2026-11-30 07:00", "2026-12-31 07:00"},
+		{"0 7 L * *", "2027-01-31 08:00", "2027-02-28 07:00"}, // February's last
+		{"0 7 L-2 * *", "2026-11-12 10:00", "2026-11-28 07:00"},
+		// The workday nearest a day: the 15th of November 2026 a Sunday, so Monday the 16th.
+		{"0 7 15W * *", "2026-11-12 10:00", "2026-11-16 07:00"},
+		// Never into another month: the 1st of August 2026 a Saturday, so Monday the 3rd.
+		{"0 7 1W * *", "2026-07-31 10:00", "2026-08-03 07:00"},
+		// The last workday: the 31st of January 2027 a Sunday, so Friday the 29th.
+		{"0 7 LW * *", "2026-12-31 08:00", "2027-01-29 07:00"},
+		{"0 7 LW * *", "2026-11-12 10:00", "2026-11-30 07:00"}, // a Monday: itself
+		// The last Friday, the second Monday.
+		{"0 7 * * 5L", "2026-11-12 10:00", "2026-11-27 07:00"},
+		{"0 7 * * FRIL", "2026-11-12 10:00", "2026-11-27 07:00"},
+		{"0 7 * * 1#2", "2026-12-01 10:00", "2026-12-14 07:00"},
+		{"0 7 * * MON#1", "2026-12-01 10:00", "2026-12-07 07:00"},
+		// Names, ? and shorthands.
+		{"0 7 * JAN MON", "2026-11-12 10:00", "2027-01-04 07:00"},
+		{"0 7 ? * MON-FRI", "2026-11-13 08:00", "2026-11-16 07:00"},
+		{"0 7 * * sat,sun", "2026-11-12 10:00", "2026-11-14 07:00"},
+		{"@monthly", "2026-11-12 10:00", "2026-12-01 00:00"},
+		{"@weekly", "2026-11-12 10:00", "2026-11-15 00:00"},
+		{"@daily", "2026-11-12 10:00", "2026-11-13 00:00"},
+	} {
+		spec, err := parseCron(tt.expr)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.expr, err)
+		}
+		if got := spec.next(at(tt.from)).Format("2006-01-02 15:04"); got != tt.want {
+			t.Errorf("%s after %s: %s, want %s", tt.expr, tt.from, got, tt.want)
+		}
+	}
+	for _, bad := range []string{"0 7 L-40 * *", "0 7 0W * *", "0 7 32W * *", "0 7 * * 1#6", "0 7 * * 8L", "0 7 * * XYZ", "0 7 * FOO *", "@sometimes"} {
+		if _, err := parseCron(bad); err == nil {
+			t.Errorf("%q taken", bad)
+		}
+	}
+}

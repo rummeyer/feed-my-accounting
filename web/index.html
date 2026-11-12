@@ -41,7 +41,7 @@
     <!-- Cron -->
     <section id="tab-cron" class="tab">
       <h2>Zeitplan</h2>
-      <p class="muted">Die Läufe, die von selbst kommen, solange die Oberfläche läuft. Zeitplan als Cron-Ausdruck: Minute Stunde Tag Monat Wochentag, z. B. <code>0 6 5 * *</code> für den 5. jeden Monats um 6:00. Von Hand startet jeder Lauf auf seiner Seite: Belege, Reisekosten, Kundenrechnung.</p>
+      <p class="muted">Die Läufe, die von selbst kommen, solange die Oberfläche läuft. Zeitplan als Cron-Ausdruck: Minute Stunde Tag Monat Wochentag, z. B. <code>0 7 5 * *</code> für den 5. jeden Monats um 7:00. Dazu wie bei Quartz: <code>L</code> der letzte Tag des Monats, <code>L-2</code> zwei Tage davor, <code>15W</code> der Werktag am nächsten zum 15., <code>LW</code> der letzte Werktag, <code>5L</code> der letzte Freitag, <code>1#2</code> der zweite Montag; Namen wie <code>MON-FRI</code> und <code>JAN</code>; <code>@monthly</code>, <code>@weekly</code>, <code>@daily</code>. Von Hand startet jeder Lauf auf seiner Seite: Belege, Reisekosten, Kundenrechnung.</p>
       <div id="schedule" class="schedule"></div>
       <div class="actions">
         <button type="button" id="schedule-add">Eintrag hinzufügen</button>

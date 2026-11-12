@@ -140,7 +140,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 
 | Card | What it does |
 |------|--------------|
-| **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
+| **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), its next runs, its last result, and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. As a fallback, behind its own flap at the foot of the card, *Zeitnachweis hochladen*: drop a Harvest PDF report in hours and Leistungszeitraum are read and shown for checking, then *Entwurf in sevDesk anlegen* creates the draft invoice — with the same duplicate check. Folded away beneath the buttons, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
@@ -162,6 +162,24 @@ sudo cp feed-my-accounting.service /etc/systemd/system/
 sudo systemctl enable --now feed-my-accounting
 journalctl -u feed-my-accounting -f
 ```
+
+### Cron expressions
+
+Five fields, `minute hour day month weekday`, as in crontab — `*`, numbers, ranges `1-5`, lists `1,15` and steps `*/15` — a day matching when its day of month or its weekday does, both being restricted. Beyond that, what Quartz has for days:
+
+| Form | Field | Means | Example |
+|------|-------|-------|---------|
+| `L` | day | the month's last day | `0 7 L * *` — the 30th, 31st, 28th… at 7:00 |
+| `L-n` | day | n days before it | `0 7 L-2 * *` |
+| `nW` | day | the workday nearest the nth, within the month | `0 7 15W * *` |
+| `LW` | day | the month's last workday | `0 7 LW * *` |
+| `nL` | weekday | the month's last such weekday | `0 7 * * 5L` — the last Friday |
+| `n#k` | weekday | the kth such weekday | `0 7 * * 1#2` — the second Monday |
+| `JAN`–`DEC`, `SUN`–`SAT` | month, weekday | names for the numbers | `0 7 * * MON-FRI` |
+| `?` | day, weekday | the same as `*` | |
+| `@yearly`, `@monthly`, `@weekly`, `@daily`, `@hourly` | — | shorthands, at midnight | `@monthly` |
+
+New entries start at `0 7 1 * *`, the 1st at 7:00.
 
 ### Who may reach it
 

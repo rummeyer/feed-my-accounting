@@ -182,7 +182,7 @@ function renderSchedule() {
 }
 
 $('schedule-add').addEventListener('click', () => {
-  schedule.entries.push({ job: 'travel-expense', cron: '0 6 5 * *', enabled: false, next: [] });
+  schedule.entries.push({ job: 'travel-expense', cron: '0 7 1 * *', enabled: false, next: [] });
   renderSchedule();
   refreshSave();
 });
