@@ -179,6 +179,7 @@ label.check input { width: auto; }
 .day .n { font-size: 14px; font-weight: 700; color: var(--headline); }
 .day .who { color: var(--ink); overflow-wrap: anywhere; }
 .day .eur { margin-top: auto; color: var(--muted); font-size: 11px; }
+.day .eur.night { margin-top: 0; } /* beneath the meals and km, together at the cell's foot */
 .day.travel { border-color: var(--ink); background: var(--panel); }
 .day.travel.assigned .who::after { content: ' ★'; color: var(--accent); }
 .day.away { background: var(--away); border-color: var(--ok); }

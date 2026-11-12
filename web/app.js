@@ -272,9 +272,11 @@ function renderCalendar() {
     const classes = ['day', d.kind, d.assigned && 'assigned', d.date === today && 'today', (d.missing || d.lodgingMissing) && 'fallback'].filter(Boolean).join(' ');
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
     const eur = d.meal || d.mileage
-      ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}${d.lodging ? ` · ${euro(d.lodging)} Ü` : ''}`) : null;
+      ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}`) : null;
+    // The night's flat rate on a line of its own, the word written out.
+    const night = d.lodging ? el('span', 'eur night', `${euro(d.lodging)} Übernachtung`) : null;
     const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), who,
-      d.client && d.note && el('span', 'note muted', d.note), eur);
+      d.client && d.note && el('span', 'note muted', d.note), eur, night);
     cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
       d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
       d.lodgingMissing && `Satz „${RATE_NAMES.lodging}“ des Kunden fehlt — Inlandssatz ${euro(d.lodging)}`].filter(Boolean).join(' · ');
