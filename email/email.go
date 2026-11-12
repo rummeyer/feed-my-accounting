@@ -83,11 +83,12 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 
 // IMAPFilter defines which emails to fetch from the inbox.
 type IMAPFilter struct {
-	Count            int    // how many recent messages to scan (0 = all)
-	FromDomain       string // sender hostname must contain this string
-	Subject          string // exact subject match
-	SubjectPrefix    string // the subject starts with this, receipt numbers after it
-	CurrentMonthOnly bool   // only return emails received in the current month
+	Count            int       // how many recent messages to scan (0 = all)
+	FromDomain       string    // sender hostname must contain this string
+	Subject          string    // exact subject match
+	SubjectPrefix    string    // the subject starts with this, receipt numbers after it
+	CurrentMonthOnly bool      // only return emails received in the current month
+	Month            time.Time // only those of this month, when set: its year and month count
 	// Folders are searched one after the other, the latest Count of each: INBOX if none.
 	Folders []string
 }
@@ -199,6 +200,9 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 			}
 		}
 		if filter.CurrentMonthOnly && (env.Date.Year() != now.Year() || env.Date.Month() != now.Month()) {
+			continue
+		}
+		if m, d := filter.Month, env.Date.Local(); !m.IsZero() && (d.Year() != m.Year() || d.Month() != m.Month()) {
 			continue
 		}
 		if filter.Subject != "" && env.Subject != filter.Subject {

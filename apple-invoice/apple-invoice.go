@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"feed-my-accounting/email"
 
@@ -42,23 +43,46 @@ type Config struct {
 // Run
 // ---------------------------------------------------------------------------
 
-// Run fetches Apple invoice emails, converts them to PDFs, and sends them via email.
+// Run fetches this month's Apple invoice emails, converts them to PDFs, and sends them via email.
 func Run(cfg Config) error {
+	attachments, err := Collect(cfg, time.Time{})
+	if err != nil {
+		return err
+	}
+	return Send(cfg, attachments)
+}
+
+// Send mails the PDFs, if there are any.
+func Send(cfg Config, attachments []email.Attachment) error {
+	if len(attachments) == 0 {
+		logger.Println("No Apple PDFs to send")
+		return nil
+	}
+	logger.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
+	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Apple", attachments...)
+}
+
+// Collect is the month's Apple invoices as PDFs — the current month's for a zero month — without
+// sending them.
+func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
+	if month.IsZero() {
+		month = time.Now()
+	}
 	filter := email.IMAPFilter{
-		Count:            cfg.Filter.Count,
-		Subject:          cfg.Filter.Subject,
-		FromDomain:       cfg.Filter.From,
-		Folders:          cfg.Filter.Folders,
-		CurrentMonthOnly: true,
+		Count:      cfg.Filter.Count,
+		Subject:    cfg.Filter.Subject,
+		FromDomain: cfg.Filter.From,
+		Folders:    cfg.Filter.Folders,
+		Month:      month,
 	}
 
 	messages, err := email.FetchHTMLEmails(cfg.Mail, filter)
 	if err != nil {
-		return fmt.Errorf("fetching invoices: %w", err)
+		return nil, fmt.Errorf("fetching invoices: %w", err)
 	}
 	if len(messages) == 0 {
-		logger.Println("No Apple invoices to process")
-		return nil
+		logger.Printf("No Apple invoices for %s", month.Format("01/2006"))
+		return nil, nil
 	}
 
 	logger.Printf("Processing %d Apple invoice(s)...", len(messages))
@@ -99,13 +123,7 @@ func Run(cfg Config) error {
 		attachments = append(attachments, email.Attachment{Filename: filename + ".pdf", Data: pdf})
 	}
 
-	if len(attachments) == 0 {
-		logger.Println("No Apple PDFs generated")
-		return nil
-	}
-
-	logger.Printf("Sending email with %d Apple PDF attachment(s)...", len(attachments))
-	return email.Send(cfg.Mail, "Deine PDF-Rechnungen von Apple", attachments...)
+	return attachments, nil
 }
 
 // ---------------------------------------------------------------------------

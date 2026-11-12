@@ -23,6 +23,9 @@ import (
 	"sync"
 	"time"
 
+	anthropic "feed-my-accounting/anthropic-invoice"
+	apple "feed-my-accounting/apple-invoice"
+	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
 )
@@ -81,8 +84,19 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/travel/send", s.travelRun(true))
 	mux.HandleFunc("PUT /api/travel/blocked", s.saveBlocked)
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
-	mux.HandleFunc("POST /api/anthropic/run", s.simpleRun("anthropic-invoice", "Anthropic-Belege abholen", noFiles(runAnthropicInvoice)))
-	mux.HandleFunc("POST /api/apple/run", s.simpleRun("apple-invoice", "Apple-Rechnungen abholen", noFiles(runAppleInvoice)))
+	// Anthropic's and Apple's receipts of a month: to look at, or sent — offered for download both.
+	anthropicReceipts := receipts{"anthropic-invoice", "Anthropic-Belege",
+		func(cfg *Config, m time.Time) ([]email.Attachment, error) {
+			return anthropic.Collect(anthropicConfig(cfg), m)
+		},
+		func(cfg *Config, a []email.Attachment) error { return anthropic.Send(anthropicConfig(cfg), a) }}
+	appleReceipts := receipts{"apple-invoice", "Apple-Rechnungen",
+		func(cfg *Config, m time.Time) ([]email.Attachment, error) { return apple.Collect(appleConfig(cfg), m) },
+		func(cfg *Config, a []email.Attachment) error { return apple.Send(appleConfig(cfg), a) }}
+	mux.HandleFunc("POST /api/anthropic/view", s.receiptsRun(anthropicReceipts, false))
+	mux.HandleFunc("POST /api/anthropic/send", s.receiptsRun(anthropicReceipts, true))
+	mux.HandleFunc("POST /api/apple/view", s.receiptsRun(appleReceipts, false))
+	mux.HandleFunc("POST /api/apple/send", s.receiptsRun(appleReceipts, true))
 	mux.HandleFunc("POST /api/vodafone/run", s.simpleRun("vodafone-invoice", "Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
@@ -388,6 +402,55 @@ func (s *server) saveAssignments(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 // Apple, Vodafone, Harvest
 // ---------------------------------------------------------------------------
+
+// receipts are a mail-based kind of receipt: how to collect a month's PDFs, and send them.
+type receipts struct {
+	kind, title string
+	collect     func(*Config, time.Time) ([]email.Attachment, error)
+	send        func(*Config, []email.Attachment) error
+}
+
+// receiptsRun collects the receipts of a month — "11/2026", as on the command line, empty the
+// current one — and offers them for download; with send, it mails them too.
+func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var in struct {
+			Month string `json:"month"`
+		}
+		if !read(w, req, &in) {
+			return
+		}
+		year, month, err := slashMonth(in.Month)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		cfg, err := s.config()
+		if err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+		verb := "ansehen"
+		if send {
+			verb = "senden"
+		}
+		s.start(w, r.kind, fmt.Sprintf("%s %d/%d %s", r.title, month, year, verb), func() ([]File, error) {
+			pdfs, err := r.collect(cfg, at)
+			if err != nil {
+				return nil, err
+			}
+			var files []File
+			for _, p := range pdfs {
+				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
+			}
+			if send {
+				err = r.send(cfg, pdfs)
+			}
+			return files, err
+		})
+	}
+}
 
 // simpleRun runs a module as the command line does, with the configuration as it is.
 func (s *server) simpleRun(kind, title string, run func(*Config) ([]File, error)) http.HandlerFunc {

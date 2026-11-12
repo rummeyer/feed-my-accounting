@@ -295,16 +295,18 @@ func findClient(clients []Client, key string) int {
 	return -1
 }
 
-func runAnthropicInvoice(cfg *Config) error {
+func anthropicConfig(cfg *Config) anthropic.Config {
 	f := cfg.AnthropicInvoice.Filter
-	return anthropic.Run(anthropic.Config{
+	return anthropic.Config{
 		Mail:   cfg.Mail,
 		Filter: anthropic.FilterConfig{Count: f.Count, Subject: f.Subject, From: f.From, Folders: f.Folders},
-	})
+	}
 }
 
-func runAppleInvoice(cfg *Config) error {
-	return apple.Run(apple.Config{
+func runAnthropicInvoice(cfg *Config) error { return anthropic.Run(anthropicConfig(cfg)) }
+
+func appleConfig(cfg *Config) apple.Config {
+	return apple.Config{
 		Mail: cfg.Mail,
 		Filter: apple.FilterConfig{
 			Count:   cfg.AppleInvoice.Filter.Count,
@@ -312,8 +314,10 @@ func runAppleInvoice(cfg *Config) error {
 			From:    cfg.AppleInvoice.Filter.From,
 			Folders: cfg.AppleInvoice.Filter.Folders,
 		},
-	})
+	}
 }
+
+func runAppleInvoice(cfg *Config) error { return apple.Run(appleConfig(cfg)) }
 
 func runVodafoneInvoice(cfg *Config) error {
 	return vodafone.Run(vodafone.Config{

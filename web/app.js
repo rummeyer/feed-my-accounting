@@ -240,6 +240,27 @@ for (const b of document.querySelectorAll('[data-run]')) {
   b.addEventListener('click', () => start(b.dataset.run, 'POST', `/api/${b.dataset.run}/run`));
 }
 
+// Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
+// the command line, the current one at first.
+const NAMES = { anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen' };
+const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
+{
+  const now = new Date();
+  for (const input of document.querySelectorAll('.receipt-month')) {
+    input.value = input.placeholder = `${now.getMonth() + 1}/${now.getFullYear()}`;
+  }
+}
+for (const b of document.querySelectorAll('[data-view]')) {
+  b.addEventListener('click', () => start(b.dataset.view, 'POST', `/api/${b.dataset.view}/view`, { month: monthOf(b.dataset.view) }));
+}
+for (const b of document.querySelectorAll('[data-send]')) {
+  b.addEventListener('click', () => {
+    const kind = b.dataset.send;
+    if (!confirm(`${NAMES[kind]} ${monthOf(kind)} senden an ${mailTo()}?`)) return;
+    start(kind, 'POST', `/api/${kind}/send`, { month: monthOf(kind) });
+  });
+}
+
 // The month the Harvest API is asked for, as on the command line: the current one, or an
 // earlier one after the fact.
 // Not restored by the browser on reloading — an emptied field came back empty over it — and the

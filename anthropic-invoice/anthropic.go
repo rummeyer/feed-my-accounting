@@ -33,17 +33,38 @@ type Config struct {
 
 // Run fetches this month's Anthropic receipts and sends their PDFs via email.
 func Run(cfg Config) error {
+	attachments, err := Collect(cfg, time.Time{})
+	if err != nil {
+		return err
+	}
+	return Send(cfg, attachments)
+}
+
+// Collect is the month's receipt PDFs — the current month's for a zero month — without sending
+// them.
+func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
+	if month.IsZero() {
+		month = time.Now()
+	}
 	messages, err := email.FetchEmails(cfg.Mail, email.IMAPFilter{
-		Count:            cfg.Filter.Count,
-		SubjectPrefix:    cfg.Filter.Subject,
-		FromDomain:       cfg.Filter.From,
-		Folders:          cfg.Filter.Folders,
-		CurrentMonthOnly: true,
+		Count:         cfg.Filter.Count,
+		SubjectPrefix: cfg.Filter.Subject,
+		FromDomain:    cfg.Filter.From,
+		Folders:       cfg.Filter.Folders,
+		Month:         month,
 	})
 	if err != nil {
-		return fmt.Errorf("fetching receipts: %w", err)
+		return nil, fmt.Errorf("fetching receipts: %w", err)
 	}
 	attachments := Receipts(messages)
+	if len(attachments) == 0 {
+		logger.Printf("No Anthropic receipts for %s", month.Format("01/2006"))
+	}
+	return attachments, nil
+}
+
+// Send mails the receipts, if there are any.
+func Send(cfg Config, attachments []email.Attachment) error {
 	if len(attachments) == 0 {
 		logger.Println("No Anthropic receipts to send")
 		return nil
