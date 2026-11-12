@@ -441,6 +441,10 @@ func (s *server) getLogo(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path)
 }
 
+// maxLogo is the largest logo taken: plenty for print, where the work log shrinks it to some
+// 60 KB anyway. The upload is kept as it is.
+const maxLogo = 2 << 20
+
 // putLogo keeps an uploaded PNG or JPEG as the company's logo, beside the configuration. The
 // logo it replaces is kept as its .bak.
 func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
@@ -450,13 +454,13 @@ func (s *server) putLogo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	data, err := io.ReadAll(io.LimitReader(file, 4<<20+1))
+	data, err := io.ReadAll(io.LimitReader(file, maxLogo+1))
 	if err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
 	}
-	if len(data) > 4<<20 {
-		fail(w, http.StatusBadRequest, errors.New("das Logo ist größer als 4 MB"))
+	if len(data) > maxLogo {
+		fail(w, http.StatusBadRequest, errors.New("das Logo ist größer als 2 MB"))
 		return
 	}
 	// What the PDFs can show: PNG and JPEG, read as such, whatever the file was called.

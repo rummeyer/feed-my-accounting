@@ -809,8 +809,8 @@ function renderLogo() {
       alert('Das Logo muss ein PNG oder JPEG sein.');
       return;
     }
-    if (file.size > 4 << 20) {
-      alert('Das Logo ist größer als 4 MB.');
+    if (file.size > 2 << 20) {
+      alert('Das Logo ist größer als 2 MB.');
       return;
     }
     logoDraft = file;
@@ -837,7 +837,7 @@ function renderLogo() {
   const empty = el('div', 'logo-empty',
     button('Logo hochladen', '', () => input.click()),
     el('span', 'muted', 'oder hier hineinziehen'),
-    el('span', 'muted', '.jpg, .jpeg, .png (max. 4 MB, 1 Datei)'));
+    el('span', 'muted', '.jpg, .jpeg, .png (max. 2 MB, 1 Datei)'));
 
   // With a logo: a red × over it, and asked once more before it goes.
   const preview = el('img', 'logo-preview');

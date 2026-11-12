@@ -39,6 +39,9 @@ func TestLogo(t *testing.T) {
 	if w := upload(t, s, []byte("not an image")); w.Code != http.StatusBadRequest {
 		t.Errorf("not an image: %d", w.Code)
 	}
+	if w := upload(t, s, make([]byte, maxLogo+1)); w.Code != http.StatusBadRequest {
+		t.Errorf("larger than 2 MB: %d", w.Code)
+	}
 	var img bytes.Buffer
 	png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 40, 10)))
 	if w := upload(t, s, img.Bytes()); w.Code != http.StatusOK {
