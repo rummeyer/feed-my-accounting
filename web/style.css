@@ -179,7 +179,7 @@ label.check input { width: auto; }
 .month-title { border: 0; margin: 8px 0; padding: 0; font-size: 18px; color: var(--headline); min-width: 260px; text-align: center; }
 .legend { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; font-size: 13px; color: var(--muted); margin: 6px 0 14px; }
 .legend .k::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 1px solid var(--rule); }
-.legend .moon::before { content: '☾'; border: 0; width: auto; height: auto; margin-right: 5px; vertical-align: 0; }
+
 .legend .blocked::before { background: repeating-linear-gradient(45deg, var(--blocked) 0 3px, var(--panel) 3px 6px); }
 .legend .holiday::before { background: var(--cell); }
 .legend .off::before { background: transparent; border-style: dotted; }
@@ -193,7 +193,14 @@ label.check input { width: auto; }
 .day .n { font-size: 14px; font-weight: 700; color: var(--headline); }
 .day .who { color: var(--ink); overflow-wrap: anywhere; }
 .day .eur { margin-top: auto; color: var(--muted); font-size: 11px; }
-.day .eur.night { margin-top: 0; } /* beneath the meals and km, together at the cell's foot */
+.day .eur { display: flex; flex-wrap: wrap; gap: 1px 8px; }
+
+/* Pixel icons, as the theme switch's: crisp, in the text's colour. */
+.px { width: 9px; height: 9px; fill: currentColor; shape-rendering: crispEdges; vertical-align: -1px; margin-right: 4px; flex: none; }
+.amount { white-space: nowrap; display: inline-flex; align-items: center; }
+.totals dt .px { margin-right: 6px; }
+.legend-icons { margin-top: -8px; }
+.legend-icons .px { margin-right: 5px; }
 .day.travel { border-color: var(--ink); background: var(--panel); }
 .day.travel.assigned .who::after { content: ' ★'; color: var(--accent); }
 .day.away { background: var(--away); border-color: var(--ok); }
@@ -205,7 +212,7 @@ label.check input { width: auto; }
 .day.c5, .legend .c5::before { background: var(--c5); border-color: var(--c5-edge); }
 .day.c6, .legend .c6::before { background: var(--c6); border-color: var(--c6-edge); }
 .day { position: relative; }
-.day .moon { position: absolute; top: 4px; right: 7px; font-size: 13px; color: var(--ink); opacity: .7; }
+.day .moon { position: absolute; top: 6px; right: 7px; color: var(--ink); opacity: .7; line-height: 0; }
 .day.blocked { background: repeating-linear-gradient(45deg, var(--blocked) 0 6px, var(--panel) 6px 12px); }
 .day.holiday, .day.christmas { background: var(--cell); color: var(--muted); }
 .day.weekend, .day.home { border-style: dotted; color: var(--muted); }

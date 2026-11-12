@@ -263,6 +263,37 @@ loaders.travel = () => { loadTravel(); loadSettings(); };
 
 const KIND_TEXT = { weekend: '', holiday: 'Feiertag', christmas: 'Weihnachten', blocked: 'gesperrt', home: 'kein Kunde' };
 
+// Pixel icons, 8 × 8, as the theme switch's: what an amount is for. Each a list of rectangles,
+// x y width height.
+const PIXELS = {
+  meal: [[0, 0, 1, 3], [2, 0, 1, 3], [0, 3, 3, 1], [1, 4, 1, 4], [5, 0, 1, 8], [6, 0, 1, 4]], // fork and knife
+  car: [[2, 1, 4, 1], [1, 2, 1, 1], [3, 2, 1, 1], [6, 2, 1, 1], [0, 3, 8, 2], [1, 5, 2, 2], [5, 5, 2, 2]], // roof, pillars between two windows, body, wheels
+  bed: [[0, 1, 1, 6], [1, 3, 2, 1], [1, 4, 7, 2], [7, 6, 1, 1]], // headboard, pillow, mattress, foot
+  moon: [[2, 0, 4, 1], [1, 1, 3, 1], [0, 2, 3, 4], [1, 6, 3, 1], [2, 7, 4, 1], [6, 6, 1, 1]],
+};
+
+/** A pixel icon, in the text's colour, its meaning as its title. */
+function icon(name, title) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 8 8');
+  svg.setAttribute('class', `px px-${name}`);
+  svg.setAttribute('aria-label', title);
+  svg.setAttribute('role', 'img');
+  const t = document.createElementNS(ns, 'title');
+  t.textContent = title;
+  svg.append(t);
+  for (const [x, y, w, h] of PIXELS[name]) {
+    const r = document.createElementNS(ns, 'rect');
+    for (const [k, v] of Object.entries({ x, y, width: w, height: h })) r.setAttribute(k, v);
+    svg.append(r);
+  }
+  return svg;
+}
+
+/** An amount after its icon: "🍴 44,00 €". */
+const amount = (name, title, eur) => el('span', 'amount', icon(name, title), euro(eur));
+
 function renderCalendar() {
   const cells = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((d) => el('div', 'wd', d));
   const first = (new Date(`${plan.month}-01T00:00:00`).getDay() + 6) % 7;
@@ -271,12 +302,13 @@ function renderCalendar() {
   for (const d of plan.days) {
     const classes = ['day', d.kind, d.clientNo && colourOf(d.clientNo), d.assigned && 'assigned', d.date === today && 'today', (d.missing || d.lodgingMissing) && 'fallback'].filter(Boolean).join(' ');
     const who = d.client ? el('span', 'who', d.client) : el('span', 'note', d.note || KIND_TEXT[d.kind] || '');
-    const eur = d.meal || d.mileage
-      ? el('span', 'eur', `${euro(d.meal)}${d.mileage ? ` · ${euro(d.mileage)} km` : ''}`) : null;
-    // The night's flat rate on a line of its own, the word written out.
-    const night = d.lodging ? el('span', 'eur night', `${euro(d.lodging)} Übernachtung`) : null;
-    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', '☾'), who,
-      d.client && d.note && el('span', 'note muted', d.note), eur, night);
+    // What the day is worth, each amount after its icon: meals, the drive, the night.
+    const eur = d.meal || d.mileage || d.lodging ? el('span', 'eur',
+      d.meal && amount('meal', 'Verpflegung', d.meal),
+      d.mileage && amount('car', 'Kilometergeld', d.mileage),
+      d.lodging && amount('bed', 'Übernachtung', d.lodging)) : null;
+    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', icon('moon', 'über Nacht')), who,
+      d.client && d.note && el('span', 'note muted', d.note), eur);
     cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
       d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
       d.lodgingMissing && `Satz „${RATE_NAMES.lodging}“ des Kunden fehlt — Inlandssatz ${euro(d.lodging)}`].filter(Boolean).join(' · ');
@@ -285,6 +317,11 @@ function renderCalendar() {
   $('calendar').replaceChildren(...cells);
   // The legend: each client in its colour.
   $('legend-clients').replaceChildren(...(plan.clients ?? []).map((name, i) => el('span', `k ${colourOf(i + 1)}`, name)));
+  $('legend-icons').replaceChildren(
+    el('span', '', icon('moon', 'über Nacht'), 'über Nacht'),
+    el('span', '', icon('meal', 'Verpflegung'), 'Verpflegung'),
+    el('span', '', icon('car', 'Kilometergeld'), 'Kilometergeld'),
+    el('span', '', icon('bed', 'Übernachtung'), 'Übernachtung'));
 }
 
 /** A client's colour class, by its place in the list from 1: six colours, then again. */
@@ -306,9 +343,9 @@ function renderTotals() {
   const per = Object.entries(plan.perClient).map(([name, n]) => `${name} ${n}`).join(' · ');
   $('travel-totals').replaceChildren(...[
     el('div', '', el('dt', '', 'Reisetage'), el('dd', '', String(t.days ?? 0))),
-    el('div', '', el('dt', '', 'Verpflegung'), el('dd', '', euro(t.meals))),
-    el('div', '', el('dt', '', 'Kilometer'), el('dd', '', euro(t.mileage))),
-    t.nights > 0 && el('div', '', el('dt', '', `Übernachtung · ${t.nights} ${t.nights === 1 ? 'Nacht' : 'Nächte'}`), el('dd', '', euro(t.lodging))),
+    el('div', '', el('dt', '', icon('meal', 'Verpflegung'), 'Verpflegung'), el('dd', '', euro(t.meals))),
+    el('div', '', el('dt', '', icon('car', 'Kilometergeld'), 'Kilometer'), el('dd', '', euro(t.mileage))),
+    t.nights > 0 && el('div', '', el('dt', '', icon('bed', 'Übernachtung'), `Übernachtung · ${t.nights} ${t.nights === 1 ? 'Nacht' : 'Nächte'}`), el('dd', '', euro(t.lodging))),
     el('div', '', el('dt', '', 'Gesamt'), el('dd', '', euro(totalOf(t)))),
     per && el('div', 'whole', el('dt', '', 'Je Kunde'), el('dd', 'muted', per)),
     missing.size > 0 && el('div', 'whole warn', el('dt', '', 'Satz fehlt'),
