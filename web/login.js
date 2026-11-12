@@ -13,7 +13,7 @@ for (const link of document.querySelectorAll('[data-lang-link]')) {
     if (link.dataset.langLink !== LANG) location.href = `?lang=${link.dataset.langLink}`;
   });
 }
-if (LANG === 'en') document.title = 'Log in · feed-my-accounting';
+if (LANG === 'en') document.title = 'Login · feed-my-accounting';
 
 (async () => {
   const session = await fetch('/api/session', { headers: { 'X-Lang': LANG } }).then((r) => r.json()).catch(() => null);
@@ -54,7 +54,7 @@ $('login').addEventListener('submit', async (e) => {
     return;
   }
   const data = await res.json().catch(() => ({}));
-  $('error').textContent = data.error || (LANG === 'en' ? `Logging in failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
+  $('error').textContent = data.error || (LANG === 'en' ? `Login failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
   $('error').hidden = false;
   $('password').select();
 });
