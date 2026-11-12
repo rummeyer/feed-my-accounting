@@ -28,11 +28,19 @@ travel-expense:
       distance: 42               # one-way distance in km
       province: BW               # German state abbreviation for holiday calendar
 
+anthropic-invoice:
+  filter:
+    count: 50                    # how many recent emails to scan, in each folder
+    from: "mail.anthropic.com"
+    subject: "Your receipt from Anthropic"
+    folders: [INBOX, Rechnungen] # the inbox first
+
 apple-invoice:
   filter:
-    count: 10                    # how many recent emails to scan
+    count: 50                    # how many recent emails to scan, in each folder
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
+    folders: [INBOX, Rechnungen] # the inbox first
 
 vodafone-invoice:
   username: "your-vodafone-email@example.com"
@@ -40,19 +48,14 @@ vodafone-invoice:
   fallbackToLastMonth: true      # optional, default: true (send last month's invoice if current not yet available)
 
 harvest-invoice:
-  currentMonthOnly: true           # optional, default: true (skip reports not in current month)
   skipExisting: true               # optional, default: true (skip if sevDesk already has invoice for same period)
-  filter:
-    count: 10                    # how many recent emails to scan
-    from: "harvestapp.com"       # sender domain filter
-    subject: "We\u2019ve exported your detailed time report"
   harvest:
-    username: "harvest-login@example.com"
-    password: "your-harvest-password"
+    token: "123456.pt.your-personal-access-token"   # id.getharvest.com/developers
+    client: "Acme GmbH"                  # optional: the client in Harvest, default sevdesk.clientName
   sevdesk:
     username: "sevdesk-login@example.com"
     password: "your-sevdesk-password"
-    clientName: "Acme GmbH"              # optional, overrides client name from Harvest email
+    clientName: "Acme GmbH"              # the client in sevDesk
     productName: "Acme Produkt"          # search term typed into product field
     productNum: "0102"                   # article number to select from dropdown
     referenceNum: "REF-123"              # Kundenreferenz für E-Rechnung

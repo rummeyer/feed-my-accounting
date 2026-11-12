@@ -290,7 +290,7 @@ anthropic-invoice:
 
 apple-invoice:
   filter:
-    count: 10                      # in each folder
+    count: 50                      # in each folder
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
     folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
@@ -492,7 +492,7 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `filter.count` | Number of recent emails to scan (without token, as all `filter` fields and `currentMonthOnly`) | `10` |
+| `filter.count` | Number of recent emails to scan, in each folder | `50` |
 | `filter.from` | Sender domain to match | `apple.com` |
 | `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 | `filter.folders` | Folders to search, in this order; the same invoice in two counts once | `INBOX`, `Rechnungen` |

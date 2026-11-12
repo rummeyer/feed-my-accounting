@@ -324,7 +324,7 @@ func applyDefaults(cfg *Config) {
 		cfg.AnthropicInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
 	}
 	if cfg.AppleInvoice.Filter.Count == 0 {
-		cfg.AppleInvoice.Filter.Count = 10
+		cfg.AppleInvoice.Filter.Count = 50
 	}
 	if cfg.AppleInvoice.Filter.From == "" {
 		cfg.AppleInvoice.Filter.From = "apple.com"

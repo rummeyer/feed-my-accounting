@@ -754,7 +754,7 @@ const PARTS = {
     ['AnthropicInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],
   ]]],
   apple: [['', [
-    ['AppleInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 10],
+    ['AppleInvoice.Filter.Count', 'Mails durchsuchen (je Ordner)', 'number', 50],
     ['AppleInvoice.Filter.From', 'Absender-Domain', 'text', 'apple.com'],
     ['AppleInvoice.Filter.Subject', 'Betreff', 'text', 'Deine Rechnung von Apple'],
     ['AppleInvoice.Filter.Folders', 'Ordner, der Reihe nach', 'list', 'INBOX, Rechnungen'],

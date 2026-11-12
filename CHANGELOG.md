@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The mail module searches several folders in turn and reads attachments; the settings page takes lists, comma-separated.
 - Schedule: Quartz's forms for days — `L` the month's last day, `L-n`, `15W` the nearest workday, `LW` the last workday, `5L` the last Friday, `1#2` the second Monday — names for months and weekdays, `?`, and `@monthly` and the other shorthands. New entries start at 7:00.
 - Belege: Anthropic and Apple by month — `11/2026`, the current one at first — with *PDFs ansehen*, the month's PDFs for download without sending, and *Per Mail senden*, after asking, as the Reisekosten have it. The schedule still sends the current month's. The mail module takes any month.
-- apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once.
+- apple-invoice searches the folder *Rechnungen* too, after the inbox (`filter.folders`); the same invoice in both is sent once. It scans the latest 50 emails of each folder by default, not 10.
 
 ## [1.13.0] - 2026-11-12
 
