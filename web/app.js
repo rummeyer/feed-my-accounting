@@ -462,7 +462,7 @@ function renderCalendar() {
       d.meal && amount('meal', 'Verpflegung', d.meal),
       d.mileage && amount('car', 'Kilometergeld', d.mileage),
       d.lodging && amount('bed', 'Übernachtung', d.lodging)) : null;
-    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', icon('moon', 'über Nacht')), who,
+    const cell = el('div', classes, el('span', 'n', String(Number(d.date.slice(8)))), d.kind === 'away' && el('span', 'moon', icon('moon', 'Übernachtung')), who,
       d.client && d.note && el('span', 'note muted', d.note), eur);
     cell.title = [dmy(d.date), d.client, d.mealText && `Verpflegung ${d.mealText}`, d.lodging && `Übernachtung ${euro(d.lodging)}`, d.note,
       d.missing && `Satz „${RATE_NAMES[d.missing]}“ des Kunden fehlt — Inlandssatz ${euro(d.meal)}`,
@@ -473,10 +473,10 @@ function renderCalendar() {
   // The legend: each client in its colour.
   $('legend-clients').replaceChildren(...(plan.clients ?? []).map((name, i) => el('span', `k ${colourOf(i + 1)}`, name)));
   $('legend-icons').replaceChildren(
-    el('span', '', icon('moon', 'über Nacht'), 'über Nacht'),
+    el('span', '', icon('moon', 'Übernachtung'), 'Übernachtung'),
     el('span', '', icon('meal', 'Verpflegung'), 'Verpflegung'),
     el('span', '', icon('car', 'Kilometergeld'), 'Kilometergeld'),
-    el('span', '', icon('bed', 'Übernachtung'), 'Übernachtung'));
+    el('span', '', icon('bed', 'Übernachtungspauschale'), 'Übernachtungspauschale'));
 }
 
 /** A client's colour class, by its place in the list from 1: six colours, then again. */
@@ -545,9 +545,9 @@ function renderLists() {
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
   const span = (r) => (r.to && r.to !== r.from ? `${dmy(r.from)} – ${dmy(r.to)}` : dmy(r.from));
   const what = {
-    // With the form's icons: moon, bed, plane.
+    // With the form's icons: moon, bed, plane; the car for day trips.
     assignments: (a) => [nameOf(a.client),
-      ...(a.overnight ? [' · ', icon('moon', 'über Nacht'), 'über Nacht'] : [' · Tagesreisen']),
+      ...(a.overnight ? [' · ', icon('moon', 'Übernachtung'), 'Übernachtung'] : [' · ', icon('car', 'Tagesreisen'), 'Tagesreisen']),
       ...(a.overnight && a.hotel ? [' · ', icon('bed', 'Hotel'), 'Hotel'] : []),
       ...(a.overnight && a.nightFlight ? [' · ', icon('plane', 'Nachtflug'), 'Nachtflug'] : []),
       a.note ? ` · ${a.note}` : ''],
