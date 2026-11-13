@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -187,5 +188,40 @@ func TestLogoAsUploaded(t *testing.T) {
 		if err != nil || kind != c.kind || bytes.Equal(data, uploaded) != c.asUploaded {
 			t.Errorf("%s: %s, as uploaded %v, %v; want %s, as uploaded %v", c.name, kind, bytes.Equal(data, uploaded), err, c.kind, c.asUploaded)
 		}
+	}
+}
+
+func TestOverBudget(t *testing.T) {
+	nov := time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
+	entries := []Entry{{ProjectID: 1}, {ProjectID: 2}, {ProjectID: 3}}
+	budgets := []Budget{
+		{ProjectID: 1, Budget: 100, Spent: 120},              // over: warned
+		{ProjectID: 2, Budget: 100, Spent: 100},              // just spent: not
+		{ProjectID: 3, Budget: 10, Spent: 12, Monthly: true}, // monthly, over this month
+		{ProjectID: 4, Budget: 10, Spent: 50},                // not in the work log
+	}
+	ids := func(bs []Budget) (out []int) {
+		for _, b := range bs {
+			out = append(out, b.ProjectID)
+		}
+		return out
+	}
+	if got := ids(overBudget(budgets, entries, nov, nov.AddDate(0, 0, 12))); !reflect.DeepEqual(got, []int{1, 3}) {
+		t.Errorf("this month: %v, want [1 3]", got)
+	}
+	// October's work log in November: the monthly spending is November's, not October's.
+	if got := ids(overBudget(budgets, entries, nov.AddDate(0, -1, 0), nov.AddDate(0, 0, 12))); !reflect.DeepEqual(got, []int{1}) {
+		t.Errorf("a past month: %v, want [1]", got)
+	}
+}
+
+func TestBudgetWarning(t *testing.T) {
+	got := budgetWarning(Budget{ProjectID: 7, Project: "Beta", By: "project", Budget: 1440, Spent: 1500}, "https://example.harvestapp.com")
+	want := "the budget of project Beta exceeded: 1500.00 h of 1440.00 h spent, 60.00 h over: see https://example.harvestapp.com/projects/7"
+	if got != want {
+		t.Errorf("got %q\nwant %q", got, want)
+	}
+	if got := budgetWarning(Budget{ProjectID: 7, Project: "Beta", By: "project_cost", Budget: 1000, Spent: 1100}, "u"); !strings.Contains(got, "1100.00 of 1000.00 spent") {
+		t.Errorf("cost budget: %q", got)
 	}
 }

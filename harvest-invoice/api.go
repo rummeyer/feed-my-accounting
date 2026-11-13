@@ -66,18 +66,19 @@ func apiAccount(creds HarvestAPI) (string, error) {
 
 // Entry is one time entry, as Harvest's detailed time report lists it.
 type Entry struct {
-	Date     time.Time
-	Started  string // "7:00", empty without timestamps
-	Ended    string
-	Client   string
-	Project  string
-	Code     string // the project's code, "0043"
-	Task     string
-	Person   string
-	Notes    string
-	Hours    float64 // rounded, when the account rounds, as Harvest's reports count
-	Billable bool
-	Billed   bool
+	Date      time.Time
+	Started   string // "7:00", empty without timestamps
+	Ended     string
+	Client    string
+	Project   string
+	Code      string // the project's code, "0043"
+	ProjectID int
+	Task      string
+	Person    string
+	Notes     string
+	Hours     float64 // rounded, when the account rounds, as Harvest's reports count
+	Billable  bool
+	Billed    bool
 }
 
 // APIEntries is the time entries of client and person — all clients, everyone, if empty — from
@@ -111,6 +112,7 @@ func APIEntries(creds HarvestAPI, client, person string, from, to time.Time) ([]
 				Task         named   `json:"task"`
 				User         named   `json:"user"`
 				Project      struct {
+					ID   int    `json:"id"`
 					Name string `json:"name"`
 					Code string `json:"code"`
 				} `json:"project"`
@@ -136,7 +138,7 @@ func APIEntries(creds HarvestAPI, client, person string, from, to time.Time) ([]
 			}
 			entries = append(entries, Entry{
 				Date: date, Started: e.StartedTime, Ended: e.EndedTime,
-				Client: e.Client.Name, Project: e.Project.Name, Code: e.Project.Code, Task: e.Task.Name,
+				Client: e.Client.Name, Project: e.Project.Name, Code: e.Project.Code, ProjectID: e.Project.ID, Task: e.Task.Name,
 				Person: e.User.Name, Notes: strings.TrimSpace(e.Notes), Hours: e.RoundedHours,
 				Billable: e.Billable, Billed: e.IsBilled,
 			})
@@ -158,6 +160,48 @@ func APIEntries(creds HarvestAPI, client, person string, from, to time.Time) ([]
 		return minutes(entries[i].Started) < minutes(entries[j].Started)
 	})
 	return entries, nil
+}
+
+// Budget is a project's budget as Harvest's project budget report has it: in hours, or with
+// Cost in money, the account's currency; spent so far, of a monthly budget this month's.
+type Budget struct {
+	ProjectID int     `json:"project_id"`
+	Project   string  `json:"project_name"`
+	By        string  `json:"budget_by"` // "project", "task", "person": hours; "project_cost", "task_fees": money; "none"
+	Monthly   bool    `json:"budget_is_monthly"`
+	Budget    float64 `json:"budget"`
+	Spent     float64 `json:"budget_spent"`
+}
+
+// Cost is whether the budget is money rather than hours.
+func (b Budget) Cost() bool { return b.By == "project_cost" || b.By == "task_fees" }
+
+// APIBudgets is the budgets of the account's projects, active or not, that have one.
+func APIBudgets(creds HarvestAPI) ([]Budget, error) {
+	account, err := apiAccount(creds)
+	if err != nil {
+		return nil, err
+	}
+	var budgets []Budget
+	next := "https://api.harvestapp.com/v2/reports/project_budget?per_page=2000"
+	for next != "" {
+		var page struct {
+			Results []Budget `json:"results"`
+			Links   struct {
+				Next string `json:"next"`
+			} `json:"links"`
+		}
+		if err := apiGet(creds, account, next, &page); err != nil {
+			return nil, fmt.Errorf("reading the project budgets: %w", err)
+		}
+		for _, b := range page.Results {
+			if b.By != "" && b.By != "none" && b.Budget > 0 {
+				budgets = append(budgets, b)
+			}
+		}
+		next = page.Links.Next
+	}
+	return budgets, nil
 }
 
 // minutes is "7:30" in minutes since midnight; -1 without a time, so that such entries come first.

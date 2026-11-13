@@ -167,7 +167,14 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 		days, which = cfg.Days(from)
 	}
 	short := days > 0 && report.TotalHours < float64(days*hoursPerWorkday)
-	if cfg.Harvest.Company == "" || short {
+	// The budgets are a warning only: without them, the work log all the same.
+	var over []Budget
+	if budgets, err := APIBudgets(cfg.Harvest); err != nil {
+		logger.Printf("Project budgets not checked: %v", err)
+	} else {
+		over = overBudget(budgets, entries, from, time.Now())
+	}
+	if cfg.Harvest.Company == "" || short || len(over) > 0 {
 		if account, err = APICompany(cfg.Harvest); err != nil {
 			return nil, nil, err
 		}
@@ -175,6 +182,9 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	if short {
 		logger.Printf("WARNING: %.2f hours, fewer than %d %s × %d h = %d h: check the time entries in Harvest, %s/time",
 			report.TotalHours, days, which, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
+	}
+	for _, b := range over {
+		logger.Printf("WARNING: %s", budgetWarning(b, account.BaseURI))
 	}
 	company := cfg.Harvest.Company
 	if company == "" {
@@ -243,4 +253,36 @@ func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exist
 			report.ClientName, report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"))
 	}
 	return existing, true, nil
+}
+
+// overBudget is the budgets of the entries' projects that are spent beyond. A monthly budget's
+// spending is this month's, as Harvest reports it: checked only for the month of now.
+func overBudget(budgets []Budget, entries []Entry, month, now time.Time) []Budget {
+	ours := map[int]bool{}
+	for _, e := range entries {
+		ours[e.ProjectID] = true
+	}
+	thisMonth := month.Year() == now.Year() && month.Month() == now.Month()
+	var over []Budget
+	for _, b := range budgets {
+		if ours[b.ProjectID] && b.Spent > b.Budget && (!b.Monthly || thisMonth) {
+			over = append(over, b)
+		}
+	}
+	return over
+}
+
+// budgetWarning is "the budget of project X exceeded: 1500.00 h of 1440.00 h spent, 60.00 h
+// over", with the project's page in Harvest.
+func budgetWarning(b Budget, harvestURL string) string {
+	unit := " h"
+	if b.Cost() {
+		unit = ""
+	}
+	kind := "budget"
+	if b.Monthly {
+		kind = "monthly budget"
+	}
+	return fmt.Sprintf("the %s of project %s exceeded: %.2f%s of %.2f%s spent, %.2f%s over: see %s/projects/%d",
+		kind, b.Project, b.Spent, unit, b.Budget, unit, b.Spent-b.Budget, unit, harvestURL, b.ProjectID)
 }
