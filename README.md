@@ -4,8 +4,18 @@
   <img src="docs/logo.png" alt="feed-my-accounting: a suitcase packed with a boarding pass and the Vodafone, Apple, Harvest and sevDesk invoices, on a pixel world map with a flight path" width="640">
 </p>
 
-[![Version](https://img.shields.io/badge/version-1.17.3-blue.svg)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/rummeyer/feed-my-accounting/releases"><img src="https://img.shields.io/github/v/release/rummeyer/feed-my-accounting?label=release" alt="Release"></a>
+  <a href="https://github.com/rummeyer/feed-my-accounting/actions/workflows/build.yml"><img src="https://github.com/rummeyer/feed-my-accounting/actions/workflows/build.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/rummeyer/feed-my-accounting/blob/main/LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue" alt="Licence"></a>
+  <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/rummeyer/feed-my-accounting" alt="Go version"></a>
+  <img src="https://img.shields.io/badge/runs%20on-Raspberry%20Pi%20%C2%B7%20Linux-c51a4a" alt="Runs on Raspberry Pi and Linux">
+  <a href="https://sevdesk.de"><img src="https://img.shields.io/badge/accounting-sevDesk-orange" alt="For sevDesk"></a>
+</p>
+
+<p align="center">
+  <a href="https://buymeacoffee.com/rummeyer"><img src="https://img.shields.io/badge/donate-Buy%20Me%20a%20Coffee-yellow" alt="Buy Me a Coffee"></a>
+</p>
 
 A single command that closes your books for the month.
 
@@ -631,4 +641,4 @@ See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). If it saves you an evening each month, a [coffee](https://buymeacoffee.com/rummeyer) is welcome.

@@ -1,0 +1,38 @@
+# Build and check on every push: formatted, vetted, tested, and the binary for the Pi built too.
+# The tests need neither a browser nor the network: no sevDesk, Harvest or mailbox is touched.
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Go version go.mod asks for, so that CI and the Pi agree.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Formatted
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./...
+
+      # The Raspberry Pi's binary: 64-bit ARM, as it runs there.
+      - name: Build for the Pi
+        run: GOOS=linux GOARCH=arm64 go build -o feed-my-accounting .

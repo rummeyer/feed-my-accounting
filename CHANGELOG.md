@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- README: badges for the release, the build, the licence, the Go version and Buy Me a Coffee — the release read from GitHub, no longer a number to forget. A LICENSE file to go with it, the Sponsor button (`.github/FUNDING.yml`) and a build on GitHub Actions: gofmt, vet, tests and the Pi's binary.
+
 ## [1.19.0] - 2026-11-13
 
 ### Changed
