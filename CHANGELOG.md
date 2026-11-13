@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-13
+
+### Changed
+
+- Kundenrechnung: *Zeitnachweis hochladen* is now *Manuelle Eingabe*. *Leistung von*, *Leistung bis* and *Stunden gesamt* — in that order — are always there to type in, the current month at first; a work log PDF dropped in, Harvest's or one from here, fills them, correctable as typed. The draft takes what the fields say: no upload needed, none kept on the server. Client, article and reference are not repeated there: they are in the settings.
+- Kundenrechnung: *Einstellungen Kundenrechnung* is the card's last flap, after *Manuelle Eingabe*.
+- Einstellungen Kundenrechnung: the duplicate check is called *Entwurf nicht doppelt anlegen*, in English *No duplicate drafts*.
+- Einstellungen Kundenrechnung: *Kunde in Harvest* before *Harvest-API-Token*.
+- Manuelle Eingabe: without a *Kunde in sevDesk* saved, *Entwurf in sevDesk anlegen* says so at once instead of starting a run that fails.
+- README: screenshots anew; the architecture's Harvest API reads budgets too; the file tree with `auth.go` and `logo.go`.
+
+### Fixed
+
+- Settings without extra mailboxes no longer count as changed at the first edit anywhere — *Nicht gespeichert: Einstellungen* after dropping a PDF, say.
+
 ## [1.18.0] - 2026-11-13
 
 ### Added
