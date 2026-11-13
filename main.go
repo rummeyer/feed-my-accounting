@@ -38,7 +38,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.17.3"
+const version = "1.18.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 

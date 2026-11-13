@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-11-13
+
+### Added
+
+- harvest-invoice: a project of the work log over its budget in Harvest logs a warning, with the link to the project — for *Nur Zeitnachweis* as for the invoice, like the warning about too few hours. Read from Harvest's project budget report: hours or money, as the project's budget is. A monthly budget only for the current month, Harvest reporting only its spending. Without the report, the work log all the same.
+- *Abbrechen* left of *Speichern*: drops what is not saved yet — settings, schedule, Zuordnungen, gesperrte Tage, logo — everything as saved again. Greyed out while nothing is changed; not on the Protokoll.
+
 ## [1.17.3] - 2026-11-13
 
 ### Changed
