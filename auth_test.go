@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	harvest "feed-my-accounting/harvest-invoice"
 )
 
 // testServer is the web interface on a configuration of two employees, the first with the
@@ -39,7 +37,6 @@ func testServer(t *testing.T, withLogin bool, homeOnly bool) *server {
 	return &server{
 		configPath: path,
 		jobs:       NewJobs(filepath.Join(dir, "jobs.json")),
-		uploads:    map[string]*harvest.ReportData{},
 		sessions:   newSessions(filepath.Join(dir, "sessions.json")),
 	}
 }
@@ -384,5 +381,19 @@ func TestUploadTooBig(t *testing.T) {
 	})
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "zu groß") {
 		t.Errorf("a report over %d MB: %d %s", maxReport>>20, w.Code, w.Body)
+	}
+}
+
+func TestDraftNeedsPeriodAndHours(t *testing.T) {
+	s := testServer(t, false, false)
+	for _, body := range []string{
+		`{"from":"2026-11-01","to":"2026-11-30","hours":0}`,  // no hours
+		`{"from":"2026-11-30","to":"2026-11-01","hours":80}`, // ends before it starts
+		`{"from":"","to":"2026-11-30","hours":80}`,           // no start
+	} {
+		w := call(s, "POST", "/api/harvest/draft", home, body)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d %s, want 400", body, w.Code, w.Body)
+		}
 	}
 }

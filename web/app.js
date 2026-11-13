@@ -60,6 +60,19 @@ async function api(method, path, body) {
 })();
 
 const euro = (v) => `${(v ?? 0).toFixed(2).replace('.', ',')} €`;
+/** Hours as the page writes them: 41,25 in German, 41.25 in English. */
+const hoursText = (h) => T(String(h).replace('.', ','), String(h));
+
+/** A drop target for a file: dragged over, it lights up; dropped, take gets the file. */
+function dropZone(target, take) {
+  target.addEventListener('dragover', (e) => { e.preventDefault(); target.classList.add('over'); });
+  target.addEventListener('dragleave', () => target.classList.remove('over'));
+  target.addEventListener('drop', (e) => {
+    e.preventDefault();
+    target.classList.remove('over');
+    if (e.dataTransfer.files[0]) take(e.dataTransfer.files[0]);
+  });
+}
 const dmy = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
 const MONTHS = T(['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
   ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
@@ -793,44 +806,60 @@ $('travel-send').addEventListener('click', () => {
 
 // ── Customer invoice ───────────────────────────────────────────────────────
 
-let upload = null;
-const drop = $('upload-form');
-drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-drop.addEventListener('drop', (e) => {
-  e.preventDefault();
-  drop.classList.remove('over');
-  if (e.dataTransfer.files[0]) sendReport(e.dataTransfer.files[0]);
-});
+// Manuelle Eingabe: the period and the hours typed, or filled from a dropped PDF; the draft is for
+// the client, article and reference of the settings, beneath on the same card.
+dropZone($('upload-form'), sendReport);
 $('report').addEventListener('change', () => { if ($('report').files[0]) sendReport($('report').files[0]); });
+
+/** The current month, until something else is entered. */
+function draftDefaults() {
+  const now = new Date();
+  if (!$('d-from').value) $('d-from').value = isoDay(new Date(now.getFullYear(), now.getMonth(), 1));
+  if (!$('d-to').value) $('d-to').value = isoDay(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+}
+draftDefaults();
+
+/** The sevDesk client the draft is for: as saved in the settings. */
+function draftClient() {
+  const saved = settings?.saved ? JSON.parse(settings.saved) : {};
+  return (saved.HarvestInvoice?.SevDesk?.ClientName ?? '').trim();
+}
 
 async function sendReport(file) {
   $('drop-text').textContent = T(`${file.name} wird gelesen…`, `Reading ${file.name}…`);
   const form = new FormData();
   form.append('report', file);
+  let read;
   try {
-    upload = await api('POST', '/api/harvest/upload', form);
+    read = await api('POST', '/api/harvest/upload', form);
   } catch (err) {
     $('drop-text').textContent = err.message;
     return;
   }
-  $('drop-text').textContent = T(`${file.name}: ${String(upload.hours).replace('.', ',')} Stunden gelesen`, `${file.name}: ${upload.hours} hours read`);
-  $('d-hours').value = upload.hours;
-  const now = new Date();
-  $('d-from').value = upload.from || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-  $('d-to').value = upload.to || new Date(now.getFullYear(), now.getMonth() + 1, 0, 12).toISOString().slice(0, 10);
-  $('d-client').value = upload.client || T('— in den Einstellungen setzen —', '— set it in the settings —');
-  $('d-product').value = upload.product;
-  $('d-reference').value = upload.reference;
-  $('draft-form').hidden = false;
+  // What the PDF has, into the fields; a period it lacks stays as entered.
+  if (read.from) $('d-from').value = read.from;
+  if (read.to) $('d-to').value = read.to;
+  $('d-hours').value = read.hours;
+  $('drop-text').textContent = T(`${file.name}: ${hoursText(read.hours)} Stunden gelesen — bitte prüfen`, `${file.name}: ${hoursText(read.hours)} hours read — please check`);
 }
 
 $('draft-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const hours = Number($('d-hours').value);
-  if (!confirm(T(`Rechnungsentwurf in sevDesk anlegen?\n${upload.client}: ${String(hours).replace('.', ',')} Stunden, ${dmy($('d-from').value)} – ${dmy($('d-to').value)}`,
-    `Create the invoice draft in sevDesk?\n${upload.client}: ${hours} hours, ${dmy($('d-from').value)} – ${dmy($('d-to').value)}`))) return;
-  start('invoice', 'POST', '/api/harvest/draft', { id: upload.id, hours, from: $('d-from').value, to: $('d-to').value });
+  const from = $('d-from').value;
+  const to = $('d-to').value;
+  if (to < from) {
+    alert(T('„Leistung bis“ liegt vor „Leistung von“.', '“Service to” is before “Service from”.'));
+    return;
+  }
+  const client = draftClient();
+  if (!client) {
+    alert(T('Kein Kunde: „Kunde in sevDesk“ unter „Einstellungen Kundenrechnung“ eintragen und speichern.', 'No client: enter “Client in sevDesk” under “Invoice settings” and save.'));
+    return;
+  }
+  if (!confirm(T(`Rechnungsentwurf in sevDesk anlegen?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} Stunden`,
+    `Create the invoice draft in sevDesk?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} hours`))) return;
+  start('invoice', 'POST', '/api/harvest/draft', { from, to, hours });
 });
 
 // ── Log ────────────────────────────────────────────────────────────────────
@@ -953,10 +982,10 @@ const PARTS = {
     BREAK,
     ['HarvestInvoice.SevDesk.Username', T('sevDesk-Benutzer', 'sevDesk user')], ['HarvestInvoice.SevDesk.Password', T('sevDesk-Passwort', 'sevDesk password'), 'secret', 2],
     BREAK,
-    ['HarvestInvoice.Harvest.Token', T('Harvest-API-Token', 'Harvest API token'), 'secret', 3],
     ['HarvestInvoice.Harvest.Client', T('Kunde in Harvest', 'Client in Harvest'), 'shadow', 'HarvestInvoice.SevDesk.ClientName'],
+    ['HarvestInvoice.Harvest.Token', T('Harvest-API-Token', 'Harvest API token'), 'secret', 3],
     BREAK,
-    ['HarvestInvoice.SkipExisting', T('Nicht doppelt anlegen (sevDesk prüfen)', 'Never twice (check sevDesk)'), 'bool', true],
+    ['HarvestInvoice.SkipExisting', T('Entwurf nicht doppelt anlegen', 'No duplicate drafts'), 'bool', true],
   ]]],
   anthropic: [['', [
     ['AnthropicInvoice.Filter.Count', SCAN, 'number', 50],
@@ -1087,6 +1116,9 @@ async function loadSettings() {
   if (settings && JSON.stringify(settings.config) !== settings.saved) return; // changes not saved yet: kept
   try {
     settings = await api('GET', '/api/settings');
+    // As the page edits them: no mailboxes are an empty list — else the first edit anywhere
+    // would count the settings as changed.
+    if (settings.config.Mail) settings.config.Mail.Mailboxes ??= [];
     settings.saved = JSON.stringify(settings.config);
   } catch (err) {
     for (const form of document.querySelectorAll('form.part')) form.replaceChildren(el('p', 'badge failed', err.message));
@@ -1268,13 +1300,7 @@ function renderLogo() {
   input.addEventListener('change', () => take(input.files[0]));
 
   const card = el('div', 'logo-card');
-  card.addEventListener('dragover', (e) => { e.preventDefault(); card.classList.add('over'); });
-  card.addEventListener('dragleave', () => card.classList.remove('over'));
-  card.addEventListener('drop', (e) => {
-    e.preventDefault();
-    card.classList.remove('over');
-    take(e.dataTransfer.files[0]);
-  });
+  dropZone(card, take);
 
   // Empty: the button, and where a file may be dropped instead.
   const empty = el('div', 'logo-empty',

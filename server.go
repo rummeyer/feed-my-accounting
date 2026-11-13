@@ -42,8 +42,7 @@ type server struct {
 	jobs       *Jobs
 	saving     sync.Mutex
 
-	mu      sync.Mutex
-	uploads map[string]*harvest.ReportData // Harvest PDFs uploaded, by id, until used
+	mu sync.Mutex
 
 	sessions *sessions // the logged-in browsers
 	failures failures  // failed logins, by address
@@ -58,7 +57,6 @@ func runServe(configPath string) error {
 	s := &server{
 		configPath: configPath,
 		jobs:       NewJobs(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-jobs.json")),
-		uploads:    map[string]*harvest.ReportData{},
 		sessions:   newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-sessions.json")),
 	}
 	if err := s.change(moveOldPassword); err != nil {
@@ -655,8 +653,8 @@ func uploadError(r *http.Request, err error, missing string) error {
 	return errors.New(missing)
 }
 
-// harvestUpload reads an uploaded Harvest report PDF: its hours and period, for checking before
-// the draft is made.
+// harvestUpload reads an uploaded work log PDF, Harvest's or one from here: its hours and period,
+// to fill Manuelle Eingabe's fields. Nothing is kept: the draft takes what the fields say.
 func (s *server) harvestUpload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxReport)
 	file, _, err := r.FormFile("report")
@@ -675,42 +673,22 @@ func (s *server) harvestUpload(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, fmt.Errorf("not a Harvest report: %w", err))
 		return
 	}
-	cfg, err := s.config()
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	id := newJobID()
-	s.mu.Lock()
-	s.uploads = map[string]*harvest.ReportData{id: report} // the latest upload only
-	s.mu.Unlock()
-	sd := cfg.HarvestInvoice.SevDesk
 	reply(w, map[string]any{
-		"id":        id,
-		"hours":     report.TotalHours,
-		"from":      dateOrEmpty(report.PeriodFrom),
-		"to":        dateOrEmpty(report.PeriodTo),
-		"client":    sd.ClientName,
-		"product":   strings.TrimSpace(sd.ProductNum + " " + sd.ProductName),
-		"reference": sd.ReferenceNum,
+		"hours": report.TotalHours,
+		"from":  dateOrEmpty(report.PeriodFrom),
+		"to":    dateOrEmpty(report.PeriodTo),
 	})
 }
 
+// harvestDraft creates the sevDesk draft for a period and its hours as Manuelle Eingabe has them:
+// typed, or filled from a PDF and checked.
 func (s *server) harvestDraft(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		ID    string  `json:"id"`
-		Hours float64 `json:"hours"`
 		From  string  `json:"from"`
 		To    string  `json:"to"`
+		Hours float64 `json:"hours"`
 	}
 	if !read(w, r, &in) {
-		return
-	}
-	s.mu.Lock()
-	uploaded := s.uploads[in.ID]
-	s.mu.Unlock()
-	if uploaded == nil {
-		fail(w, http.StatusBadRequest, errors.New("upload the report again: it is no longer here"))
 		return
 	}
 	from, to, err := parseRange(in.From, in.To)
@@ -718,13 +696,16 @@ func (s *server) harvestDraft(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err)
 		return
 	}
+	if in.Hours <= 0 {
+		fail(w, http.StatusBadRequest, errors.New(say(r, "Stunden fehlen", "hours missing")))
+		return
+	}
 	cfg, err := s.config()
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	report := *uploaded
-	report.TotalHours, report.PeriodFrom, report.PeriodTo = in.Hours, from, to
+	report := harvest.ReportData{TotalHours: in.Hours, PeriodFrom: from, PeriodTo: to}
 	title := fmt.Sprintf("Rechnungsentwurf %s – %s, %.2f h", from.Format("02.01."), to.Format("02.01.2006"), in.Hours)
 	s.start(w, "harvest-invoice", title, func() ([]File, error) {
 		return nil, harvest.CreateDraft(harvestConfig(cfg), &report)

@@ -117,27 +117,24 @@
       </div>
       <div class="console" data-console="harvest" hidden></div>
 
-      <details class="part-box"><summary><span lang="de">Einstellungen Kundenrechnung</span><span lang="en">Invoice settings</span></summary><form class="part" data-part="invoice"></form></details>
-
-      <details class="part-box"><summary><span lang="de">Zeitnachweis hochladen</span><span lang="en">Upload work log</span></summary>
-        <p class="muted"><span lang="de">Statt über die API: Zeitnachweis als PDF ablegen, aus Harvest oder von hier. Stunden und Leistungszeitraum werden angezeigt — korrigierbar, bevor du den Entwurf in sevDesk anlegst.</span><span lang="en">Instead of the API: drop a work log PDF, from Harvest or from here. Hours and service period are shown — to correct before you create the draft in sevDesk.</span></p>
+      <details class="part-box"><summary><span lang="de">Manuelle Eingabe</span><span lang="en">Manual entry</span></summary>
+        <p class="muted"><span lang="de">Statt über die API: Leistungszeitraum und Stunden selbst eintragen, dann den Entwurf in sevDesk anlegen — für Kunde, Artikel und Referenz aus den Einstellungen unten, nie doppelt. Ein Zeitnachweis als PDF, aus Harvest oder von hier, füllt die Felder; korrigierbar wie getippt.</span><span lang="en">Instead of the API: enter the service period and the hours yourself, then create the draft in sevDesk — for the client, product and reference of the settings below, never twice. A work log PDF, from Harvest or from here, fills the fields; correctable as if typed.</span></p>
         <form id="upload-form" class="drop">
-          <input type="file" id="report" accept="application/pdf" aria-label="Harvest-Bericht (PDF)" data-en-aria-label="Harvest report (PDF)">
-          <span id="drop-text"><span lang="de">PDF hierher ziehen oder auswählen</span><span lang="en">Drop the PDF here or choose it</span></span>
+          <input type="file" id="report" accept="application/pdf" aria-label="Zeitnachweis (PDF)" data-en-aria-label="Work log (PDF)">
+          <span id="drop-text"><span lang="de">PDF hierher ziehen oder auswählen, um die Felder zu füllen</span><span lang="en">Drop a PDF here or choose it to fill the fields</span></span>
         </form>
-        <form id="draft-form" class="grid" hidden>
-          <label><span lang="de">Stunden</span><span lang="en">Hours</span><input type="number" id="d-hours" step="0.01" min="0" required></label>
+        <form id="draft-form" class="grid">
           <label><span lang="de">Leistung von</span><span lang="en">Service from</span><input type="date" id="d-from" required></label>
           <label><span lang="de">Leistung bis</span><span lang="en">Service to</span><input type="date" id="d-to" required></label>
-          <label><span lang="de">Kunde</span><span lang="en">Client</span><input id="d-client" readonly></label>
-          <label><span lang="de">Artikel</span><span lang="en">Product</span><input id="d-product" readonly></label>
-          <label><span lang="de">Referenz</span><span lang="en">Reference</span><input id="d-reference" readonly></label>
+          <label><span lang="de">Stunden gesamt</span><span lang="en">Total hours</span><input type="number" id="d-hours" step="0.01" min="0.01" required></label>
           <div class="actions span">
             <button type="submit" class="strong"><span lang="de">Entwurf in sevDesk anlegen</span><span lang="en">Create draft in sevDesk</span></button>
           </div>
         </form>
         <div class="console" data-console="invoice" hidden></div>
       </details>
+
+      <details class="part-box"><summary><span lang="de">Einstellungen Kundenrechnung</span><span lang="en">Invoice settings</span></summary><form class="part" data-part="invoice"></form></details>
     </section>
 
     <!-- Belege -->
