@@ -222,7 +222,7 @@ func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 		if spec, err := scheduleSpec(cfg, e.Cron); err != nil {
 			out.Error = err.Error()
 		} else {
-			for t, i := time.Now(), 0; i < 3; i++ {
+			for t, i := time.Now(), 0; i < 6; i++ { // as many as the page has room for, it shows
 				if t = spec.next(t); t.IsZero() {
 					break
 				}

@@ -245,21 +245,43 @@ function renderSchedule() {
     on.type = 'checkbox';
     on.checked = e.enabled;
     on.addEventListener('change', () => { e.enabled = on.checked; });
+    // One line: when it ran last and how, then the next runs, as many as fit.
+    const last = el('span', 'muted', `${T('zuletzt', 'last')}: ${e.last ? lastRun(e.last) : T('noch nie', 'never')}`);
     const next = e.error ? el('span', 'badge failed', e.error)
-      : e.enabled ? el('span', '', T('nächste: ', 'next: '), e.next.map(when).join(' · ') || '—')
-      : el('span', 'muted', T('aus — nächste wären ', 'off — next would be '), e.next.slice(0, 1).map(when).join('') || '—');
+      : el('span', `runs${e.enabled ? '' : ' muted'}`, e.enabled ? T('nächste: ', 'next: ') : T('aus — nächste wären: ', 'off — next would be: '),
+        ...(e.next.length ? e.next.map((at, k) => el('span', 'run', `${k ? ' · ' : ''}${when(at)}`)) : ['—']));
     return el('div', `entry ${e.enabled ? '' : 'off'}`,
       el('div', 'entry-head',
         el('label', 'check', on, T('an', 'on')), job, cron,
         button(T('entfernen', 'remove'), 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
-      el('div', 'entry-next small', next),
-      el('div', 'entry-last small muted', e.last ? `${T('zuletzt', 'last')}: ${lastText(e.last)}` : T('noch nicht über die Oberfläche gelaufen', 'not yet run from the web interface')));
+      el('div', 'entry-line small', last, ' – ', next));
   });
   const output = el('div', 'console');
   output.dataset.console = 'cron';
   output.hidden = true;
   $('schedule').replaceChildren(...rows, output);
+  fitRuns();
 }
+
+/** "Mo., 30.11.2026, 07:32 (manuell)"; the same day "vor 2 h (zeitgesteuert)". A failed run says so. */
+function lastRun(job) {
+  const at = never(job.ended) ? job.started : job.ended;
+  const today = new Date(at).toDateString() === new Date().toDateString();
+  const how = / · Zeitplan$/.test(job.title) ? T('zeitgesteuert', 'scheduled') : T('manuell', 'manual');
+  return `${today ? ago(at) : when(at)} (${how})${job.status === 'failed' ? ` — ${STATUS().failed}` : ''}`;
+}
+
+/** The next runs on each entry's line: as many as fit whole, the rest left out. */
+function fitRuns() {
+  requestAnimationFrame(() => {
+    for (const line of document.querySelectorAll('.entry-line')) {
+      const runs = [...line.querySelectorAll('.run')];
+      for (const run of runs) run.hidden = false;
+      for (let k = runs.length - 1; k > 0 && line.scrollWidth > line.clientWidth; k--) runs[k].hidden = true;
+    }
+  });
+}
+window.addEventListener('resize', fitRuns);
 
 $('schedule-add').addEventListener('click', () => {
   schedule.entries.push({ job: 'travel-expense', cron: '0 7 1 * *', enabled: false, next: [] });

@@ -304,14 +304,14 @@ footer {
 .totals dd.muted { font-size: 13px; font-weight: 400; color: var(--muted); }
 
 /* Cron. */
-.schedule { display: grid; gap: 10px; }
+.schedule { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .entry { border: 1px solid var(--panel-edge); padding: 10px 12px; }
 .entry.off { border-style: dotted; }
 .entry.off select, .entry.off input:not([type=checkbox]) { color: var(--muted); }
 .entry-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .entry-head select { flex: 1 1 260px; }
 .entry-head input:not([type=checkbox]) { width: 170px; }
-.entry-next, .entry-last { margin-top: 6px; }
+.entry-line { margin-top: 6px; white-space: nowrap; overflow: hidden; }
 .small { font-size: 13px; }
 .totals .whole { grid-column: 1 / -1; }
 .grid label.check { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; font-size: 11px; }
