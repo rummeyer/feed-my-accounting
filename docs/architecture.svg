@@ -63,7 +63,7 @@
 
     <rect x="40" y="426" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
     <text x="58" y="454" font-size="15" font-weight="700" fill="#1f2a44">Harvest API</text>
-    <text x="58" y="476">time entries, account</text>
+    <text x="58" y="476">time entries, budgets</text>
     <text x="58" y="494">personal access token</text>
 
     <rect x="40" y="526" width="250" height="84" rx="8" fill="#fff" stroke="#cfc9bc" filter="url(#lift)"/>
