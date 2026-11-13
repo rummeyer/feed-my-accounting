@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.3] - 2026-11-13
+
+### Changed
+
+- Zeitplan: one line under each entry — *zuletzt: Mo., 30.11.2026, 07:32 (manuell) – nächste: …* — the last run started by hand (*manuell*) or by the schedule (*zeitgesteuert*), the same day as *vor 2 h*, a failed one saying so, and the next runs as many as fit whole. The server sends six of them, not three.
+- Zeitplan: the explanation starts *Zeitplan nach Cron-Syntax*, links Quartz's CronTrigger page where its forms for days come in, and says *die Weihnachtswoche, falls aktiviert*.
+
 ## [1.17.2] - 2026-11-12
 
 ### Fixed
