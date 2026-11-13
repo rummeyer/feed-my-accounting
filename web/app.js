@@ -128,7 +128,7 @@ function showTab() {
   const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cron';
   for (const t of TABS) $(`tab-${t}`).hidden = t !== name;
   // The Protokoll has nothing to save: its button empties it instead.
-  for (const id of ['save-all', 'save-note']) $(id).hidden = name === 'log';
+  for (const id of ['save-all', 'save-note', 'discard-all']) $(id).hidden = name === 'log';
   for (const id of ['clear-log', 'clear-note']) $(id).hidden = name !== 'log';
   for (const a of document.querySelectorAll('.tabs a')) a.classList.toggle('on', a.getAttribute('href') === `#${name}`);
   loaders[name]?.();
@@ -1152,6 +1152,7 @@ function refreshSave() {
   const parts = unsaved();
   const save = $('save-all');
   save.disabled = parts.length === 0;
+  $('discard-all').disabled = parts.length === 0;
   if (!parts.length) disarm();
   $('save-note').textContent = parts.length ? `${T('Nicht gespeichert', 'Not saved')}: ${partNames(parts)}` : '';
 }
@@ -1163,6 +1164,27 @@ function disarm() {
   $('save-all').textContent = T('Speichern', 'Save');
 }
 disarm();
+$('discard-all').textContent = T('Abbrechen', 'Discard');
+
+// Abbrechen: what is not saved yet dropped, everything as saved again.
+$('discard-all').addEventListener('click', async () => {
+  const parts = unsaved();
+  if (!parts.length) return;
+  disarm();
+  for (const name of Object.keys(lists)) {
+    if (lists[name].dirty) {
+      lists[name].dirty = false;
+      stopEditing(name);
+    }
+  }
+  logoDraft = undefined;
+  logoConfirm = false;
+  settings = null;
+  schedule = null;
+  await Promise.all([loadSettings(), loadCron(), loadTravel()]);
+  refreshSave();
+  $('save-note').textContent = `${T('Verworfen', 'Discarded')}: ${partNames(parts)}.`;
+});
 
 $('save-all').addEventListener('click', async () => {
   if (!armed) {
