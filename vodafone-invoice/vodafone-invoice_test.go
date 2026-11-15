@@ -2,6 +2,7 @@ package vodafone
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -296,14 +297,45 @@ func TestMonthNamesCompleteness(t *testing.T) {
 }
 
 func TestContractTypes(t *testing.T) {
-	if len(contractTypes) != 2 {
-		t.Errorf("contractTypes has %d entries, want 2", len(contractTypes))
+	// Mobilfunk first, then Kabel: the same order every run.
+	want := []struct{ key, name string }{{"mobilfunk", "Mobilfunk"}, {"kabel", "Kabel"}}
+	if len(contractTypes) != len(want) {
+		t.Fatalf("contractTypes has %d entries, want %d", len(contractTypes), len(want))
 	}
-	if contractTypes["mobilfunk"] != "Mobilfunk" {
-		t.Errorf("contractTypes[mobilfunk] = %q, want Mobilfunk", contractTypes["mobilfunk"])
+	for i, w := range want {
+		if contractTypes[i] != w {
+			t.Errorf("contractTypes[%d] = %v, want %v", i, contractTypes[i], w)
+		}
 	}
-	if contractTypes["kabel"] != "Kabel" {
-		t.Errorf("contractTypes[kabel] = %q, want Kabel", contractTypes["kabel"])
+}
+
+func TestLoginOutcome(t *testing.T) {
+	const login = "https://www.vodafone.de/meinvodafone/account/login"
+	// As MeinVodafone answered a wrong password (14.11.2026).
+	wrong := "Login - MeinVodafone Dein persönliches Serviceportal. Fehlermeldung. Das hat leider nicht geklappt. " +
+		"Prüf bitte Deine Daten. Dein Benutzername oder Passwort sind nicht korrekt. Versuch es bitte nochmal. Benutzername* Passwort*"
+	if err := loginOutcome(login, wrong); err == nil || err == errStillOnLogin || !strings.Contains(err.Error(), "wrong username or password") {
+		t.Errorf("wrong password: %v", err)
+	}
+	locked := "Fehlermeldung. Dein Zugang ist vorübergehend gesperrt. Zu viele Versuche."
+	if err := loginOutcome(login, locked); err == nil || !strings.Contains(err.Error(), "login blocked") {
+		t.Errorf("locked: %v", err)
+	}
+	if err := loginOutcome(login, "Benutzername* Passwort* Eingeloggt bleiben Anmelden"); err != errStillOnLogin {
+		t.Errorf("no answer yet: %v, want errStillOnLogin", err)
+	}
+	// Its security code, on a page of its own (14.11.2026): not logged in, whatever the address.
+	code := "Login - Sicherheitscode Sicherheitscode eingeben Zum Schutz Deiner Benutzerdaten benötigen wir für den Login die Eingabe des unten gezeigten Sicherheitscodes. Sicherheitscode* Weiter"
+	for _, url := range []string{login, "https://www.vodafone.de/cprx/captcha"} {
+		if err := loginOutcome(url, code); err != errCaptcha {
+			t.Errorf("security code at %s: %v, want errCaptcha", url, err)
+		}
+	}
+	if err := loginOutcome("https://www.vodafone.de/cprx/captcha", "still loading"); err != errCaptcha {
+		t.Errorf("security code page by its address alone: %v, want errCaptcha", err)
+	}
+	if err := loginOutcome("https://www.vodafone.de/meinvodafone/services/", "Meine Verträge"); err != nil {
+		t.Errorf("logged in: %v", err)
 	}
 }
 

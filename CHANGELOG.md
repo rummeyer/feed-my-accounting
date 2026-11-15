@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- vodafone-invoice: the login stays. The browser's profile is kept beside `config.yaml` (`feed-my-accounting-vodafone-browser/`) and *Eingeloggt bleiben* is ticked: a run still logged in from the last goes on at once — fewer logins, and fewer of the captchas MeinVodafone asks after logins it does not trust (14.11.2026).
+- **Logging in by hand, in a live view.** Without a Vodafone password stored, or when MeinVodafone neither lets the run in nor says why — a captcha — a run started in the web interface, by hand or on schedule, waits up to 10 minutes: a window opens on the page with the Vodafone page as the run sees it, used directly: a click on the picture clicks there and the keyboard types into the page, a phone's keyboard too; the mouse wheel scrolls. Once logged in, the run goes on by itself; *Lauf abbrechen* ends it. On the command line such a login fails, saying so.
+- vodafone-invoice: ticking *Eingeloggt bleiben* opens MeinVodafone's window *Eingeloggt bleiben - bis zu 180 Tage* over the form, which took the click meant for *Anmelden*: it is closed with its ✕ first, and once more if it comes only after.
+- vodafone-invoice: MeinVodafone's security code — *Login - Sicherheitscode*, text in a picture, after wrong tries — hands the login over to the live view, to type the code and click *Weiter*; known by its address, `vodafone.de/cprx/captcha`, or its text; it never counts as logged in.
+- vodafone-invoice: a login MeinVodafone refuses — the password, or the address flagged after wrong tries, which it answers alike — opens the live view in the web interface, to look and log in by hand with *Eingeloggt bleiben*; the login then stays for the next runs. On the command line it fails with the reason, as before.
+- vodafone-invoice: the run opens MeinVodafone's login page itself, no detour by the services and their redirect by script — chromedp's wait for the form hung after it for good — and goes by what it shows, looked at every second for 30 s at most: the form, the security code, or MeinVodafone itself when the login stayed. The cookie banner is answered only if it is there.
+- vodafone-invoice: username and password go into fields emptied first, and are checked to be just what is stored — a field filled already, by the kept profile or the page, would have the password appended. The log says only lengths, never the value.
+
+### Fixed
+
+- vodafone-invoice: a login MeinVodafone turns down stops the run with why — *username or password wrong*, or blocked for now after too many tries — instead of going on logged out and reporting *no invoice found* (14.11.2026). An invoice page that does not load within 30 s is an error too, not an empty page. Mobilfunk is searched first, then Kabel, every run the same.
+
+### Added
+
 - README: badges for the release, the build, the licence, the Go version and Buy Me a Coffee — the release read from GitHub, no longer a number to forget. A LICENSE file to go with it, the Sponsor button (`.github/FUNDING.yml`) and a build on GitHub Actions: gofmt, vet, tests and the Pi's binary.
 
 ## [1.19.0] - 2026-11-13

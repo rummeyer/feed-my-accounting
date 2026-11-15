@@ -25,6 +25,7 @@ import (
 
 	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
+	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
 	travelexpense "feed-my-accounting/travel-expense"
@@ -62,6 +63,7 @@ func runServe(configPath string) error {
 	if err := s.change(moveOldPassword); err != nil {
 		return err
 	}
+	liveView = &browser.Live{} // runs started here, by hand or on schedule, may ask in it
 	go s.scheduler()
 	httpServer := &http.Server{Addr: cfg.Web.Listen, Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second}
 	log.Printf("feed-my-accounting %s: web interface on %s, config %s", version, cfg.Web.Listen, configPath)
@@ -116,6 +118,13 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("DELETE /api/jobs", s.clearJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
 	mux.HandleFunc("GET /api/jobs/{id}/files/{name}", s.getFile)
+	mux.HandleFunc("GET /api/live", liveState)
+	mux.HandleFunc("GET /api/live/shot", liveShot)
+	mux.HandleFunc("POST /api/live/click", liveClick)
+	mux.HandleFunc("POST /api/live/type", liveType)
+	mux.HandleFunc("POST /api/live/key", liveKey)
+	mux.HandleFunc("POST /api/live/scroll", liveScroll)
+	mux.HandleFunc("POST /api/live/cancel", liveCancel)
 	mux.HandleFunc("GET /api/settings", s.getSettings)
 	mux.HandleFunc("PUT /api/settings", s.putSettings)
 	return s.auth(mux)
@@ -710,6 +719,78 @@ func (s *server) harvestDraft(w http.ResponseWriter, r *http.Request) {
 	s.start(w, "harvest-invoice", title, func() ([]File, error) {
 		return nil, harvest.CreateDraft(harvestConfig(cfg), &report)
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Live view: a page a run hands over for a moment — Vodafone's login with a captcha
+// ---------------------------------------------------------------------------
+
+// liveState says whether a run asks for someone, and why: the page polls it.
+func liveState(w http.ResponseWriter, r *http.Request) {
+	reason := ""
+	if liveView != nil {
+		reason = liveView.Asking()
+	}
+	reply(w, map[string]any{"asking": reason != "", "reason": reason})
+}
+
+// liveShot is the page as it is now.
+func liveShot(w http.ResponseWriter, r *http.Request) {
+	if liveView == nil {
+		fail(w, http.StatusNotFound, errors.New("no live view"))
+		return
+	}
+	data, err := liveView.Shot()
+	if err != nil {
+		fail(w, http.StatusNotFound, err)
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(data)
+}
+
+func liveClick(w http.ResponseWriter, r *http.Request) {
+	var in struct{ X, Y float64 }
+	if read(w, r, &in) && liveOn(w) {
+		done(w, liveView.Click(in.X, in.Y))
+	}
+}
+
+func liveType(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Text string }
+	if read(w, r, &in) && liveOn(w) {
+		done(w, liveView.Type(in.Text))
+	}
+}
+
+func liveKey(w http.ResponseWriter, r *http.Request) {
+	var in struct{ Key string }
+	if read(w, r, &in) && liveOn(w) {
+		done(w, liveView.Key(in.Key))
+	}
+}
+
+func liveScroll(w http.ResponseWriter, r *http.Request) {
+	var in struct{ X, Y, DY float64 }
+	if read(w, r, &in) && liveOn(w) {
+		done(w, liveView.Scroll(in.X, in.Y, in.DY))
+	}
+}
+
+func liveCancel(w http.ResponseWriter, r *http.Request) {
+	if liveOn(w) {
+		liveView.Cancel()
+		done(w, nil)
+	}
+}
+
+func liveOn(w http.ResponseWriter) bool {
+	if liveView == nil {
+		fail(w, http.StatusNotFound, errors.New("no live view"))
+		return false
+	}
+	return true
 }
 
 // ---------------------------------------------------------------------------

@@ -31,6 +31,7 @@ import (
 
 	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
+	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
 	"feed-my-accounting/pdfdoc"
@@ -369,12 +370,25 @@ func appleConfig(cfg *Config) apple.Config {
 
 func runAppleInvoice(cfg *Config) error { return apple.Run(appleConfig(cfg)) }
 
+// liveView is where a run asks someone to take over a page — a captcha at Vodafone's login,
+// say: the web interface's, set as it starts; nil on the command line, where nobody is asked.
+var liveView *browser.Live
+
+// vodafoneBrowser is the folder beside the configuration where MeinVodafone's login stays.
+const vodafoneBrowser = "feed-my-accounting-vodafone-browser"
+
 func vodafoneConfig(cfg *Config) vodafone.Config {
+	profile := ""
+	if cfg.dir != "" {
+		profile = filepath.Join(cfg.dir, vodafoneBrowser)
+	}
 	return vodafone.Config{
 		Mail:                cfg.Mail,
 		Username:            cfg.VodafoneInvoice.Username,
 		Password:            cfg.VodafoneInvoice.Password,
 		FallbackToLastMonth: *cfg.VodafoneInvoice.FallbackToLastMonth,
+		Profile:             profile,
+		Live:                liveView,
 	}
 }
 

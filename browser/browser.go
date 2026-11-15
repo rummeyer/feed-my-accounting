@@ -30,6 +30,11 @@ func filteredLogf(format string, args ...interface{}) {
 // Options:
 //   - GermanLocale: sets Chrome's UI and accept-language to de-DE. Required
 //     for sites that render locale-dependent UI (e.g. sevDesk date pickers).
+//   - Profile: keeps cookies and the like in a directory from run to run, so a
+//     site's "stay logged in" lasts — fewer logins, fewer captchas.
+//   - Timeout: how long the context lives; 5 minutes unless given, longer for a
+//     run that may wait for someone to solve a captcha.
+//   - WindowSize: the page's size, for a live view whose clicks land where shown.
 func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 	cfg := options{}
 	for _, o := range opts {
@@ -52,12 +57,23 @@ func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 		)
 	}
 
+	if cfg.profile != "" {
+		flags = append(flags, chromedp.UserDataDir(cfg.profile))
+	}
+	if cfg.width > 0 && cfg.height > 0 {
+		flags = append(flags, chromedp.WindowSize(cfg.width, cfg.height))
+	}
+	timeout := 5 * time.Minute
+	if cfg.timeout > 0 {
+		timeout = cfg.timeout
+	}
+
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), flags...)
 	ctx, ctxCancel := chromedp.NewContext(allocCtx,
 		chromedp.WithErrorf(filteredLogf),
 		chromedp.WithLogf(filteredLogf),
 	)
-	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, timeoutCancel := context.WithTimeout(ctx, timeout)
 
 	return ctx, func() {
 		timeoutCancel()
@@ -67,7 +83,10 @@ func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 }
 
 type options struct {
-	germanLocale bool
+	germanLocale  bool
+	profile       string
+	timeout       time.Duration
+	width, height int
 }
 
 // Option configures the browser context.
@@ -78,4 +97,19 @@ func WithGermanLocale() Option {
 	return func(o *options) {
 		o.germanLocale = true
 	}
+}
+
+// WithProfile keeps the browser's profile — cookies, a login that stays — in dir.
+func WithProfile(dir string) Option {
+	return func(o *options) { o.profile = dir }
+}
+
+// WithTimeout lets the context live d rather than 5 minutes.
+func WithTimeout(d time.Duration) Option {
+	return func(o *options) { o.timeout = d }
+}
+
+// WithWindowSize sets the page's size in CSS pixels.
+func WithWindowSize(width, height int) Option {
+	return func(o *options) { o.width, o.height = width, height }
 }

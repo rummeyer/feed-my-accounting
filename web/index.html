@@ -199,6 +199,21 @@
     </div>
   </main>
 
+  <!-- A run hands a page over for a moment — Vodafone's login with a captcha: the page as it is,
+       clicks and typing passed on; the run goes on by itself once it is through. -->
+  <dialog id="live" class="live">
+    <p id="live-reason" class="live-reason"></p>
+    <!-- The page itself: a click on it clicks there, and the keyboard types into it — through an
+         input out of sight, so that a phone opens its keyboard too. -->
+    <div class="live-screen">
+      <img id="live-shot" alt="Die Seite, wie der Lauf sie gerade sieht">
+      <input id="live-keys" class="live-keys" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+             aria-label="Tastatur für die Seite" data-en-aria-label="Keyboard for the page">
+    </div>
+    <p class="muted"><span lang="de">Ins Feld auf der Seite klicken und lostippen, wie im Browser. Das Mausrad scrollt. Sobald du angemeldet bist, geht der Lauf von selbst weiter.</span><span lang="en">Click into the field on the page and type, as in a browser. The mouse wheel scrolls. Once you are logged in, the run goes on by itself.</span></p>
+    <div class="live-row end"><button type="button" id="live-cancel"><span lang="de">Lauf abbrechen</span><span lang="en">Cancel the run</span></button></div>
+  </dialog>
+
   <footer>
     <span>feed-my-accounting <span id="version"></span></span>
   </footer>

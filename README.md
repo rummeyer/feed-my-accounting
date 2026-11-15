@@ -503,11 +503,13 @@ Logs into the MeinVodafone portal via headless Chrome, downloads Mobilfunk and K
 ### How it works
 
 1. Launches headless Chrome with bot-detection evasion (new headless mode, custom user agent, `navigator.webdriver` removed via CDP)
-2. Logs into `meinvodafone.de` and navigates to the invoice page for each contract type (Mobilfunk, Kabel)
-3. Downloads the invoice shown in the "Aktuelle Rechnung" block by intercepting the blob URL created by the browser
-4. If that download fails and `fallbackToLastMonth` is true, tries the first entry in the Rechnungsarchiv instead
-5. If the shown invoice is not for the current month and `fallbackToLastMonth` is false, skips and sends no email
-6. Sends all found invoices as attachments in a single email
+2. Opens MeinVodafone with the browser profile kept beside `config.yaml` (`feed-my-accounting-vodafone-browser/`): still logged in from the last run, it goes on at once. Else it logs in with *Eingeloggt bleiben* ticked, so the next run need not — fewer logins, fewer captchas. A login MeinVodafone turns down stops the run with why: *username or password wrong*, or blocked for now after too many tries
+3. **Logging in by hand:** without a password stored, or when MeinVodafone neither lets it in nor says why — a captcha, as a rule — a run started in the web interface, by hand or on schedule, waits up to 10 minutes. A window opens on the page with the Vodafone page as the run sees it: used as the page itself — a click on the picture clicks there, the keyboard types into the field clicked (a phone's keyboard too, pasting as well), the mouse wheel scrolls; once you are logged in the run goes on by itself, the login kept for the next runs. *Lauf abbrechen* ends it. On the command line such a login fails, saying so
+4. Navigates to the invoice page for each contract type, Mobilfunk first, then Kabel
+5. Downloads the invoice shown in the "Aktuelle Rechnung" block by intercepting the blob URL created by the browser
+6. If that download fails and `fallbackToLastMonth` is true, tries the first entry in the Rechnungsarchiv instead
+7. If the shown invoice is not for the current month and `fallbackToLastMonth` is false, skips and sends no email
+8. Sends all found invoices as attachments in a single email
 
 ### When to run
 

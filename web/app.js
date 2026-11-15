@@ -302,6 +302,119 @@ $('schedule-add').addEventListener('click', () => {
   refreshSave();
 });
 
+// ── Live view: a page a run hands over — Vodafone's login with a captcha ────
+
+// Asked or not, every two seconds: a scheduled run may ask too, with this page open. While it
+// asks, the picture anew a little more often than once a second.
+let liveTimer = null;
+/** Why a run hands its page over, by the key it sends. */
+const LIVE_REASONS = () => ({
+  'no-password': T('Vodafone: kein Passwort gespeichert – bitte hier anmelden.', 'Vodafone: no password stored – please log in here.'),
+  'no-form': T('Vodafone zeigt kein Login-Formular – bitte hier anmelden.', 'Vodafone shows no login form – please log in here.'),
+  asks: T('Vodafone fragt nach – bitte hier beantworten.', 'Vodafone is asking something – please answer it here.'),
+  refused: T('Vodafone lehnt die Anmeldung ab – bitte hier selbst anmelden, mit „Eingeloggt bleiben“; danach bleibt der Login für die nächsten Läufe.', 'Vodafone refuses the login – please log in here yourself, with “Eingeloggt bleiben”; the login then stays for the next runs.'),
+  captcha: T('Vodafone will einen Sicherheitscode – bitte den Code aus dem Bild ins Feld eintippen und „Weiter“ klicken.', 'Vodafone wants a security code – please type the code from the picture into the field and click “Weiter”.'),
+});
+async function checkLive() {
+  const state = await api('GET', '/api/live').catch(() => null);
+  const dialog = $('live');
+  if (state?.asking) {
+    $('live-reason').textContent = LIVE_REASONS()[state.reason] ?? state.reason;
+    if (!dialog.open) {
+      dialog.showModal();
+      liveReset();
+      refreshShot();
+      liveTimer = setInterval(refreshShot, 800);
+    }
+  } else if (dialog.open) {
+    clearInterval(liveTimer);
+    dialog.close();
+  }
+}
+setInterval(checkLive, 2000);
+checkLive();
+
+function refreshShot() {
+  const next = new Image();
+  next.onload = () => { $('live-shot').src = next.src; };
+  next.src = `/api/live/shot?t=${Date.now()}`;
+}
+
+// One after the other, in the order sent: keys typed fast stay in order.
+let liveQueue = Promise.resolve();
+const liveSend = (path, body) => {
+  liveQueue = liveQueue.then(() => api('POST', path, body)).then(refreshShot).catch((err) => { $('live-reason').textContent = err.message; });
+  return liveQueue;
+};
+
+// A click on the picture is a click on the page, at the same spot of it.
+$('live-shot').addEventListener('click', (e) => {
+  const img = e.currentTarget;
+  if (!img.naturalWidth) return;
+  // Where in the picture, as a share of its box on the screen: the mouse and the box measured
+  // alike, under the page's zoom of 90 % — offsetX and clientWidth are not.
+  const box = img.getBoundingClientRect();
+  const x = ((e.clientX - box.left) / box.width) * img.naturalWidth;
+  const y = ((e.clientY - box.top) / box.height) * img.naturalHeight;
+  liveSend('/api/live/click', { x, y });
+  $('live-keys').focus({ preventScroll: true });
+});
+// The mouse wheel over the picture scrolls the page, at the same spot; a burst of turns as one.
+let wheel = 0;
+let wheelTimer = null;
+$('live-shot').addEventListener('wheel', (e) => {
+  e.preventDefault();
+  wheel += e.deltaY;
+  const img = e.currentTarget;
+  const box = img.getBoundingClientRect();
+  const x = ((e.clientX - box.left) / box.width) * img.naturalWidth;
+  const y = ((e.clientY - box.top) / box.height) * img.naturalHeight;
+  clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => {
+    const dy = wheel;
+    wheel = 0;
+    if (img.naturalWidth) liveSend('/api/live/scroll', { x, y, dy });
+  }, 120);
+}, { passive: false });
+// The keyboard types into the page: the keys that do something there go on as keys, what they
+// write as text — a phone's keyboard, which tells no keys, through the input's events.
+const LIVE_KEYS = new Set(['Enter', 'Tab', 'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+$('live-keys').addEventListener('keydown', (e) => {
+  if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !LIVE_KEYS.has(e.key)) return;
+  e.preventDefault();
+  liveSend('/api/live/key', { key: e.key });
+});
+// The input keeps one character out of sight, so that a phone's backspace has something to
+// delete — on an empty input it tells nothing. Whatever else is in it went on to the page.
+const LIVE_KEPT = '\u200b';
+function liveReset() {
+  const box = $('live-keys');
+  box.value = LIVE_KEPT;
+  box.setSelectionRange(1, 1);
+}
+function liveTyped() {
+  const value = $('live-keys').value;
+  liveReset();
+  if (!value.startsWith(LIVE_KEPT)) liveSend('/api/live/key', { key: 'Backspace' });
+  else if (value.length > LIVE_KEPT.length) liveSend('/api/live/type', { text: value.slice(LIVE_KEPT.length) });
+}
+$('live-keys').addEventListener('input', (e) => { if (!e.isComposing) liveTyped(); });
+// A phone's keyboard writing a word at once: when it is done.
+$('live-keys').addEventListener('compositionend', liveTyped);
+$('live-keys').addEventListener('focus', liveReset);
+// Pasted, as a whole: a password from a password manager.
+$('live-keys').addEventListener('paste', (e) => {
+  e.preventDefault();
+  const text = e.clipboardData?.getData('text') ?? '';
+  if (text) liveSend('/api/live/type', { text });
+});
+$('live-cancel').addEventListener('click', () => liveSend('/api/live/cancel'));
+// Escape would close the dialog with the run still waiting: cancel it instead, asked.
+$('live').addEventListener('cancel', (e) => {
+  e.preventDefault();
+  if (confirm(T('Lauf abbrechen?', 'Cancel the run?'))) liveSend('/api/live/cancel');
+});
+
 // ── Consoles: a job's live output where it was started ─────────────────────
 
 /** Shows a job in a console box and follows it until it is done. */

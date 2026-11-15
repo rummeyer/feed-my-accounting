@@ -5,6 +5,8 @@ package vodafone
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -34,15 +36,25 @@ type Config struct {
 	Username            string // Vodafone portal username
 	Password            string // Vodafone portal password
 	FallbackToLastMonth bool   // if false, skip sending when current month invoice not yet available
+	// Profile keeps the browser's cookies from run to run, MeinVodafone's "Eingeloggt bleiben"
+	// with them: most runs need no login, and so no captcha. Empty: a fresh browser each time.
+	Profile string
+	// Live asks someone to log in by hand — a captcha, say, or no password stored — in the web
+	// interface's live view. Nil, as on the command line: such a login fails.
+	Live *browser.Live
 }
+
+// waitForHand is how long a run waits for someone to log in by hand in the live view.
+const waitForHand = 10 * time.Minute
 
 // ---------------------------------------------------------------------------
 // Internal types
 // ---------------------------------------------------------------------------
 
-var contractTypes = map[string]string{
-	"mobilfunk": "Mobilfunk",
-	"kabel":     "Kabel",
+// contractTypes are searched in this order: Mobilfunk first, then Kabel — the same every run.
+var contractTypes = []struct{ key, name string }{
+	{"mobilfunk", "Mobilfunk"},
+	{"kabel", "Kabel"},
 }
 
 var months = map[string]string{
@@ -95,11 +107,15 @@ func Send(cfg Config, attachments []email.Attachment) error {
 // Collect downloads the current Vodafone invoices — MeinVodafone has the current month's, or with
 // FallbackToLastMonth the last one — without sending them.
 func Collect(cfg Config) ([]email.Attachment, error) {
-	ctx, cancel := browser.NewContext()
+	opts := []browser.Option{browser.WithWindowSize(1280, 1400), browser.WithTimeout(5*time.Minute + waitForHand)}
+	if cfg.Profile != "" {
+		opts = append(opts, browser.WithProfile(cfg.Profile))
+	}
+	ctx, cancel := browser.NewContext(opts...)
 	defer cancel()
 
 	logger.Println("Logging in to Vodafone...")
-	if err := login(ctx, cfg.Username, cfg.Password); err != nil {
+	if err := login(ctx, cfg); err != nil {
 		return nil, fmt.Errorf("login failed: %w", err)
 	}
 
@@ -108,9 +124,9 @@ func Collect(cfg Config) ([]email.Attachment, error) {
 	logger.Printf("Looking for Vodafone invoices: %s", targetMonth)
 
 	var results []invoice
-	for contractType, typeName := range contractTypes {
-		logger.Printf("Searching %s...", typeName)
-		if inv := downloadInvoice(ctx, contractType, typeName, cfg.FallbackToLastMonth); inv != nil {
+	for _, ct := range contractTypes {
+		logger.Printf("Searching %s...", ct.name)
+		if inv := downloadInvoice(ctx, ct.key, ct.name, cfg.FallbackToLastMonth); inv != nil {
 			results = append(results, *inv)
 		}
 	}
@@ -133,7 +149,7 @@ func Collect(cfg Config) ([]email.Attachment, error) {
 // Browser
 // ---------------------------------------------------------------------------
 
-func login(ctx context.Context, user, pass string) error {
+func login(ctx context.Context, cfg Config) error {
 	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		_, err := page.AddScriptToEvaluateOnNewDocument(`
 			Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
@@ -143,30 +159,258 @@ func login(ctx context.Context, user, pass string) error {
 		return fmt.Errorf("injecting script: %w", err)
 	}
 
-	logger.Println("Navigating to Vodafone login page...")
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate("https://www.vodafone.de/meinvodafone/account/login"),
-	); err != nil {
-		return fmt.Errorf("navigating to login page: %w", err)
+	// The login page itself, no detour by the services and their redirect by script: what
+	// MeinVodafone shows there is what the run goes by — the form, its security code at once,
+	// or the services it sends on to with the cookies of a login that stayed.
+	logger.Println("Opening MeinVodafone...")
+	if err := chromedp.Run(ctx, chromedp.Navigate("https://www.vodafone.de/meinvodafone/account/login")); err != nil {
+		return fmt.Errorf("opening the login page: %w", err)
 	}
-
 	logger.Println("Waiting for login form...")
-	if err := chromedp.Run(ctx,
-		chromedp.WaitVisible(`#username-text`, chromedp.ByID),
-	); err != nil {
-		return fmt.Errorf("login form not found: %w", err)
+	switch loginPage(ctx, 30*time.Second) {
+	case "in":
+		logger.Println("Still logged in")
+		return nil
+	case "captcha":
+		return byHand(ctx, cfg.Live, "captcha")
+	case "unknown":
+		return byHand(ctx, cfg.Live, "no-form")
+	}
+	if cfg.Username == "" || cfg.Password == "" {
+		return byHand(ctx, cfg.Live, "no-password")
 	}
 
-	chromedp.Run(ctx, chromedp.Click(`#dip-consent-summary-reject-all`, chromedp.ByID))
+	// The cookie banner, if it is there: with the profile kept, it remembers the answer and
+	// does not come again — a click that waited for it would wait for good.
+	chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))
 	time.Sleep(time.Second)
 
 	logger.Println("Submitting credentials...")
-	return chromedp.Run(ctx,
-		chromedp.SendKeys(`#username-text`, user, chromedp.ByID),
-		chromedp.SendKeys(`#passwordField-input`, pass, chromedp.ByID),
-		chromedp.Click(`#submit`, chromedp.ByID),
-		chromedp.Sleep(5*time.Second),
-	)
+	for _, f := range []struct{ sel, value, name string }{
+		{"#username-text", cfg.Username, "username"},
+		{"#passwordField-input", cfg.Password, "password"},
+	} {
+		if err := typeInto(ctx, f.sel, f.value, f.name); err != nil {
+			return err
+		}
+	}
+	if err := chromedp.Run(ctx,
+		// Eingeloggt bleiben: the next run finds the login still there.
+		chromedp.Evaluate(`(() => {
+			const box = document.querySelector('#keep-me-logged-in-item') ||
+				[...document.querySelectorAll('label')].find(l => l.innerText.includes('Eingeloggt bleiben'))?.control;
+			if (box && !box.checked) box.click();
+		})()`, nil),
+	); err != nil {
+		return err
+	}
+	// Ticked, MeinVodafone explains it in a window over the form — "Eingeloggt bleiben - bis zu
+	// 180 Tage" — that takes the click meant for Anmelden (14.11.2026): closed first.
+	time.Sleep(1500 * time.Millisecond)
+	closeStayWindow(ctx)
+	if err := chromedp.Run(ctx, chromedp.Click(`#submit`, chromedp.ByID)); err != nil {
+		return err
+	}
+
+	// Logged in once MeinVodafone leaves its login page; still there, it says why. Up to 20 s:
+	// the redirect after a good login takes a few.
+	var url, text string
+	for i := 0; i < 20; i++ {
+		time.Sleep(time.Second)
+		if err := chromedp.Run(ctx, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery)); err != nil {
+			return err
+		}
+		err := loginOutcome(url, text)
+		if err == errCaptcha {
+			return byHand(ctx, cfg.Live, "captcha")
+		}
+		if err == nil {
+			logger.Println("Logged in")
+			return nil
+		}
+		if err != errStillOnLogin {
+			// Turned down — the password, or this address flagged after wrong tries, which
+			// MeinVodafone answers alike (14.11.2026): someone to look and log in by hand,
+			// where there is a live view; else the reason.
+			if cfg.Live != nil {
+				logger.Printf("%v", err)
+				return byHand(ctx, cfg.Live, "refused")
+			}
+			return err
+		}
+		// The window come only now, over a login not sent: closed, and Anmelden once more.
+		if closeStayWindow(ctx) {
+			_ = chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#submit')?.click()`, nil))
+		}
+	}
+	// Neither in nor told why: a captcha, say, or a question not known yet.
+	return byHand(ctx, cfg.Live, "asks")
+}
+
+// closeStayWindow closes MeinVodafone's window about staying logged in, if it shows: yes where it
+// offers one, else its close button in the upper right corner. It is a heading in a box, no
+// dialog as such: found by the heading. Whether there was one to close.
+func closeStayWindow(ctx context.Context) bool {
+	var did string
+	if err := chromedp.Run(ctx, chromedp.Evaluate(stayWindow, &did)); err != nil || did == "" {
+		return false
+	}
+	return true
+}
+
+const stayWindow = `(() => {
+	const visible = (el) => el.offsetParent !== null && el.getBoundingClientRect().height > 0;
+	const heading = [...document.querySelectorAll('h1, h2, h3, h4, h5, [role=heading]')]
+		.find((h) => visible(h) && /bleiben/i.test(h.innerText));
+	if (!heading) return '';
+	// Up to the box around it that holds its buttons.
+	let box = heading.parentElement;
+	while (box && box !== document.body && !box.querySelector('button, [role=button]')) box = box.parentElement;
+	if (!box || box === document.body) return '';
+	const buttons = [...box.querySelectorAll('button, [role=button]')].filter((b) => visible(b) && b.id !== 'submit' && !/anmelden/i.test(b.innerText));
+	const label = (b) => ((b.innerText || '') + ' ' + (b.getAttribute('aria-label') || '') + ' ' + (b.title || '') + ' ' + b.className).trim();
+	const yes = buttons.find((b) => /^\s*(ja\b|ok\b|verstanden|alles klar|bestätigen)/i.test(b.innerText || ''));
+	const close = buttons.find((b) => /schlie(ß|ss)en|close/i.test(label(b)) || /^\s*[×✕✖xX]\s*$/.test(b.innerText || '')) || buttons[0];
+	const pick = yes || close;
+	if (!pick) return '';
+	pick.click();
+	return (yes ? 'answered ' : 'closed with ') + JSON.stringify(label(pick).slice(0, 60));
+})()`
+
+// typeInto types value into the field sel, emptied first: a field the kept profile, or the page,
+// filled already would get it appended — a password Vodafone takes for wrong (14.11.2026). It
+// checks the field holds just the value, and if not, sets it the way the page notices; the
+// log says only lengths, never the value.
+func typeInto(ctx context.Context, sel, value, name string) error {
+	js, _ := json.Marshal(sel)
+	want, _ := json.Marshal(value)
+	clear := fmt.Sprintf(`(() => { const e = document.querySelector(%s); if (!e) return; e.focus(); e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); })()`, js)
+	if err := chromedp.Run(ctx, chromedp.Evaluate(clear, nil), chromedp.SendKeys(sel, value, chromedp.ByQuery)); err != nil {
+		return err
+	}
+	var got int
+	var same bool
+	check := fmt.Sprintf(`(() => { const e = document.querySelector(%s); return e ? e.value === %s : false; })()`, js, want)
+	length := fmt.Sprintf(`(document.querySelector(%s)?.value || '').length`, js)
+	if err := chromedp.Run(ctx, chromedp.Evaluate(check, &same), chromedp.Evaluate(length, &got)); err != nil || same {
+		return err
+	}
+	logger.Printf("%s field: %d of %d chars, set again", name, got, len([]rune(value)))
+	set := fmt.Sprintf(`(() => {
+		const e = document.querySelector(%s);
+		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+		setter.call(e, %s);
+		e.dispatchEvent(new Event('input', {bubbles: true}));
+		e.dispatchEvent(new Event('change', {bubbles: true}));
+		return e.value === %s;
+	})()`, js, want, want)
+	if err := chromedp.Run(ctx, chromedp.Evaluate(set, &same)); err != nil {
+		return err
+	}
+	if !same {
+		return fmt.Errorf("%s field not taking input", name)
+	}
+	return nil
+}
+
+// loginPage looks at the login page every second, up to d, for what it shows: "form", the login
+// form; "captcha", its security code; "in", the page left for MeinVodafone itself, logged in
+// from before; "unknown", none of these by then. A plain look, which a page between two loads
+// cannot hold up as chromedp's waits for an element can.
+func loginPage(ctx context.Context, d time.Duration) string {
+	for end := time.Now().Add(d); time.Now().Before(end); time.Sleep(time.Second) {
+		var url, text string
+		var form bool
+		if err := chromedp.Run(ctx, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery),
+			chromedp.Evaluate(`(() => { const e = document.querySelector('#username-text'); return !!e && e.offsetParent !== null; })()`, &form)); err != nil {
+			continue
+		}
+		switch out := loginOutcome(url, text); {
+		case out == errCaptcha:
+			return "captcha"
+		case form:
+			return "form"
+		case out == nil && strings.Contains(url, "/meinvodafone/"):
+			return "in"
+		}
+	}
+	return "unknown"
+}
+
+// handReasons are why a login is handed over, for the log; the live view says them in the
+// page's language, by their keys.
+var handReasons = map[string]string{
+	"no-password": "No password stored",
+	"no-form":     "No login form",
+	"asks":        "Page unknown",
+	"captcha":     "Security code asked",
+	"refused":     "Login refused",
+}
+
+// byHand asks someone to log in in the live view, and waits until MeinVodafone has let them in
+// — wrong tries along the way included, as they type — or until they cancel, or for
+// waitForHand. Without a live view, the reason is the error.
+func byHand(ctx context.Context, live *browser.Live, why string) error {
+	reason := handReasons[why]
+	if live == nil {
+		return fmt.Errorf("%s, log in via web interface", strings.ToLower(reason))
+	}
+	// The cookie banner out of the way first: it covers the login form.
+	chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))
+	logger.Printf("%s - waiting for live view", reason)
+	cancelled := live.Open(ctx, why)
+	defer live.Close()
+	deadline := time.After(waitForHand)
+	tick := time.NewTicker(2 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-cancelled:
+			return browser.ErrGivenUp
+		case <-deadline:
+			return fmt.Errorf("live view timed out after %d min", int(waitForHand.Minutes()))
+		case <-tick.C:
+			var url, text string
+			if err := chromedp.Run(ctx, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery)); err != nil {
+				continue // the page between two loads
+			}
+			if loginOutcome(url, text) == nil {
+				logger.Println("Logged in by hand")
+				return nil
+			}
+		}
+	}
+}
+
+var errStillOnLogin = errors.New("still on the login page")
+
+// errCaptcha is MeinVodafone asking for its security code: for someone to type, in the live view.
+var errCaptcha = errors.New("security code required")
+
+// loginOutcome reads the page after the credentials went in: nil once it is no longer the
+// login page; the reason MeinVodafone gives when it says one — wrong credentials, or locked
+// after too many tries, which it does for the address they came from (14.11.2026);
+// errStillOnLogin while it says nothing yet.
+func loginOutcome(url, text string) error {
+	t := strings.Join(strings.Fields(text), " ")
+	// Its security code — a captcha, text in a picture — after wrong tries, on a page of its
+	// own, vodafone.de/cprx/captcha (14.11.2026): not logged in. By its address, or its text.
+	if strings.Contains(url, "/cprx/captcha") || strings.Contains(t, "Sicherheitscode eingeben") || strings.Contains(t, "Login - Sicherheitscode") {
+		return errCaptcha
+	}
+	if !strings.Contains(url, "/meinvodafone/account/login") {
+		return nil
+	}
+	lower := strings.ToLower(t)
+	switch {
+	case strings.Contains(lower, "gesperrt") || strings.Contains(lower, "zu viele") || strings.Contains(lower, "zu oft"):
+		return errors.New("login blocked, too many tries")
+	case strings.Contains(lower, "nicht korrekt") || strings.Contains(lower, "das hat leider nicht geklappt"):
+		return errors.New("wrong username or password")
+	}
+	return errStillOnLogin
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +460,7 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 			pdfData, err := capturePDF(ctx, clickCurrentInvoice)
 			if err == nil {
 				info.Type = typeName
-				info.Filename = fmt.Sprintf("%s_%s_Rechnung_Vodafone_%s.pdf", info.Month, info.Year, contractTypes[contractType])
+				info.Filename = fmt.Sprintf("%s_%s_Rechnung_Vodafone_%s.pdf", info.Month, info.Year, contractType)
 				info.PDFData = pdfData
 				return info
 			}
@@ -246,7 +490,7 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 	}
 
 	archiveInfo.Type = typeName
-	archiveInfo.Filename = fmt.Sprintf("%s_%s_Rechnung_Vodafone_%s.pdf", archiveInfo.Month, archiveInfo.Year, contractTypes[contractType])
+	archiveInfo.Filename = fmt.Sprintf("%s_%s_Rechnung_Vodafone_%s.pdf", archiveInfo.Month, archiveInfo.Year, contractType)
 	archiveInfo.PDFData = pdfData
 	return archiveInfo
 }
@@ -296,7 +540,9 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 			return nil
 		}
 	}
-	return nil
+	var url string
+	_ = chromedp.Run(ctx, chromedp.Location(&url))
+	return fmt.Errorf("invoice page not loaded after 30 s (%s)", url)
 }
 
 func capturePDF(ctx context.Context, clickJS string) ([]byte, error) {

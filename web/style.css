@@ -424,3 +424,19 @@ main.login { max-width: 560px; }
 
 /* A month field that only shows, Vodafone's. */
 input.month:disabled { opacity: .55; cursor: default; }
+
+/* The live view: a page a run hands over — Vodafone's login with a captcha. */
+dialog.live {
+  width: min(960px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--panel-edge); padding: 16px;
+  box-shadow: 4px 4px 0 var(--rule);
+}
+dialog.live::backdrop { background: rgb(0 0 0 / 0.45); }
+.live-reason { font-weight: 600; color: var(--headline); margin: 0 0 10px; }
+.live-screen { position: relative; border: 1px solid var(--rule); }
+.live-screen:focus-within { outline: 2px solid var(--headline); outline-offset: 1px; }
+#live-shot { display: block; width: 100%; height: auto; cursor: text; background: var(--cell); min-height: 120px; }
+/* Out of sight but focusable: what is typed goes on to the page. */
+.live-keys { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none; font-size: 16px; }
+.live-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+.live-row.end { justify-content: flex-end; }
