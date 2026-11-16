@@ -168,11 +168,12 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	}
 	short := days > 0 && report.TotalHours < float64(days*hoursPerWorkday)
 	// The budgets are a warning only: without them, the work log all the same.
-	var over []Budget
+	var over, ours []Budget
 	if budgets, err := APIBudgets(cfg.Harvest); err != nil {
 		logger.Printf("Project budgets not checked: %v", err)
 	} else {
 		over = overBudget(budgets, entries, from, time.Now())
+		ours = budgetsOf(budgets, entries, from, time.Now())
 	}
 	if cfg.Harvest.Company == "" || short || len(over) > 0 {
 		if account, err = APICompany(cfg.Harvest); err != nil {
@@ -190,7 +191,7 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	if company == "" {
 		company = account.Name
 	}
-	data, err := WorkLog(company, cfg.Harvest.Logo, report.PeriodFrom, report.PeriodTo, entries)
+	data, err := WorkLog(company, cfg.Harvest.Logo, report.PeriodFrom, report.PeriodTo, entries, ours)
 	if err != nil {
 		return nil, nil, fmt.Errorf("making the work log: %w", err)
 	}
@@ -255,17 +256,28 @@ func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exist
 	return existing, true, nil
 }
 
-// overBudget is the budgets of the entries' projects that are spent beyond. A monthly budget's
-// spending is this month's, as Harvest reports it: checked only for the month of now.
-func overBudget(budgets []Budget, entries []Entry, month, now time.Time) []Budget {
+// budgetsOf is the budgets of the entries' projects, as they stand now. A monthly budget's
+// spending is this month's, as Harvest reports it: only for the month of now.
+func budgetsOf(budgets []Budget, entries []Entry, month, now time.Time) []Budget {
 	ours := map[int]bool{}
 	for _, e := range entries {
 		ours[e.ProjectID] = true
 	}
 	thisMonth := month.Year() == now.Year() && month.Month() == now.Month()
-	var over []Budget
+	var of []Budget
 	for _, b := range budgets {
-		if ours[b.ProjectID] && b.Spent > b.Budget && (!b.Monthly || thisMonth) {
+		if ours[b.ProjectID] && (!b.Monthly || thisMonth) {
+			of = append(of, b)
+		}
+	}
+	return of
+}
+
+// overBudget is the budgets of the entries' projects that are spent beyond.
+func overBudget(budgets []Budget, entries []Entry, month, now time.Time) []Budget {
+	var over []Budget
+	for _, b := range budgetsOf(budgets, entries, month, now) {
+		if b.Spent > b.Budget {
 			over = append(over, b)
 		}
 	}

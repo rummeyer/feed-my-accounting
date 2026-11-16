@@ -43,8 +43,9 @@ const (
 )
 
 // WorkLog is the PDF of the entries, Harvest's detailed time report as the company would have
-// it for the period from from to to: with its logo, a PNG or JPEG, else its name.
-func WorkLog(company, logo string, from, to time.Time, entries []Entry) ([]byte, error) {
+// it for the period from from to to: with its logo, a PNG or JPEG, else its name. With the
+// hours left of the budgets in hours among budgets, those of the entries' projects.
+func WorkLog(company, logo string, from, to time.Time, entries []Entry, budgets []Budget) ([]byte, error) {
 	var total, open float64
 	for _, e := range entries {
 		total += e.Hours
@@ -73,7 +74,7 @@ func WorkLog(company, logo string, from, to time.Time, entries []Entry) ([]byte,
 			pdf.CellFormat(186, 6, fmt.Sprintf("Seite %d von {nb}", pdf.PageNo()), "", 0, "C", false, 0, "")
 		})
 	})
-	if err := logHead(doc, tr, company, logo, from, to, total, open, entries); err != nil {
+	if err := logHead(doc, tr, company, logo, from, to, total, open, entries, budgetLines(budgets)); err != nil {
 		return nil, err
 	}
 	tableHead(doc.Fpdf, tr)
@@ -107,7 +108,7 @@ func WorkLogName(from time.Time, invoice string) string {
 
 // logHead is the report's title, the company's logo or name, and the summary of the period: its
 // totals, and the clients, projects, tasks and people in it.
-func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry) error {
+func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry, left []string) error {
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
@@ -149,7 +150,11 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	bold(pdf, hours(total)+" Stunden", 70, 9)
 	pdf.SetX(logMargin + 22)
 	bold(pdf, hours(open)+" Stunden abrechenbar, nicht abgerechnet", 70, 8)
-	left := pdf.GetY()
+	for _, line := range left {
+		pdf.SetX(logMargin + 22)
+		bold(pdf, tr(line), 70, 8)
+	}
+	bottomLeft := pdf.GetY()
 
 	// Right: what the report covers.
 	pdf.SetXY(110, top)
@@ -170,8 +175,31 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 		label(pdf, tr(title), 22)
 		bold(pdf, tr(strings.Join(part.values, ", ")), 66, 9)
 	}
-	pdf.SetY(max(left, pdf.GetY()) + 8)
+	pdf.SetY(max(bottomLeft, pdf.GetY()) + 8)
 	return nil
+}
+
+// budgetLines is what is left of the budgets in hours: "151,00 Stunden verbleibend", or
+// "12,00 Stunden über Budget"; with the project's name where there are several.
+func budgetLines(budgets []Budget) []string {
+	var lines []string
+	var inHours []Budget
+	for _, b := range budgets {
+		if !b.Cost() && b.By != "none" && b.Budget > 0 {
+			inHours = append(inHours, b)
+		}
+	}
+	for _, b := range inHours {
+		line := hours(b.Budget-b.Spent) + " Stunden verbleibend"
+		if b.Spent > b.Budget {
+			line = hours(b.Spent-b.Budget) + " Stunden über Budget"
+		}
+		if len(inHours) > 1 {
+			line += " (" + b.Project + ")"
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 func label(pdf *fpdf.Fpdf, text string, width float64) {

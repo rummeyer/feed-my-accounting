@@ -33,7 +33,7 @@ func TestWorkLog(t *testing.T) {
 		}
 	}
 	entries[0].Billed = true
-	data, err := WorkLog("Muster GmbH", "", day(1), day(31), entries)
+	data, err := WorkLog("Muster GmbH", "", day(1), day(31), entries, []Budget{{Project: "Süd", By: "project", Budget: 400, Spent: 249}, {Project: "Kosten", By: "project_cost", Budget: 9000, Spent: 10}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func TestWorkLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Zeitnachweis 10/2026", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
+	for _, want := range []string{"Zeitnachweis 10/2026", "Muster GmbH", "Zeitraum", "248,00 Stunden", "243,00 Stunden abrechenbar", "151,00 Stunden verbleibend", "Tätigkeit", "[0042] Beratung", "[7:30 - 12:30] Abstimmung", "Seite 1 von"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("work log without %q", want)
 		}
@@ -105,7 +105,7 @@ func TestWorkLogLogo(t *testing.T) {
 	f.Close()
 	day := time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
 	entries := []Entry{{Date: day, Client: "Acme GmbH", Project: "Beratung", Task: "Analyse", Person: "Max Mustermann", Hours: 2}}
-	data, err := WorkLog("Muster GmbH", logo, day, day.AddDate(0, 1, -1), entries)
+	data, err := WorkLog("Muster GmbH", logo, day, day.AddDate(0, 1, -1), entries, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestWorkLogLogo(t *testing.T) {
 	if strings.Contains(text, "Muster GmbH") || !strings.Contains(text, "Zeitnachweis") {
 		t.Errorf("with a logo, the name should not show: %q", text[:min(200, len(text))])
 	}
-	if _, err := WorkLog("Muster GmbH", filepath.Join(t.TempDir(), "none.png"), day, day, entries); err == nil {
+	if _, err := WorkLog("Muster GmbH", filepath.Join(t.TempDir(), "none.png"), day, day, entries, nil); err == nil {
 		t.Error("a logo that is not there: no error")
 	}
 }
@@ -149,7 +149,7 @@ func TestLogoShrunk(t *testing.T) {
 		t.Errorf("the mark lost: blue %d", b>>8)
 	}
 	day := time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local)
-	pdfData, err := WorkLog("Muster GmbH", logo, day, day, []Entry{{Date: day, Client: "Acme GmbH", Hours: 1}})
+	pdfData, err := WorkLog("Muster GmbH", logo, day, day, []Entry{{Date: day, Client: "Acme GmbH", Hours: 1}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,5 +223,16 @@ func TestBudgetWarning(t *testing.T) {
 	}
 	if got := budgetWarning(Budget{ProjectID: 7, Project: "Beta", By: "project_cost", Budget: 1000, Spent: 1100}, "u"); !strings.Contains(got, "1100.00 of 1000.00 spent") {
 		t.Errorf("cost budget: %q", got)
+	}
+}
+
+func TestBudgetLines(t *testing.T) {
+	one := []Budget{{Project: "A", By: "project", Budget: 240, Spent: 89}}
+	if got := budgetLines(one); !reflect.DeepEqual(got, []string{"151,00 Stunden verbleibend"}) {
+		t.Errorf("one: %q", got)
+	}
+	two := []Budget{{Project: "A", By: "project", Budget: 100, Spent: 112}, {Project: "B", By: "task", Budget: 50, Spent: 20}, {Project: "C", By: "project_cost", Budget: 5000, Spent: 1}}
+	if got := budgetLines(two); !reflect.DeepEqual(got, []string{"12,00 Stunden über Budget (A)", "30,00 Stunden verbleibend (B)"}) {
+		t.Errorf("two: %q", got)
 	}
 }
