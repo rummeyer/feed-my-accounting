@@ -434,6 +434,14 @@ dialog.live {
   box-shadow: 4px 4px 0 var(--rule);
 }
 dialog.live::backdrop { background: rgb(0 0 0 / 0.45); }
+/* The page's own question or notice: the live view's frame, as narrow as a message wants. */
+dialog.ask {
+  width: min(460px, calc(100vw - 32px));
+  background: var(--panel); color: var(--ink); border: 1px solid var(--panel-edge); padding: 20px;
+  box-shadow: 4px 4px 0 var(--rule);
+}
+dialog.ask::backdrop { background: rgb(0 0 0 / 0.45); }
+.ask-text { margin: 0 0 6px; white-space: pre-line; line-height: 1.5; }
 .live-reason { font-weight: 600; color: var(--headline); margin: 0 0 8px; font-size: 0.9em; }
 /* The page as large as the window has room for with the line above and the row beneath it:
    nothing to scroll to reach the buttons. */

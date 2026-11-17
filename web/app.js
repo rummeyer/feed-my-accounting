@@ -47,6 +47,34 @@ async function api(method, path, body) {
   return data;
 }
 
+// ── The page's own question and notice, in its look rather than the browser's ──
+
+/** Asks text, the answer yes or no: resolves true on yes, false on no or Escape. */
+function ask(text, { yes = T('OK', 'OK'), no = T('Abbrechen', 'Cancel') } = {}) {
+  const dialog = $('ask');
+  $('ask-text').textContent = text;
+  $('ask-yes').textContent = yes;
+  $('ask-no').textContent = no ?? '';
+  $('ask-no').hidden = no === null;
+  return new Promise((resolve) => {
+    const done = (answer) => {
+      dialog.removeEventListener('cancel', escape);
+      $('ask-yes').onclick = $('ask-no').onclick = null;
+      dialog.close();
+      resolve(answer);
+    };
+    const escape = (e) => { e.preventDefault(); done(false); };
+    dialog.addEventListener('cancel', escape);
+    $('ask-yes').onclick = () => done(true);
+    $('ask-no').onclick = () => done(false);
+    dialog.showModal();
+    $('ask-yes').focus();
+  });
+}
+
+/** Tells text, with OK only. */
+const tell = (text) => ask(text, { no: null });
+
 // Abmelden, once logged in: the session ends here, the login comes again.
 (async () => {
   const session = await api('GET', '/api/session').catch(() => null);
@@ -243,6 +271,10 @@ async function loadCron() {
   if (schedule && scheduleJSON() !== schedule.saved) return; // changes not saved yet: kept
   try {
     schedule = await api('GET', '/api/schedule');
+    // By when each runs next, as loaded — one added stays where it is put until then. None
+    // coming last.
+    const next = (e) => (e.next?.length ? Date.parse(e.next[0]) : Infinity);
+    schedule.entries.sort((a, b) => next(a) - next(b) || a.job.localeCompare(b.job));
     schedule.saved = scheduleJSON();
   } catch (err) {
     $('schedule').replaceChildren(el('p', 'badge failed', err.message));
@@ -456,9 +488,9 @@ for (const b of document.querySelectorAll('[data-live-key]')) {
 $('live-fill').addEventListener('click', () => { liveSend('/api/live/fill'); $('live-keys').focus({ preventScroll: true }); });
 $('live-cancel').addEventListener('click', () => liveSend('/api/live/cancel'));
 // Escape would close the dialog with the run still waiting: cancel it instead, asked.
-$('live').addEventListener('cancel', (e) => {
+$('live').addEventListener('cancel', async (e) => {
   e.preventDefault();
-  if (confirm(T('Lauf abbrechen?', 'Cancel the run?'))) liveSend('/api/live/cancel');
+  if (await ask(T('Lauf abbrechen?', 'Cancel the run?'), { yes: T('Lauf abbrechen', 'Cancel the run'), no: T('Weiter warten', 'Keep waiting') })) liveSend('/api/live/cancel');
 });
 
 // ── Consoles: a job's live output where it was started ─────────────────────
@@ -528,10 +560,10 @@ async function start(name, method, path, body, onDone) {
     follow(name, job, onDone);
   } catch (err) {
     // Held back by the login gate: run anyway only if asked and said yes.
-    if (err.data?.gated && body && confirm(`${err.message}\n\n${T('Trotzdem anmelden?', 'Log in anyway?')}`)) {
+    if (err.data?.gated && body && await ask(`${err.message}\n\n${T('Trotzdem anmelden?', 'Log in anyway?')}`, { yes: T('Trotzdem anmelden', 'Log in anyway') })) {
       return start(name, method, path, { ...body, force: true }, onDone);
     }
-    alert(err.message);
+    tell(err.message);
   }
 }
 
@@ -554,9 +586,9 @@ for (const b of document.querySelectorAll('[data-view]')) {
   b.addEventListener('click', () => start(b.dataset.view, 'POST', `/api/${b.dataset.view}/view`, { month: monthOf(b.dataset.view) }));
 }
 for (const b of document.querySelectorAll('[data-send]')) {
-  b.addEventListener('click', () => {
+  b.addEventListener('click', async () => {
     const kind = b.dataset.send;
-    if (!confirm(T(`${NAMES[kind]} ${monthOf(kind)} senden an ${mailTo()}?`, `Send ${NAMES[kind]} ${monthOf(kind)} to ${mailTo()}?`))) return;
+    if (!(await ask(T(`${NAMES[kind]} ${monthOf(kind)} senden an ${mailTo()}?`, `Send ${NAMES[kind]} ${monthOf(kind)} to ${mailTo()}?`), { yes: T('Senden', 'Send') }))) return;
     start(kind, 'POST', `/api/${kind}/send`, { month: monthOf(kind) });
   });
 }
@@ -964,10 +996,10 @@ window.addEventListener('beforeunload', (e) => {
 
 $('travel-generate').addEventListener('click', () =>
   start('travel', 'POST', '/api/travel/generate', { month: monthKey() }));
-$('travel-send').addEventListener('click', () => {
+$('travel-send').addEventListener('click', async () => {
   const t = plan?.totals ?? {};
-  if (!confirm(T(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro(totalOf(t))}`,
-    `Send the travel expenses of ${MONTHS[month.getMonth()]} ${month.getFullYear()} to ${mailTo()}?\n${t.days ?? 0} travel days, ${euro(totalOf(t))}`))) return;
+  if (!(await ask(T(`Reisekosten ${MONTHS[month.getMonth()]} ${month.getFullYear()} senden an ${mailTo()}?\n${t.days ?? 0} Reisetage, ${euro(totalOf(t))}`,
+    `Send the travel expenses of ${MONTHS[month.getMonth()]} ${month.getFullYear()} to ${mailTo()}?\n${t.days ?? 0} travel days, ${euro(totalOf(t))}`), { yes: T('Senden', 'Send') }))) return;
   start('travel', 'POST', '/api/travel/send', { month: monthKey() });
 });
 
@@ -1010,22 +1042,22 @@ async function sendReport(file) {
   $('drop-text').textContent = T(`${file.name}: ${hoursText(read.hours)} Stunden gelesen — bitte prüfen`, `${file.name}: ${hoursText(read.hours)} hours read — please check`);
 }
 
-$('draft-form').addEventListener('submit', (e) => {
+$('draft-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const hours = Number($('d-hours').value);
   const from = $('d-from').value;
   const to = $('d-to').value;
   if (to < from) {
-    alert(T('„Leistung bis“ liegt vor „Leistung von“.', '“Service to” is before “Service from”.'));
+    tell(T('„Leistung bis“ liegt vor „Leistung von“.', '“Service to” is before “Service from”.'));
     return;
   }
   const client = draftClient();
   if (!client) {
-    alert(T('Kein Kunde: „Kunde in sevDesk“ unter „Einstellungen Kundenrechnung“ eintragen und speichern.', 'No client: enter “Client in sevDesk” under “Invoice settings” and save.'));
+    tell(T('Kein Kunde: „Kunde in sevDesk“ unter „Einstellungen Kundenrechnung“ eintragen und speichern.', 'No client: enter “Client in sevDesk” under “Invoice settings” and save.'));
     return;
   }
-  if (!confirm(T(`Rechnungsentwurf in sevDesk anlegen?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} Stunden`,
-    `Create the invoice draft in sevDesk?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} hours`))) return;
+  if (!(await ask(T(`Rechnungsentwurf in sevDesk anlegen?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} Stunden`,
+    `Create the invoice draft in sevDesk?\n${client}: ${dmy(from)} – ${dmy(to)}, ${hoursText(hours)} hours`), { yes: T('Anlegen', 'Create') }))) return;
   start('invoice', 'POST', '/api/harvest/draft', { from, to, hours });
 });
 
@@ -1083,7 +1115,7 @@ $('clear-log').addEventListener('click', async () => {
   try {
     await api('DELETE', '/api/jobs');
   } catch (err) {
-    alert(err.message);
+    tell(err.message);
     return;
   }
   openJob = null;
@@ -1461,11 +1493,11 @@ function renderLogo() {
   const take = (file) => {
     if (!file) return;
     if (!['image/png', 'image/jpeg'].includes(file.type)) {
-      alert(T('Das Logo muss ein PNG oder JPEG sein.', 'The logo must be a PNG or JPEG.'));
+      tell(T('Das Logo muss ein PNG oder JPEG sein.', 'The logo must be a PNG or JPEG.'));
       return;
     }
     if (file.size > 2 << 20) {
-      alert(T('Das Logo ist größer als 2 MB.', 'The logo is larger than 2 MB.'));
+      tell(T('Das Logo ist größer als 2 MB.', 'The logo is larger than 2 MB.'));
       return;
     }
     logoDraft = file;

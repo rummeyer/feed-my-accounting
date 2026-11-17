@@ -214,6 +214,15 @@
 
   <!-- A run hands a page over for a moment — Vodafone's login with a captcha: the page as it is,
        clicks and typing passed on; the run goes on by itself once it is through. -->
+  <!-- The page's own question or notice, in its look rather than the browser's: ask() and tell(). -->
+  <dialog id="ask" class="ask">
+    <p id="ask-text" class="ask-text"></p>
+    <div class="live-row end">
+      <button type="button" id="ask-no"></button>
+      <button type="button" id="ask-yes" class="strong"></button>
+    </div>
+  </dialog>
+
   <dialog id="live" class="live">
     <p id="live-reason" class="live-reason"></p>
     <!-- The page itself: a click on it clicks there, and the keyboard types into it — through an

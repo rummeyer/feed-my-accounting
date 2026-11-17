@@ -106,7 +106,7 @@ feed-my-accounting serve          # http://<host>:8595
 </p>
 
 <p align="center">
-  <img src="docs/cron.png" alt="The Zeitplan card: five jobs with their cron expressions and next runs, Anthropic on the last workday, LW" width="380">
+  <img src="docs/cron.png" alt="The Zeitplan card: six jobs in the order they run next, each with its cron expression and next runs — Amazon on the last day, L, Anthropic on the last workday, LW" width="380">
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the three PDFs it made" width="380">
 </p>
 
