@@ -164,14 +164,16 @@ button, .button {
   color: var(--ink); background: var(--panel); border: 1px solid var(--rule);
   padding: 10px 16px; cursor: pointer; box-shadow: 2px 2px 0 var(--rule);
 }
-button:hover, .button:hover { color: var(--headline); border-color: var(--headline); }
+button:not(:disabled):hover, .button:hover { color: var(--headline); border-color: var(--headline); }
 button:active { transform: translate(2px, 2px); box-shadow: none; }
 button.strong { background: var(--headline); color: var(--panel); border-color: var(--headline); box-shadow: 2px 2px 0 var(--accent); }
-button.strong:hover { color: var(--panel); opacity: 0.9; }
+button.strong:not(:disabled):hover { color: var(--panel); opacity: 0.9; }
 button.plain { box-shadow: none; border: 0; background: none; font-size: 20px; padding: 4px 12px; }
 button.link { box-shadow: none; border: 0; background: none; padding: 2px 6px; color: var(--muted); font-size: 10px; }
 button.link:hover { color: var(--bad); }
 button:disabled { opacity: 0.4; cursor: default; }
+/* Beside a button off: why, in a few words. */
+.gate-note { align-self: center; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 20px; }
 .actions.sticky { position: sticky; bottom: 0; background: var(--panel); padding: 14px 0; border-top: 2px dotted var(--rule); }
 
@@ -427,16 +429,24 @@ input.month:disabled { opacity: .55; cursor: default; }
 
 /* The live view: a page a run hands over — Vodafone's login with a captcha. */
 dialog.live {
-  width: min(960px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  width: min(1040px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
   background: var(--panel); color: var(--ink); border: 1px solid var(--panel-edge); padding: 16px;
   box-shadow: 4px 4px 0 var(--rule);
 }
 dialog.live::backdrop { background: rgb(0 0 0 / 0.45); }
-.live-reason { font-weight: 600; color: var(--headline); margin: 0 0 10px; }
-.live-screen { position: relative; border: 1px solid var(--rule); }
+.live-reason { font-weight: 600; color: var(--headline); margin: 0 0 8px; font-size: 0.9em; }
+/* The page as large as the window has room for with the line above and the row beneath it:
+   nothing to scroll to reach the buttons. */
+.live-screen { position: relative; border: 1px solid var(--rule); width: fit-content; max-width: 100%; margin: 0 auto; }
 .live-screen:focus-within { outline: 2px solid var(--headline); outline-offset: 1px; }
-#live-shot { display: block; width: 100%; height: auto; cursor: text; background: var(--cell); min-height: 120px; }
+#live-shot { display: block; max-width: 100%; max-height: calc(100vh - 190px); width: auto; height: auto; cursor: default; background: var(--cell); min-height: 120px; }
 /* Out of sight but focusable: what is typed goes on to the page. */
 .live-keys { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; pointer-events: none; font-size: 16px; }
 .live-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
 .live-row.end { justify-content: flex-end; }
+/* One row beneath the page: the text field as wide as there is room, the buttons small. */
+.live-bar { display: flex; gap: 6px; margin-top: 10px; align-items: stretch; }
+.live-bar button { padding: 6px 10px; letter-spacing: 0.04em; white-space: nowrap; }
+.live-bar .live-cancel { margin-left: auto; }
+#live-text { flex: 1; min-width: 6em; }
+@media (max-width: 640px) { .live-bar { flex-wrap: wrap; } }

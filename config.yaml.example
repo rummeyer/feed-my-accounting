@@ -42,6 +42,10 @@ apple-invoice:
     subject: "Deine Rechnung von Apple"
     folders: [INBOX, Rechnungen] # the inbox first
 
+amazon-invoice:
+  username: "your-amazon-business-email@example.com"
+  password: "your-amazon-password"   # the one-time code is typed once in the web interface's live view
+
 vodafone-invoice:
   username: "your-vodafone-email@example.com"
   password: "your-vodafone-password"

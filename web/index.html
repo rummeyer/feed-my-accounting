@@ -139,6 +139,18 @@
 
     <!-- Belege -->
     <section id="tab-receipts" class="tab" hidden>
+      <h2>Amazon</h2>
+      <p class="muted"><span lang="de">Rechnungen der Bestellungen des Monats von Amazon Business – am Monatsletzten des laufenden, sonst des vorigen – senden an</span><span lang="en">Send the invoices of the month's orders from Amazon Business – on its last day the current one's, else the previous one's – to</span> <span data-mail-to></span>. <span lang="de">Jeder Lauf ist eine Anmeldung – deshalb nur Senden.</span><span lang="en">Each run is a login – so sending only.</span></p>
+      <p class="last" data-last="amazon-invoice"></p>
+      <div class="actions">
+        <!-- The month fetched — on its last day the current one, else the one before: shown, not chosen. -->
+        <input class="month receipt-month" data-for="amazon" data-last-month disabled aria-label="Monat (am Monatsletzten der laufende, sonst der vorige)" title="Am Monatsletzten der laufende Monat, sonst der Vormonat" data-en-aria-label="Month (on its last day the current one, else the one before)" data-en-title="On a month's last day the current month, else the one before">
+        <button type="button" data-send="amazon" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
+        <span class="muted gate-note" data-gate="amazon"></span>
+      </div>
+      <div class="console" data-console="amazon" hidden></div>
+      <details class="part-box"><summary><span lang="de">Einstellungen Amazon</span><span lang="en">Amazon settings</span></summary><form class="part" data-part="amazon"></form></details>
+
       <h2>Anthropic</h2>
       <p class="muted"><span lang="de">Receipt-PDFs des Monats aus dem Posteingang: ansehen oder senden an</span><span lang="en">The month's receipt PDFs from the inbox: view, or send to</span> <span data-mail-to></span>.</p>
       <p class="last" data-last="anthropic-invoice"></p>
@@ -162,13 +174,13 @@
       <details class="part-box"><summary><span lang="de">Einstellungen Apple</span><span lang="en">Apple settings</span></summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
-      <p class="muted"><span lang="de">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone: ansehen oder senden an</span><span lang="en">The current invoices for mobile and cable from MeinVodafone: view, or send to</span> <span data-mail-to></span>.</p>
+      <p class="muted"><span lang="de">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone senden an</span><span lang="en">Send the current invoices for mobile and cable from MeinVodafone to</span> <span data-mail-to></span>. <span lang="de">Jeder Lauf ist eine Anmeldung – deshalb nur Senden.</span><span lang="en">Each run is a login – so sending only.</span></p>
       <p class="last" data-last="vodafone-invoice"></p>
       <div class="actions">
         <!-- Vodafone has the current month's only: shown, not to be chosen. -->
         <input class="month receipt-month" data-for="vodafone" disabled aria-label="Monat (nur der laufende)" title="MeinVodafone hat nur die aktuelle Rechnung" data-en-aria-label="Month (the current one only)" data-en-title="MeinVodafone has the current invoice only">
-        <button type="button" data-view="vodafone"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
         <button type="button" data-send="vodafone" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
+        <span class="muted gate-note" data-gate="vodafone"></span>
       </div>
       <div class="console" data-console="vodafone" hidden></div>
       <details class="part-box"><summary><span lang="de">Einstellungen Vodafone</span><span lang="en">Vodafone settings</span></summary><form class="part" data-part="vodafone"></form></details>
@@ -210,8 +222,21 @@
       <input id="live-keys" class="live-keys" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
              aria-label="Tastatur für die Seite" data-en-aria-label="Keyboard for the page">
     </div>
-    <p class="muted"><span lang="de">Ins Feld auf der Seite klicken und lostippen, wie im Browser. Das Mausrad scrollt. Sobald du angemeldet bist, geht der Lauf von selbst weiter.</span><span lang="en">Click into the field on the page and type, as in a browser. The mouse wheel scrolls. Once you are logged in, the run goes on by itself.</span></p>
-    <div class="live-row end"><button type="button" id="live-cancel"><span lang="de">Lauf abbrechen</span><span lang="en">Cancel the run</span></button></div>
+    <!-- One row beneath the page: text into its field, key by key — into the page's input field
+         if none has the cursor — keys as buttons for a keyboard whose keys do not come through,
+         and giving up. -->
+    <form id="live-text-form" class="live-bar">
+      <input id="live-text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+             placeholder="Text oder Code für das Feld" data-en-placeholder="Text or code for the field">
+      <button type="submit" title="Ins Feld der Seite tippen und senden" data-en-title="Type into the page's field and send"><span lang="de">Eintragen ↵</span><span lang="en">Enter text ↵</span></button>
+      <button type="button" id="live-fill" class="strong" hidden><span lang="de">Passwort</span><span lang="en">Password</span></button>
+      <button type="button" data-live-key="Backspace" title="Rücktaste" data-en-title="Backspace">⌫</button>
+      <button type="button" data-live-key="ArrowLeft" title="Cursor nach links" data-en-title="Cursor left">←</button>
+      <button type="button" data-live-key="ArrowRight" title="Cursor nach rechts" data-en-title="Cursor right">→</button>
+      <button type="button" data-live-key="Enter">Enter</button>
+      <button type="button" id="live-clear" title="Feld leeren" data-en-title="Clear field">✕</button>
+      <button type="button" id="live-cancel" class="live-cancel"><span lang="de">Abbrechen</span><span lang="en">Cancel</span></button>
+    </form>
   </dialog>
 
   <footer>

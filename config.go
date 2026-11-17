@@ -72,7 +72,7 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// anthropic-invoice, apple-invoice, vodafone-invoice or harvest-invoice.
+// amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice or harvest-invoice.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
@@ -102,6 +102,12 @@ type MailFilterConfig struct {
 	From    string   `yaml:"from"`    // sender domains, comma-separated
 	Subject string   `yaml:"subject"` // Anthropic: the subject's start; Apple: the whole subject
 	Folders []string `yaml:"folders"` // searched in this order
+}
+
+// AmazonInvoiceConfig is the Amazon Business login whose orders' invoices are fetched.
+type AmazonInvoiceConfig struct {
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 type AnthropicInvoiceConfig struct {
@@ -162,6 +168,7 @@ type Config struct {
 	Staff            StaffConfig            `yaml:"staff"`
 	Mail             email.MailConfig       `yaml:"mail"`
 	TravelExpense    TravelExpenseConfig    `yaml:"travel-expense"`
+	AmazonInvoice    AmazonInvoiceConfig    `yaml:"amazon-invoice"`
 	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
 	AppleInvoice     AppleInvoiceConfig     `yaml:"apple-invoice"`
 	VodafoneInvoice  VodafoneInvoiceConfig  `yaml:"vodafone-invoice"`

@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	amazon "feed-my-accounting/amazon-invoice"
 	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/browser"
@@ -90,21 +91,29 @@ func (s *server) handler() http.Handler {
 		func(cfg *Config, m time.Time) ([]email.Attachment, error) {
 			return anthropic.Collect(anthropicConfig(cfg), m)
 		},
-		func(cfg *Config, a []email.Attachment) error { return anthropic.Send(anthropicConfig(cfg), a) }}
+		func(cfg *Config, a []email.Attachment) error { return anthropic.Send(anthropicConfig(cfg), a) }, ""}
 	appleReceipts := receipts{"apple-invoice", "Apple-Rechnungen",
 		func(cfg *Config, m time.Time) ([]email.Attachment, error) { return apple.Collect(appleConfig(cfg), m) },
-		func(cfg *Config, a []email.Attachment) error { return apple.Send(appleConfig(cfg), a) }}
+		func(cfg *Config, a []email.Attachment) error { return apple.Send(appleConfig(cfg), a) }, ""}
+	// Amazon Business: the invoices of a month's orders, from amazon.de — on a month's last day
+	// its own, else the one before; the month not chosen, once a month only, as Vodafone's.
+	amazonReceipts := receipts{"amazon-invoice", "Amazon-Rechnungen",
+		func(cfg *Config, _ time.Time) ([]email.Attachment, error) {
+			return amazon.Collect(amazonConfig(cfg), amazon.FetchedMonth(time.Now()))
+		},
+		func(cfg *Config, a []email.Attachment) error { return amazon.Send(amazonConfig(cfg), a) }, "amazon"}
+	mux.HandleFunc("POST /api/amazon/send", s.receiptsRun(amazonReceipts, true))
 	mux.HandleFunc("POST /api/anthropic/view", s.receiptsRun(anthropicReceipts, false))
 	mux.HandleFunc("POST /api/anthropic/send", s.receiptsRun(anthropicReceipts, true))
 	mux.HandleFunc("POST /api/apple/view", s.receiptsRun(appleReceipts, false))
 	mux.HandleFunc("POST /api/apple/send", s.receiptsRun(appleReceipts, true))
 	// Vodafone's current invoices: the month is not chosen, MeinVodafone has the current one only.
+	// Sent only, not to look at: each run is a login, and logins risk the account (17.11.2026).
 	vodafoneReceipts := receipts{"vodafone-invoice", "Vodafone-Rechnungen",
 		func(cfg *Config, _ time.Time) ([]email.Attachment, error) {
 			return vodafone.Collect(vodafoneConfig(cfg))
 		},
-		func(cfg *Config, a []email.Attachment) error { return vodafone.Send(vodafoneConfig(cfg), a) }}
-	mux.HandleFunc("POST /api/vodafone/view", s.receiptsRun(vodafoneReceipts, false))
+		func(cfg *Config, a []email.Attachment) error { return vodafone.Send(vodafoneConfig(cfg), a) }, "vodafone"}
 	mux.HandleFunc("POST /api/vodafone/send", s.receiptsRun(vodafoneReceipts, true))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
@@ -124,6 +133,8 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/live/type", liveType)
 	mux.HandleFunc("POST /api/live/key", liveKey)
 	mux.HandleFunc("POST /api/live/scroll", liveScroll)
+	mux.HandleFunc("POST /api/live/clear", liveClear)
+	mux.HandleFunc("POST /api/live/fill", liveFill)
 	mux.HandleFunc("POST /api/live/cancel", liveCancel)
 	mux.HandleFunc("GET /api/settings", s.getSettings)
 	mux.HandleFunc("PUT /api/settings", s.putSettings)
@@ -185,7 +196,21 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 	for _, c := range cfg.TravelExpense.Clients {
 		clients = append(clients, map[string]any{"id": c.ID, "name": c.Name})
 	}
+	// Whether a login-gated site may be logged into by hand — its send button off if not — and
+	// why: the schedule's next run, when it fetches them, or when the next login is allowed.
+	gates := map[string]any{}
+	for _, site := range []string{"amazon", "vodafone"} {
+		now := time.Now()
+		gate := map[string]any{"closed": manualGate(cfg, site, now) != nil}
+		if at := scheduledLoginRun(cfg, site, now); !at.IsZero() {
+			gate["scheduled"] = at
+		} else if next := nextLogin(cfg, site, now); !next.IsZero() {
+			gate["next"] = next
+		}
+		gates[site] = gate
+	}
 	reply(w, map[string]any{
+		"gates":    gates,
 		"version":  version,
 		"employee": cfg.Staff.Current,
 		"next":     nextRun(cfg, time.Now()),
@@ -229,10 +254,8 @@ func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 		if spec, err := scheduleSpec(cfg, e.Cron); err != nil {
 			out.Error = err.Error()
 		} else {
-			for t, i := time.Now(), 0; i < 6; i++ { // as many as the page has room for, it shows
-				if t = spec.next(t); t.IsZero() {
-					break
-				}
+			// As many as the page has room for, it shows; those the login gate holds back left out.
+			for _, t := range runTimes(cfg, e.Job, spec, time.Now(), 6) {
 				out.Next = append(out.Next, t.Format(time.RFC3339))
 			}
 		}
@@ -430,7 +453,7 @@ func (s *server) saveAssignments(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
-// Belege (Anthropic, Apple, Vodafone), Harvest
+// Belege (Amazon, Anthropic, Apple, Vodafone), Harvest
 // ---------------------------------------------------------------------------
 
 // receipts are a mail-based kind of receipt: how to collect a month's PDFs, and send them.
@@ -438,6 +461,7 @@ type receipts struct {
 	kind, title string
 	collect     func(*Config, time.Time) ([]email.Attachment, error)
 	send        func(*Config, []email.Attachment) error
+	gate        string // the site whose logins the login gate holds back; "" for none
 }
 
 // receiptsRun collects the receipts of a month — "11/2026", as on the command line, empty the
@@ -446,6 +470,7 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var in struct {
 			Month string `json:"month"`
+			Force bool   `json:"force"` // past the login gate, asked first
 		}
 		if !read(w, req, &in) {
 			return
@@ -460,12 +485,24 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 			fail(w, http.StatusInternalServerError, err)
 			return
 		}
+		// A login the gate holds back: said, for the page to ask whether to run anyway.
+		if r.gate != "" && !in.Force {
+			if err := manualGate(cfg, r.gate, time.Now()); err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error(), "gated": true})
+				return
+			}
+		}
 		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
 		verb := "ansehen"
 		if send {
 			verb = "senden"
 		}
 		s.start(w, r.kind, fmt.Sprintf("%s %d/%d %s", r.title, month, year, verb), func() ([]File, error) {
+			if r.gate != "" {
+				recordLogin(cfg, r.gate, time.Now())
+			}
 			pdfs, err := r.collect(cfg, at)
 			if err != nil {
 				return nil, err
@@ -731,7 +768,7 @@ func liveState(w http.ResponseWriter, r *http.Request) {
 	if liveView != nil {
 		reason = liveView.Asking()
 	}
-	reply(w, map[string]any{"asking": reason != "", "reason": reason})
+	reply(w, map[string]any{"asking": reason != "", "reason": reason, "fill": liveView != nil && liveView.Fills()})
 }
 
 // liveShot is the page as it is now.
@@ -775,6 +812,20 @@ func liveScroll(w http.ResponseWriter, r *http.Request) {
 	var in struct{ X, Y, DY float64 }
 	if read(w, r, &in) && liveOn(w) {
 		done(w, liveView.Scroll(in.X, in.Y, in.DY))
+	}
+}
+
+func liveFill(w http.ResponseWriter, r *http.Request) {
+	if liveOn(w) {
+		log.Printf("Live view: stored password filled in")
+		done(w, liveView.Fill())
+	}
+}
+
+func liveClear(w http.ResponseWriter, r *http.Request) {
+	if liveOn(w) {
+		log.Printf("Live view: field cleared")
+		done(w, liveView.Clear())
 	}
 }
 
@@ -846,6 +897,7 @@ func secrets(cfg *Config) []*string {
 		&cfg.HarvestInvoice.SevDesk.Password,
 		&cfg.HarvestInvoice.Harvest.Token,
 		&cfg.Web.ProxyToken,
+		&cfg.AmazonInvoice.Password,
 	}
 }
 

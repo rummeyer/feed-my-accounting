@@ -28,6 +28,7 @@ It connects its sources — mailboxes, MeinVodafone, the Harvest API and your ca
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung, Verpflegungsmehraufwand and Übernachtungspauschale PDFs | Email → sevDesk Autobox |
 | **anthropic-invoice** | IMAP inbox and *Rechnungen* | Fetches Anthropic's receipt emails and takes the receipt PDF each brings | Email → sevDesk Autobox |
 | **apple-invoice** | IMAP inbox and *Rechnungen* | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
+| **amazon-invoice** | Amazon Business (amazon.de) | Logs in via headless Chrome, downloads the invoices of the month's orders | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, makes the work log PDF, creates the draft invoice in sevDesk | Direct browser automation |
 
@@ -46,7 +47,7 @@ Run them from the command line or cron as before — or start the **web interfac
 ## Requirements
 
 - Go 1.25+
-- Google Chrome or Chromium (required by `apple-invoice`, `vodafone-invoice`, and `harvest-invoice`)
+- Google Chrome or Chromium (required by `amazon-invoice`, `apple-invoice`, `vodafone-invoice`, and `harvest-invoice`)
 
 ## Installation
 
@@ -119,7 +120,7 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 |------|--------------|
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), and beneath it in one line when it last ran — *manuell* or *zeitgesteuert*, the same day as *vor 2 h* — and its next runs, as many as fit; and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
-| **Belege** | Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Anthropic and Apple mail filters, the Vodafone login. Each with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking: Anthropic and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. |
+| **Belege** | Amazon, Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Amazon and Vodafone logins, the Anthropic and Apple mail filters. Anthropic and Apple with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking; Amazon and Vodafone with *Per Mail senden* only, as each run is a login, Vodafone's held to one in 28 days: Amazon, Anthropic and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the client's days × 8 log a warning with the link to the time entries in Harvest: the days the Reisekosten give the travel client of the sevDesk client's name — with another client's week away in the month, only the rest — and without such a client every workday, as the Reisekosten count them. A project of the work log over its budget in Harvest — hours or money, as Harvest's project budget report has it — logs a warning too, with the link to the project; a monthly budget only for the current month, Harvest reporting only its spending. As a fallback, behind its own flap at the foot of the card, *Manuelle Eingabe*: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in — the current month at first — or filled from a work log PDF dropped in, Harvest's or one from here, and correctable either way; then *Entwurf in sevDesk anlegen* creates the draft invoice for the client, article and reference of the settings beneath — with the same duplicate check. Folded away last on the card, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. *Löschen* at the bottom, after *Sicher?*, empties it. |
 | **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, and the web interface's address and password. |
@@ -314,7 +315,7 @@ web:                               # optional, for feed-my-accounting serve
   password: ""                     # optional: asked for by the browser
 
 schedule:                          # optional, run by feed-my-accounting serve
-  - job: travel-expense            # travel-expense, anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice
+  - job: travel-expense            # travel-expense, amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice
     cron: "0 6 5 * *"              # minute hour day month weekday
     enabled: true
   - job: harvest-invoice
@@ -496,6 +497,22 @@ The IMAP host and port are configured under the top-level `mail:` section.
 
 ---
 
+## Module: amazon-invoice
+
+Logs into an Amazon Business account on amazon.de via headless Chrome, downloads the invoices of the orders placed in a month — on a month's last day the current one, else the one before — and sends them as PDF attachments via email — once in 28 days at the most, held by the login gate as Vodafone is.
+
+1. Opens the order history with the browser profile kept beside `config.yaml` (`feed-my-accounting-amazon-browser/`): still logged in from the last run, it goes on at once
+2. Else it enters the email address from *Einstellungen Amazon* and hands the password page to the live view: *Passwort eintragen* types the stored one key by key, *Anmelden* is clicked by hand, *Angemeldet bleiben* ticked. Amazon's **one-time code** — from the authenticator app or a text message — is typed in the web interface's live view, *Don't require a code on this device* ticked by the run first: the next runs need no code. A captcha, or a page it does not know, goes to the live view too; on the command line such a login fails, saying so
+3. Goes through the order history of that month's year, newest first, for the orders placed in it
+4. Fetches each order's invoice PDFs from its invoice popover, as the page, with its cookies; an order with no invoice yet — a seller who has not uploaded one — is logged and skipped
+5. Sends them in one email (*Amazon*), named `11_2026_Rechnung_Amazon_17112026.pdf` — the month, then the order's day — numbered `_2`, `_3` for more of the same day
+
+```yaml
+amazon-invoice:
+  username: "your-amazon-business-email@example.com"
+  password: "your-amazon-password"
+```
+
 ## Module: vodafone-invoice
 
 Logs into the MeinVodafone portal via headless Chrome, downloads Mobilfunk and Kabel invoices, and sends them as PDF attachments via email.
@@ -503,7 +520,7 @@ Logs into the MeinVodafone portal via headless Chrome, downloads Mobilfunk and K
 ### How it works
 
 1. Launches headless Chrome with bot-detection evasion (new headless mode, custom user agent, `navigator.webdriver` removed via CDP)
-2. Opens MeinVodafone with the browser profile kept beside `config.yaml` (`feed-my-accounting-vodafone-browser/`): still logged in from the last run, it goes on at once. Else it logs in with *Eingeloggt bleiben* ticked, so the next run need not — fewer logins, fewer captchas. A login MeinVodafone turns down stops the run with why: *username or password wrong*, or blocked for now after too many tries
+2. Opens MeinVodafone in a fresh browser, nothing kept from the last run, and logs in at a person's pace: a look at the page, the fields typed key by key with uneven gaps, a pause before *Anmelden*. A login MeinVodafone turns down stops the run with why: *username or password wrong*, or blocked for now after too many tries. **Once a month at the most:** no login within 28 days of the last (`feed-my-accounting-logins.json` beside `config.yaml` notes each) — Vodafone takes logins that come more often for an attacker, resets the password and blocks the address. Until then *Per Mail senden* is off, with when the next login is allowed beneath it; the schedule skips the runs it would hold back and shows the next one allowed. With a Vodafone schedule on, the schedule has the say: *Per Mail senden* stays off, saying when the schedule fetches them — a login by hand would make that run skip
 3. **Logging in by hand:** without a password stored, or when MeinVodafone neither lets it in nor says why — a captcha, as a rule — a run started in the web interface, by hand or on schedule, waits up to 10 minutes. A window opens on the page with the Vodafone page as the run sees it: used as the page itself — a click on the picture clicks there, the keyboard types into the field clicked (a phone's keyboard too, pasting as well), the mouse wheel scrolls; once you are logged in the run goes on by itself, the login kept for the next runs. *Lauf abbrechen* ends it. On the command line such a login fails, saying so
 4. Navigates to the invoice page for each contract type, Mobilfunk first, then Kabel
 5. Downloads the invoice shown in the "Aktuelle Rechnung" block by intercepting the blob URL created by the browser
@@ -616,6 +633,8 @@ feed-my-accounting/
 ├── apple-invoice/
 │   ├── apple-invoice.go            # Config, Run(), invoice parsing
 │   └── pdf.go                      # HTML→PDF conversion, HTML cleanup
+├── amazon-invoice/
+│   └── amazon.go                   # Config, login with the live view, orders, invoice PDFs
 ├── vodafone-invoice/
 │   └── vodafone-invoice.go         # Config, browser automation, Run()
 ├── harvest-invoice/

@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -23,8 +25,8 @@ func filteredLogf(format string, args ...interface{}) {
 }
 
 // NewContext creates a headless Chrome browser context with bot-detection
-// evasion flags (new headless mode, custom user agent, AutomationControlled
-// disabled). The returned cancel function tears down the allocator, browser
+// evasion flags (new headless mode, its own user agent without "Headless",
+// AutomationControlled disabled). The returned cancel function tears down the allocator, browser
 // context, and timeout in the correct order.
 //
 // Options:
@@ -47,8 +49,13 @@ func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 		chromedp.Flag("no-sandbox", true),
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-blink-features", "AutomationControlled"),
-		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"),
 	)
+	// What it is, only without "Headless": a Mac's Chrome 131 it claimed to be, its client hints
+	// telling Chromium 156 on Linux, a site's bot check took for a robot (Amazon's and Vodafone's,
+	// 17.11.2026).
+	if agent := realAgent(); agent != "" {
+		flags = append(flags, chromedp.UserAgent(agent))
+	}
 
 	if cfg.germanLocale {
 		flags = append(flags,
@@ -91,6 +98,24 @@ type options struct {
 
 // Option configures the browser context.
 type Option func(*options)
+
+// realAgent is the user agent of the Chromium installed as a browser shows it, without
+// "Headless": its major version, and Linux as x86_64 whatever the processor — what Chrome
+// itself says since it stopped telling more; "" if none is found.
+func realAgent() string {
+	for _, name := range []string{"chromium", "chromium-browser", "google-chrome", "google-chrome-stable"} {
+		out, err := exec.Command(name, "--version").Output()
+		if err != nil {
+			continue
+		}
+		if m := versionPattern.FindStringSubmatch(string(out)); m != nil {
+			return fmt.Sprintf("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/%s.0.0.0 Safari/537.36", m[1])
+		}
+	}
+	return ""
+}
+
+var versionPattern = regexp.MustCompile(`(\d+)\.\d+\.\d+\.\d+`)
 
 // WithGermanLocale sets Chrome's UI language to German (de-DE).
 func WithGermanLocale() Option {

@@ -315,6 +315,7 @@ var scheduledJobs = map[string]scheduledJob{
 		now := time.Now()
 		return runTravelExpense(cfg, now.Year(), now.Month())
 	})},
+	"amazon-invoice":    {"Amazon-Rechnungen abholen", noFiles(runAmazonInvoice)},
 	"anthropic-invoice": {"Anthropic-Belege abholen", noFiles(runAnthropicInvoice)},
 	"apple-invoice":     {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice":  {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
@@ -337,6 +338,99 @@ func noFiles(run func(*Config) error) func(*Config) ([]File, error) {
 	return func(cfg *Config) ([]File, error) { return nil, run(cfg) }
 }
 
+// gatedJobs are the scheduled jobs that log in to a site the login gate holds, by that site.
+var gatedJobs = map[string]string{"amazon-invoice": "amazon", "vodafone-invoice": "vodafone"}
+
+// runTimes are the next n times after from that the job runs on spec: those the login gate
+// would hold back skipped — within 28 days of the last login noted, or of a run before it in
+// the list — never started to fail.
+func runTimes(cfg *Config, job string, spec *cronSpec, from time.Time, n int) []time.Time {
+	site, gated := gatedJobs[job]
+	var last time.Time
+	if gated {
+		last, _ = lastLogin(cfg, site)
+	}
+	var out []time.Time
+	for t := from; len(out) < n; {
+		if t = spec.next(t); t.IsZero() {
+			break
+		}
+		if gated && !last.IsZero() && t.Before(allowedFrom(last)) {
+			continue
+		}
+		out = append(out, t)
+		if gated {
+			last = t
+		}
+	}
+	return out
+}
+
+// nextScheduledLogin is the schedule's next run after now that logs in to site, whether or
+// not the gate lets it; zero if none is scheduled.
+func nextScheduledLogin(cfg *Config, site string, now time.Time) time.Time {
+	var at time.Time
+	for _, e := range cfg.Schedule {
+		if gatedJobs[e.Job] != site || !e.Enabled {
+			continue
+		}
+		spec, err := scheduleSpec(cfg, e.Cron)
+		if err != nil {
+			continue
+		}
+		if t := spec.next(now); !t.IsZero() && (at.IsZero() || t.Before(at)) {
+			at = t
+		}
+	}
+	return at
+}
+
+// scheduledLoginRun is the run the schedule will make next that logs in to site, those the
+// gate holds back skipped; zero if none is scheduled.
+func scheduledLoginRun(cfg *Config, site string, now time.Time) time.Time {
+	var at time.Time
+	for _, e := range cfg.Schedule {
+		if gatedJobs[e.Job] != site || !e.Enabled {
+			continue
+		}
+		spec, err := scheduleSpec(cfg, e.Cron)
+		if err != nil {
+			continue
+		}
+		if times := runTimes(cfg, e.Job, spec, now, 1); len(times) > 0 && (at.IsZero() || times[0].Before(at)) {
+			at = times[0]
+		}
+	}
+	return at
+}
+
+// manualGate holds a login by hand to site back as loginGate does, and also where it would
+// make the schedule's next run skip: logged in by hand on the 19th, say, with last month's
+// invoice as this one's is not there yet, the run on the 21st would be held back, and this
+// month's invoice never fetched. The schedule has the say: with it on, nothing by hand.
+func manualGate(cfg *Config, site string, now time.Time) error {
+	if err := loginGate(cfg, site, now); err != nil {
+		return err
+	}
+	if next := nextScheduledLogin(cfg, site, now); !next.IsZero() && next.Before(allowedFrom(now)) {
+		return scheduledError{site, next}
+	}
+	return nil
+}
+
+// scheduledError is a login by hand held back for the schedule's next run.
+type scheduledError struct {
+	site string
+	next time.Time
+}
+
+func (e scheduledError) Error() string {
+	return fmt.Sprintf("%s: the schedule logs in on %s — a login now would make it skip, once a month only; switch its schedule off to run by hand",
+		siteName(e.site), e.next.Format("02.01.2006 15:04"))
+}
+
+func (e scheduledError) Unwrap() error { return errGated }
+
 // nextRun is the schedule's next run after now: its job and when; nil if nothing is scheduled.
 func nextRun(cfg *Config, now time.Time) map[string]string {
 	var job string
@@ -346,8 +440,8 @@ func nextRun(cfg *Config, now time.Time) map[string]string {
 		if !e.Enabled || err != nil {
 			continue
 		}
-		if t := spec.next(now); !t.IsZero() && (at.IsZero() || t.Before(at)) {
-			job, at = e.Job, t
+		if times := runTimes(cfg, e.Job, spec, now, 1); len(times) > 0 && (at.IsZero() || times[0].Before(at)) {
+			job, at = e.Job, times[0]
 		}
 	}
 	if at.IsZero() {
@@ -379,6 +473,13 @@ func (s *server) scheduler() {
 				continue
 			}
 			if spec.matches(now) {
+				// A login the gate holds back is skipped, not started to fail.
+				if site, gated := gatedJobs[entry.Job]; gated {
+					if err := loginGate(cfg, site, now); err != nil {
+						log.Printf("schedule: %s skipped: %v", entry.Job, err)
+						continue
+					}
+				}
 				pending[entry.Job] = now
 			}
 		}

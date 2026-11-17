@@ -36,9 +36,6 @@ type Config struct {
 	Username            string // Vodafone portal username
 	Password            string // Vodafone portal password
 	FallbackToLastMonth bool   // if false, skip sending when current month invoice not yet available
-	// Profile keeps the browser's cookies from run to run, MeinVodafone's "Eingeloggt bleiben"
-	// with them: most runs need no login, and so no captcha. Empty: a fresh browser each time.
-	Profile string
 	// Live asks someone to log in by hand — a captcha, say, or no password stored — in the web
 	// interface's live view. Nil, as on the command line: such a login fails.
 	Live *browser.Live
@@ -107,11 +104,9 @@ func Send(cfg Config, attachments []email.Attachment) error {
 // Collect downloads the current Vodafone invoices — MeinVodafone has the current month's, or with
 // FallbackToLastMonth the last one — without sending them.
 func Collect(cfg Config) ([]email.Attachment, error) {
-	opts := []browser.Option{browser.WithWindowSize(1280, 1400), browser.WithTimeout(5*time.Minute + waitForHand)}
-	if cfg.Profile != "" {
-		opts = append(opts, browser.WithProfile(cfg.Profile))
-	}
-	ctx, cancel := browser.NewContext(opts...)
+	// A fresh browser each run, nothing kept: a profile kept carried Vodafone's bot check's
+	// cookies from run to run, and logins it had taken for a robot with them (17.11.2026).
+	ctx, cancel := browser.NewContext(browser.WithGermanLocale(), browser.WithWindowSize(1000, 760), browser.WithTimeout(10*time.Minute+waitForHand))
 	defer cancel()
 
 	logger.Println("Logging in to Vodafone...")
@@ -180,10 +175,14 @@ func login(ctx context.Context, cfg Config) error {
 		return byHand(ctx, cfg.Live, "no-password")
 	}
 
-	// The cookie banner, if it is there: with the profile kept, it remembers the answer and
-	// does not come again — a click that waited for it would wait for good.
+	// The cookie banner, if it is there, answered as a person would after a look at the page.
+	if err := browser.Pause(ctx, 2*time.Second, 4*time.Second); err != nil {
+		return err
+	}
 	chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))
-	time.Sleep(time.Second)
+	if err := browser.Pause(ctx, 1500*time.Millisecond, 3*time.Second); err != nil {
+		return err
+	}
 
 	logger.Println("Submitting credentials...")
 	for _, f := range []struct{ sel, value, name string }{
@@ -191,23 +190,18 @@ func login(ctx context.Context, cfg Config) error {
 		{"#passwordField-input", cfg.Password, "password"},
 	} {
 		if err := typeInto(ctx, f.sel, f.value, f.name); err != nil {
+			// Not sent: what is in the field is not what is stored. Typed again or set by a
+			// script, a second try is what a bot check counts: for someone to look instead.
+			logger.Printf("%v", err)
+			return byHand(ctx, cfg.Live, "asks")
+		}
+		if err := browser.Pause(ctx, 600*time.Millisecond, 1500*time.Millisecond); err != nil {
 			return err
 		}
 	}
-	if err := chromedp.Run(ctx,
-		// Eingeloggt bleiben: the next run finds the login still there.
-		chromedp.Evaluate(`(() => {
-			const box = document.querySelector('#keep-me-logged-in-item') ||
-				[...document.querySelectorAll('label')].find(l => l.innerText.includes('Eingeloggt bleiben'))?.control;
-			if (box && !box.checked) box.click();
-		})()`, nil),
-	); err != nil {
+	if err := browser.Pause(ctx, 800*time.Millisecond, 2*time.Second); err != nil {
 		return err
 	}
-	// Ticked, MeinVodafone explains it in a window over the form — "Eingeloggt bleiben - bis zu
-	// 180 Tage" — that takes the click meant for Anmelden (14.11.2026): closed first.
-	time.Sleep(1500 * time.Millisecond)
-	closeStayWindow(ctx)
 	if err := chromedp.Run(ctx, chromedp.Click(`#submit`, chromedp.ByID)); err != nil {
 		return err
 	}
@@ -238,77 +232,30 @@ func login(ctx context.Context, cfg Config) error {
 			}
 			return err
 		}
-		// The window come only now, over a login not sent: closed, and Anmelden once more.
-		if closeStayWindow(ctx) {
-			_ = chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#submit')?.click()`, nil))
-		}
 	}
 	// Neither in nor told why: a captcha, say, or a question not known yet.
 	return byHand(ctx, cfg.Live, "asks")
 }
 
-// closeStayWindow closes MeinVodafone's window about staying logged in, if it shows: yes where it
-// offers one, else its close button in the upper right corner. It is a heading in a box, no
-// dialog as such: found by the heading. Whether there was one to close.
-func closeStayWindow(ctx context.Context) bool {
-	var did string
-	if err := chromedp.Run(ctx, chromedp.Evaluate(stayWindow, &did)); err != nil || did == "" {
-		return false
-	}
-	return true
-}
-
-const stayWindow = `(() => {
-	const visible = (el) => el.offsetParent !== null && el.getBoundingClientRect().height > 0;
-	const heading = [...document.querySelectorAll('h1, h2, h3, h4, h5, [role=heading]')]
-		.find((h) => visible(h) && /bleiben/i.test(h.innerText));
-	if (!heading) return '';
-	// Up to the box around it that holds its buttons.
-	let box = heading.parentElement;
-	while (box && box !== document.body && !box.querySelector('button, [role=button]')) box = box.parentElement;
-	if (!box || box === document.body) return '';
-	const buttons = [...box.querySelectorAll('button, [role=button]')].filter((b) => visible(b) && b.id !== 'submit' && !/anmelden/i.test(b.innerText));
-	const label = (b) => ((b.innerText || '') + ' ' + (b.getAttribute('aria-label') || '') + ' ' + (b.title || '') + ' ' + b.className).trim();
-	const yes = buttons.find((b) => /^\s*(ja\b|ok\b|verstanden|alles klar|bestätigen)/i.test(b.innerText || ''));
-	const close = buttons.find((b) => /schlie(ß|ss)en|close/i.test(label(b)) || /^\s*[×✕✖xX]\s*$/.test(b.innerText || '')) || buttons[0];
-	const pick = yes || close;
-	if (!pick) return '';
-	pick.click();
-	return (yes ? 'answered ' : 'closed with ') + JSON.stringify(label(pick).slice(0, 60));
-})()`
-
-// typeInto types value into the field sel, emptied first: a field the kept profile, or the page,
-// filled already would get it appended — a password Vodafone takes for wrong (14.11.2026). It
-// checks the field holds just the value, and if not, sets it the way the page notices; the
-// log says only lengths, never the value.
+// typeInto types value into the field sel as a person would, emptied first, and checks it holds
+// just that: a field the page filled already would have it appended. Not set by a script when
+// it does not: an error, and nothing sent. The log says only lengths, never the value.
 func typeInto(ctx context.Context, sel, value, name string) error {
 	js, _ := json.Marshal(sel)
-	want, _ := json.Marshal(value)
-	clear := fmt.Sprintf(`(() => { const e = document.querySelector(%s); if (!e) return; e.focus(); e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); })()`, js)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(clear, nil), chromedp.SendKeys(sel, value, chromedp.ByQuery)); err != nil {
+	clear := fmt.Sprintf(`(() => { const e = document.querySelector(%s); if (e && e.value) { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); } })()`, js)
+	if err := chromedp.Run(ctx, chromedp.Evaluate(clear, nil)); err != nil {
+		return err
+	}
+	if err := browser.TypeLikeAPerson(ctx, sel, value); err != nil {
 		return err
 	}
 	var got int
-	var same bool
-	check := fmt.Sprintf(`(() => { const e = document.querySelector(%s); return e ? e.value === %s : false; })()`, js, want)
 	length := fmt.Sprintf(`(document.querySelector(%s)?.value || '').length`, js)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(check, &same), chromedp.Evaluate(length, &got)); err != nil || same {
+	if err := chromedp.Run(ctx, chromedp.Evaluate(length, &got)); err != nil {
 		return err
 	}
-	logger.Printf("%s field: %d of %d chars, set again", name, got, len([]rune(value)))
-	set := fmt.Sprintf(`(() => {
-		const e = document.querySelector(%s);
-		const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-		setter.call(e, %s);
-		e.dispatchEvent(new Event('input', {bubbles: true}));
-		e.dispatchEvent(new Event('change', {bubbles: true}));
-		return e.value === %s;
-	})()`, js, want, want)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(set, &same)); err != nil {
-		return err
-	}
-	if !same {
-		return fmt.Errorf("%s field not taking input", name)
+	if want := len([]rune(value)); got != want {
+		return fmt.Errorf("%s field holds %d of %d chars, not sent", name, got, want)
 	}
 	return nil
 }
@@ -496,10 +443,10 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 }
 
 func navigateToInvoicePage(ctx context.Context, typeName string) error {
-	if err := chromedp.Run(ctx,
-		chromedp.Navigate("https://www.vodafone.de/meinvodafone/services/"),
-		chromedp.Sleep(5*time.Second),
-	); err != nil {
+	if err := chromedp.Run(ctx, chromedp.Navigate("https://www.vodafone.de/meinvodafone/services/")); err != nil {
+		return err
+	}
+	if err := browser.Pause(ctx, 4*time.Second, 8*time.Second); err != nil {
 		return err
 	}
 
@@ -512,8 +459,10 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 				if (h.innerText.includes(name)) (h.closest('a') || h.parentElement).click();
 			});
 		})("`+strings.ReplaceAll(contractName, `"`, `\"`)+`")`, nil),
-		chromedp.Sleep(5*time.Second),
 	); err != nil {
+		return err
+	}
+	if err := browser.Pause(ctx, 4*time.Second, 8*time.Second); err != nil {
 		return err
 	}
 

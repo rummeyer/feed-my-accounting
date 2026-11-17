@@ -10,6 +10,7 @@
 //
 //	all [M/YYYY]              Run all modules (default when no command given)
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
+//	amazon-invoice            Download a month's Amazon Business invoices (on its last day the current, else the previous) and send via email
 //	anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
 //	apple-invoice             Fetch Apple invoice emails and send as PDFs
 //	vodafone-invoice          Download Vodafone invoices and send via email
@@ -29,6 +30,7 @@ import (
 	"strings"
 	"time"
 
+	amazon "feed-my-accounting/amazon-invoice"
 	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/browser"
@@ -70,6 +72,7 @@ func setupLogging() (io.Closer, error) {
 
 // setModuleLogs routes every module's log output to w.
 func setModuleLogs(w io.Writer) {
+	amazon.SetLogOutput(w)
 	anthropic.SetLogOutput(w)
 	apple.SetLogOutput(w)
 	vodafone.SetLogOutput(w)
@@ -159,6 +162,12 @@ func main() {
 		year, month := parseMonthArg(remaining)
 		if err := runTravelExpense(cfg, year, month); err != nil {
 			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
+			os.Exit(1)
+		}
+
+	case "amazon-invoice":
+		if err := runAmazonInvoice(cfg); err != nil {
+			fmt.Fprintf(logOut, "amazon-invoice error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -374,25 +383,53 @@ func runAppleInvoice(cfg *Config) error { return apple.Run(appleConfig(cfg)) }
 // say: the web interface's, set as it starts; nil on the command line, where nobody is asked.
 var liveView *browser.Live
 
-// vodafoneBrowser is the folder beside the configuration where MeinVodafone's login stays.
-const vodafoneBrowser = "feed-my-accounting-vodafone-browser"
-
 func vodafoneConfig(cfg *Config) vodafone.Config {
-	profile := ""
-	if cfg.dir != "" {
-		profile = filepath.Join(cfg.dir, vodafoneBrowser)
-	}
 	return vodafone.Config{
 		Mail:                cfg.Mail,
 		Username:            cfg.VodafoneInvoice.Username,
 		Password:            cfg.VodafoneInvoice.Password,
 		FallbackToLastMonth: *cfg.VodafoneInvoice.FallbackToLastMonth,
-		Profile:             profile,
 		Live:                liveView,
 	}
 }
 
-func runVodafoneInvoice(cfg *Config) error { return vodafone.Run(vodafoneConfig(cfg)) }
+// runVodafoneInvoice fetches and sends Vodafone's invoices, if the login gate lets it: never a
+// second login in a month, nor within a week, from the schedule or the command line.
+func runVodafoneInvoice(cfg *Config) error {
+	if err := loginGate(cfg, "vodafone", time.Now()); err != nil {
+		return err
+	}
+	recordLogin(cfg, "vodafone", time.Now())
+	return vodafone.Run(vodafoneConfig(cfg))
+}
+
+// amazonBrowser is the folder beside the configuration where Amazon's login stays, and the
+// device its one-time code was given on.
+const amazonBrowser = "feed-my-accounting-amazon-browser"
+
+func amazonConfig(cfg *Config) amazon.Config {
+	profile := ""
+	if cfg.dir != "" {
+		profile = filepath.Join(cfg.dir, amazonBrowser)
+	}
+	return amazon.Config{
+		Mail:     cfg.Mail,
+		Username: cfg.AmazonInvoice.Username,
+		Password: cfg.AmazonInvoice.Password,
+		Profile:  profile,
+		Live:     liveView,
+	}
+}
+
+// runAmazonInvoice fetches and sends the invoices of last month's Amazon orders, if the login
+// gate lets it, as Vodafone's.
+func runAmazonInvoice(cfg *Config) error {
+	if err := loginGate(cfg, "amazon", time.Now()); err != nil {
+		return err
+	}
+	recordLogin(cfg, "amazon", time.Now())
+	return amazon.Run(amazonConfig(cfg))
+}
 
 func harvestConfig(cfg *Config) harvest.Config {
 	return harvest.Config{
@@ -478,6 +515,7 @@ Usage:
 Commands:
   all [M/YYYY]              Run all modules (default when no command given)
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
+  amazon-invoice            Download a month's Amazon Business invoices: on a month's last day the current one, else the previous
   anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email

@@ -43,7 +43,7 @@ async function api(method, path, body) {
   const data = await res.json().catch(() => ({}));
   // The session gone — expired, or ended elsewhere: back to the login.
   if (res.status === 401) location.href = '/login';
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { data });
   return data;
 }
 
@@ -166,10 +166,23 @@ async function loadOverview() {
   $('userbar').hidden = !overview.employee;
   $('employee').textContent = `${T('Mitarbeiter', 'Employee')}: ${overview.employee}`;
   for (const p of document.querySelectorAll('[data-last]')) p.textContent = lastText(overview.last[p.dataset.last]);
+  // Once a month only: the send button off while a login by hand would come too soon — after the
+  // last run, or before the schedule's next, which it would make skip — and beside it, when.
+  const day = (t) => new Date(t).toLocaleDateString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  for (const note of document.querySelectorAll('[data-gate]')) {
+    const gate = overview.gates?.[note.dataset.gate] ?? {};
+    const button = document.querySelector(`[data-send="${note.dataset.gate}"]`);
+    if (button) button.disabled = !!gate.closed;
+    note.textContent = !gate.closed ? ''
+      : gate.scheduled ? T(`per Zeitplan am ${day(gate.scheduled)}`, `by schedule on ${day(gate.scheduled)}`)
+        : gate.next ? T(`manuell ab ${day(gate.next)} möglich`, `by hand from ${day(gate.next)}`) : '';
+    note.title = gate.closed ? T('Nur eine Anmeldung in 28 Tagen: mehr sperrt Vodafone.', 'One login in 28 days only: more and Vodafone blocks it.') : '';
+  }
+
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice') };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -197,6 +210,7 @@ function lastText(job) {
 // The server names runs in German, kept so in the log: in English, the names it gives.
 const TITLES = [
   [/^Reisekosten senden \(laufender Monat\)/, 'Send travel expenses (current month)'],
+  [/^Amazon-Rechnungen abholen/, 'Fetch Amazon invoices'],
   [/^Anthropic-Belege abholen/, 'Fetch Anthropic receipts'],
   [/^Apple-Rechnungen abholen/, 'Fetch Apple invoices'],
   [/^Vodafone-Rechnungen abholen/, 'Fetch Vodafone invoices'],
@@ -205,8 +219,8 @@ const TITLES = [
   [/^Reisekosten (\S+) senden/, 'Travel expenses $1, send'],
   [/^Anthropic-Belege (\S+) ansehen/, 'Anthropic receipts $1, view'],
   [/^Anthropic-Belege (\S+) senden/, 'Anthropic receipts $1, send'],
-  [/^(Apple|Vodafone)-Rechnungen (\S+) ansehen/, '$1 invoices $2, view'],
-  [/^(Apple|Vodafone)-Rechnungen (\S+) senden/, '$1 invoices $2, send'],
+  [/^(Amazon|Apple|Vodafone)-Rechnungen (\S+) ansehen/, '$1 invoices $2, view'],
+  [/^(Amazon|Apple|Vodafone)-Rechnungen (\S+) senden/, '$1 invoices $2, send'],
   [/^Kundenrechnung (\S+) aus Harvest/, 'Invoice $1 from Harvest'],
   [/^Zeitnachweis (\S+) aus Harvest/, 'Work log $1 from Harvest'],
   [/^Stundenbericht (\S+) aus Harvest/, 'Work log $1 from Harvest'], // its name before 1.10
@@ -313,6 +327,12 @@ const LIVE_REASONS = () => ({
   'no-form': T('Vodafone zeigt kein Login-Formular – bitte hier anmelden.', 'Vodafone shows no login form – please log in here.'),
   asks: T('Vodafone fragt nach – bitte hier beantworten.', 'Vodafone is asking something – please answer it here.'),
   refused: T('Vodafone lehnt die Anmeldung ab – bitte hier selbst anmelden, mit „Eingeloggt bleiben“; danach bleibt der Login für die nächsten Läufe.', 'Vodafone refuses the login – please log in here yourself, with “Eingeloggt bleiben”; the login then stays for the next runs.'),
+  'amazon-password': T('Amazon will das Passwort: unten „Passwort“ drücken (das gespeicherte) oder eintippen und „Eintragen“.', 'Amazon wants the password: press “Password” below (the stored one) or type it and “Enter text”.'),
+  'amazon-otp': T('Amazon will den Code aus der Authenticator-App: unten eintippen und „Eintragen“ – er wird gesendet. „Kein Code erforderlich“ ist schon angehakt.', 'Amazon wants the code from the authenticator app: type it below and “Enter text” – it is sent. “No code required” is ticked already.'),
+  'amazon-captcha': T('Amazon will ein Rätsel oder die Zeichen aus dem Bild gelöst haben – bitte im Bild lösen.', 'Amazon wants a puzzle or the characters from the picture solved – please solve it in the picture.'),
+  'amazon-refused': T('Amazon lehnt die Anmeldung ab – bitte im Bild selbst anmelden.', 'Amazon refuses the login – please log in yourself in the picture.'),
+  'amazon-no-password': T('Amazon: kein Passwort gespeichert – bitte im Bild anmelden.', 'Amazon: no password stored – please log in in the picture.'),
+  'amazon-asks': T('Amazon fragt nach – bitte im Bild beantworten.', 'Amazon is asking something – please answer it in the picture.'),
   captcha: T('Vodafone will einen Sicherheitscode – bitte den Code aus dem Bild ins Feld eintippen und „Weiter“ klicken.', 'Vodafone wants a security code – please type the code from the picture into the field and click “Weiter”.'),
 });
 async function checkLive() {
@@ -320,6 +340,7 @@ async function checkLive() {
   const dialog = $('live');
   if (state?.asking) {
     $('live-reason').textContent = LIVE_REASONS()[state.reason] ?? state.reason;
+    $('live-fill').hidden = !state.fill;
     if (!dialog.open) {
       dialog.showModal();
       liveReset();
@@ -359,7 +380,8 @@ $('live-shot').addEventListener('click', (e) => {
   liveSend('/api/live/click', { x, y });
   $('live-keys').focus({ preventScroll: true });
 });
-// The mouse wheel over the picture scrolls the page, at the same spot; a burst of turns as one.
+// The mouse wheel over the picture scrolls the page, at the same spot: what turned in the last
+// moment at once — a touchpad's stream of small turns goes on as it comes, not at its end.
 let wheel = 0;
 let wheelTimer = null;
 $('live-shot').addEventListener('wheel', (e) => {
@@ -369,20 +391,27 @@ $('live-shot').addEventListener('wheel', (e) => {
   const box = img.getBoundingClientRect();
   const x = ((e.clientX - box.left) / box.width) * img.naturalWidth;
   const y = ((e.clientY - box.top) / box.height) * img.naturalHeight;
-  clearTimeout(wheelTimer);
+  if (wheelTimer) return;
   wheelTimer = setTimeout(() => {
     const dy = wheel;
     wheel = 0;
-    if (img.naturalWidth) liveSend('/api/live/scroll', { x, y, dy });
-  }, 120);
+    wheelTimer = null;
+    if (img.naturalWidth && dy) {
+      liveSend('/api/live/scroll', { x, y, dy });
+      setTimeout(refreshShot, 150);
+    }
+  }, 80);
 }, { passive: false });
 // The keyboard types into the page: the keys that do something there go on as keys, what they
 // write as text — a phone's keyboard, which tells no keys, through the input's events.
 const LIVE_KEYS = new Set(['Enter', 'Tab', 'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+// Safari on an iPad names the arrows its own way; some keyboards tell Backspace by its code only.
+const LIVE_ALIASES = { UIKeyInputLeftArrow: 'ArrowLeft', UIKeyInputRightArrow: 'ArrowRight', UIKeyInputUpArrow: 'ArrowUp', UIKeyInputDownArrow: 'ArrowDown' };
 $('live-keys').addEventListener('keydown', (e) => {
-  if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !LIVE_KEYS.has(e.key)) return;
+  const key = LIVE_ALIASES[e.key] ?? (e.keyCode === 8 ? 'Backspace' : e.key);
+  if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !LIVE_KEYS.has(key)) return;
   e.preventDefault();
-  liveSend('/api/live/key', { key: e.key });
+  liveSend('/api/live/key', { key });
 });
 // The input keeps one character out of sight, so that a phone's backspace has something to
 // delete — on an empty input it tells nothing. Whatever else is in it went on to the page.
@@ -408,6 +437,23 @@ $('live-keys').addEventListener('paste', (e) => {
   const text = e.clipboardData?.getData('text') ?? '';
   if (text) liveSend('/api/live/type', { text });
 });
+// The text field below the page: into the page's field — the one with the cursor, or the first — then emptied.
+$('live-text-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  // Typed into the page's field, then sent there as Enter does: a code, a password, done.
+  const text = $('live-text').value;
+  if (text) {
+    liveSend('/api/live/type', { text });
+    liveSend('/api/live/key', { key: 'Enter' });
+  }
+  $('live-text').value = '';
+});
+$('live-clear').addEventListener('click', () => { liveSend('/api/live/clear'); $('live-keys').focus({ preventScroll: true }); });
+for (const b of document.querySelectorAll('[data-live-key]')) {
+  b.addEventListener('click', () => { liveSend('/api/live/key', { key: b.dataset.liveKey }); $('live-keys').focus({ preventScroll: true }); });
+}
+// The stored password into the field clicked last: the person's say when, never shown.
+$('live-fill').addEventListener('click', () => { liveSend('/api/live/fill'); $('live-keys').focus({ preventScroll: true }); });
 $('live-cancel').addEventListener('click', () => liveSend('/api/live/cancel'));
 // Escape would close the dialog with the run still waiting: cancel it instead, asked.
 $('live').addEventListener('cancel', (e) => {
@@ -481,20 +527,28 @@ async function start(name, method, path, body, onDone) {
     loadOverview();
     follow(name, job, onDone);
   } catch (err) {
+    // Held back by the login gate: run anyway only if asked and said yes.
+    if (err.data?.gated && body && confirm(`${err.message}\n\n${T('Trotzdem anmelden?', 'Log in anyway?')}`)) {
+      return start(name, method, path, { ...body, force: true }, onDone);
+    }
     alert(err.message);
   }
 }
 
 // Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
-const NAMES = T({ anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' },
-  { anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices' });
+const NAMES = T({ amazon: 'Amazon-Rechnungen', anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' },
+  { amazon: 'Amazon invoices', anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices' });
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
   for (const input of document.querySelectorAll('.receipt-month')) {
     input.value = input.placeholder = `${now.getMonth() + 1}/${now.getFullYear()}`;
   }
+  // Amazon: the month it fetches — on a month's last day its own, the books closed, else the one before.
+  const lastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getDate() === 1;
+  const last = new Date(now.getFullYear(), now.getMonth() - (lastDay ? 0 : 1), 1);
+  for (const input of document.querySelectorAll('[data-last-month]')) input.value = input.placeholder = `${last.getMonth() + 1}/${last.getFullYear()}`;
 }
 for (const b of document.querySelectorAll('[data-view]')) {
   b.addEventListener('click', () => start(b.dataset.view, 'POST', `/api/${b.dataset.view}/view`, { month: monthOf(b.dataset.view) }));
@@ -1100,6 +1154,9 @@ const PARTS = {
     BREAK,
     ['HarvestInvoice.SkipExisting', T('Entwurf nicht doppelt anlegen', 'No duplicate drafts'), 'bool', true],
   ]]],
+  amazon: [['', [
+    ['AmazonInvoice.Username', T('E-Mail-Adresse (Amazon Business)', 'Email address (Amazon Business)')], ['AmazonInvoice.Password', T('Passwort', 'Password'), 'secret', 5],
+  ]]],
   anthropic: [['', [
     ['AnthropicInvoice.Filter.Count', SCAN, 'number', 50],
     ['AnthropicInvoice.Filter.From', T('Absender-Domains', 'Sender domains'), 'text', 'mail.anthropic.com, stripe.com'],
@@ -1265,8 +1322,8 @@ function renderSettings() {
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mail') {
-      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Anthropic, Apple und Vodafone bei den Belegen.`,
-        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Anthropic, Apple and Vodafone with Receipts.`)));
+      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Anthropic, Apple und Vodafone bei den Belegen.`,
+        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Anthropic, Apple and Vodafone with Receipts.`)));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
