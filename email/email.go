@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -139,7 +140,9 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 
 // IMAPFilter defines which emails to fetch from the inbox.
 type IMAPFilter struct {
-	Count            int       // how many recent messages to scan (0 = all)
+	// Count is how many messages to scan at the most, the latest: of the month asked for — the
+	// server picks those — or, without one, of all.
+	Count            int
 	FromDomain       string    // sender hostname must contain this string, or one of them, comma-separated
 	Subject          string    // exact subject match
 	SubjectPrefix    string    // the subject starts with this, receipt numbers after it
@@ -230,15 +233,37 @@ func fetchFolder(c *client.Client, folder string, filter IMAPFilter, attachments
 		return nil, nil
 	}
 
-	from := uint32(1)
-	if filter.Count > 0 {
-		count := uint32(filter.Count)
-		if mbox.Messages > count {
-			from = mbox.Messages - count + 1
-		}
-	}
 	seqSet := new(imap.SeqSet)
-	seqSet.AddRange(from, mbox.Messages)
+	if month, ok := filter.month(); ok {
+		// The month's mails, the server asked for them by their date — a day either side for the
+		// time zones, the exact month checked by each envelope's: however full the folder, none
+		// missed (17.11.2026: Anthropic's receipts behind more than fifty mails since).
+		criteria := imap.NewSearchCriteria()
+		criteria.SentSince = month.AddDate(0, 0, -1)
+		criteria.SentBefore = month.AddDate(0, 1, 1)
+		seqs, err := c.Search(criteria)
+		if err != nil {
+			return nil, fmt.Errorf("searching %s: %w", folder, err)
+		}
+		if len(seqs) == 0 {
+			return nil, nil
+		}
+		sort.Slice(seqs, func(i, j int) bool { return seqs[i] < seqs[j] })
+		if filter.Count > 0 && len(seqs) > filter.Count {
+			logger.Printf("%s: %d mails of the month, the latest %d looked at", folder, len(seqs), filter.Count)
+			seqs = seqs[len(seqs)-filter.Count:]
+		}
+		seqSet.AddNum(seqs...)
+	} else {
+		from := uint32(1)
+		if filter.Count > 0 {
+			count := uint32(filter.Count)
+			if mbox.Messages > count {
+				from = mbox.Messages - count + 1
+			}
+		}
+		seqSet.AddRange(from, mbox.Messages)
+	}
 
 	matchUIDs := fetchMatchingUIDs(c, seqSet, filter)
 	if len(matchUIDs) == 0 {
@@ -246,6 +271,18 @@ func fetchFolder(c *client.Client, folder string, filter IMAPFilter, attachments
 	}
 	logger.Printf("Found %d matching email(s) in %s, fetching bodies...", len(matchUIDs), folder)
 	return fetchBodies(c, matchUIDs, attachments)
+}
+
+// month is the first day of the month the filter asks for, if it asks for one.
+func (f IMAPFilter) month() (time.Time, bool) {
+	switch {
+	case !f.Month.IsZero():
+		return time.Date(f.Month.Year(), f.Month.Month(), 1, 0, 0, 0, 0, time.Local), true
+	case f.CurrentMonthOnly:
+		now := time.Now()
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local), true
+	}
+	return time.Time{}, false
 }
 
 // fromDomain tells whether a sender's hostname contains one of the comma-separated domains.

@@ -98,7 +98,7 @@ func (w WebConfig) homeOnly() bool { return w.HomeOnly == nil || *w.HomeOnly }
 // MailFilterConfig finds a module's emails: in the inbox first, then where they may have been
 // filed away.
 type MailFilterConfig struct {
-	Count   int      `yaml:"count"`   // how many recent emails to scan, in each folder
+	Count   int      `yaml:"count"`   // how many of the month's emails to scan at the most, in each folder
 	From    string   `yaml:"from"`    // sender domains, comma-separated
 	Subject string   `yaml:"subject"` // Anthropic: the subject's start; Apple: the whole subject
 	Folders []string `yaml:"folders"` // searched in this order
@@ -329,7 +329,7 @@ func applyDefaults(cfg *Config) {
 		cfg.Mail.From = cfg.Mail.Username
 	}
 	if cfg.AnthropicInvoice.Filter.Count == 0 {
-		cfg.AnthropicInvoice.Filter.Count = 50
+		cfg.AnthropicInvoice.Filter.Count = 1000
 	}
 	if cfg.AnthropicInvoice.Filter.From == "" {
 		cfg.AnthropicInvoice.Filter.From = "mail.anthropic.com, stripe.com"
@@ -341,7 +341,7 @@ func applyDefaults(cfg *Config) {
 		cfg.AnthropicInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
 	}
 	if cfg.AppleInvoice.Filter.Count == 0 {
-		cfg.AppleInvoice.Filter.Count = 50
+		cfg.AppleInvoice.Filter.Count = 1000
 	}
 	if cfg.AppleInvoice.Filter.From == "" {
 		cfg.AppleInvoice.Filter.From = "apple.com"

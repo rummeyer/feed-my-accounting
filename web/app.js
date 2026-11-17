@@ -1114,7 +1114,7 @@ const BREAK = ['', '', 'break'];
 // Section titles the code looks for, and labels used twice.
 const CLIENTS = T('Kunden', 'Clients');
 const INLAND = T('Pauschalen Inland', 'Inland rates');
-const SCAN = T('Mails durchsuchen (je Ordner)', 'Mails to search (per folder)');
+const SCAN = T('Höchstens so viele Mails des Monats (je Ordner)', 'At most this many of the month\'s mails (per folder)');
 const FOLDERS = T('Ordner, der Reihe nach', 'Folders, in order');
 const DEFAULT = T('Standard', 'default');
 
@@ -1164,13 +1164,13 @@ const PARTS = {
     ['AmazonInvoice.Username', T('E-Mail-Adresse (Amazon Business)', 'Email address (Amazon Business)')], ['AmazonInvoice.Password', T('Passwort', 'Password'), 'secret', 5],
   ]]],
   anthropic: [['', [
-    ['AnthropicInvoice.Filter.Count', SCAN, 'number', 50],
+    ['AnthropicInvoice.Filter.Count', SCAN, 'number', 1000],
     ['AnthropicInvoice.Filter.From', T('Absender-Domains', 'Sender domains'), 'text', 'mail.anthropic.com, stripe.com'],
     ['AnthropicInvoice.Filter.Subject', T('Betreff beginnt mit', 'Subject starts with'), 'text', 'Your receipt from Anthropic'],
     ['AnthropicInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
   apple: [['', [
-    ['AppleInvoice.Filter.Count', SCAN, 'number', 50],
+    ['AppleInvoice.Filter.Count', SCAN, 'number', 1000],
     ['AppleInvoice.Filter.From', T('Absender-Domain', 'Sender domain'), 'text', 'apple.com'],
     ['AppleInvoice.Filter.Subject', T('Betreff', 'Subject'), 'text', 'Deine Rechnung von Apple'],
     ['AppleInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],

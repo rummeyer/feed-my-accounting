@@ -279,14 +279,14 @@ travel-expense:
 
 anthropic-invoice:
   filter:
-    count: 50                      # in each folder
+    count: 1000                    # the month's emails at the most, in each folder
     from: "mail.anthropic.com, stripe.com"
     subject: "Your receipt from Anthropic"   # the subject's start
     folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
 
 apple-invoice:
   filter:
-    count: 50                      # in each folder
+    count: 1000                    # the month's emails at the most, in each folder
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
     folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
@@ -486,7 +486,7 @@ Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `filter.count` | Number of recent emails to scan, in each folder | `50` |
+| `filter.count` | The month's emails to scan at the most, in each folder — the IMAP server picks the month's, however full the folder | `1000` |
 | `filter.from` | Sender domains to match, comma-separated | `mail.anthropic.com, stripe.com` |
 | `filter.subject` | The subject's start | `Your receipt from Anthropic` |
 | `filter.folders` | Folders to search, in this order | `INBOX`, `Rechnungen` |
@@ -508,7 +508,7 @@ Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `filter.count` | Number of recent emails to scan, in each folder | `50` |
+| `filter.count` | The month's emails to scan at the most, in each folder — the IMAP server picks the month's, however full the folder | `1000` |
 | `filter.from` | Sender domain to match | `apple.com` |
 | `filter.subject` | Exact subject line to match | `Deine Rechnung von Apple` |
 | `filter.folders` | Folders to search, in this order; the same invoice in two counts once | `INBOX`, `Rechnungen` |

@@ -35,14 +35,14 @@ travel-expense:
 
 anthropic-invoice:
   filter:
-    count: 50                    # how many recent emails to scan, in each folder
+    count: 1000                  # the month's emails to scan at the most, in each folder
     from: "mail.anthropic.com"
     subject: "Your receipt from Anthropic"
     folders: [INBOX, Rechnungen] # the inbox first
 
 apple-invoice:
   filter:
-    count: 50                    # how many recent emails to scan, in each folder
+    count: 1000                  # the month's emails to scan at the most, in each folder
     from: "apple.com"
     subject: "Deine Rechnung von Apple"
     folders: [INBOX, Rechnungen] # the inbox first
