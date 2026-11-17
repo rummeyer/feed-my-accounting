@@ -1129,6 +1129,12 @@ const PARTS = {
     ['Mail.Username', T('Benutzer', 'User')], ['Mail.Password', T('Passwort', 'Password'), 'secret', 0],
     ['Mail.From', T('Absender', 'Sender')], ['Mail.To', T('Empfänger', 'Recipient')], ['Mail.CC', T('Kopie (z. B. sevDesk-Autobox)', 'Copy (e.g. sevDesk Autobox)')],
   ]]],
+  // Receipts mailed, copied to iCloud Drive too, by rclone set up on the Pi.
+  icloud: [['iCloud Drive', [
+    ['ICloud.Enabled', T('Gesendete Belege auch nach iCloud Drive kopieren', 'Also copy receipts sent to iCloud Drive'), 'bool', false],
+    ['ICloud.Remote', T('rclone-Remote (auf dem Pi eingerichtet)', 'rclone remote (set up on the Pi)'), 'text', 'icloud'],
+    ['ICloud.Folder', T('Ordner – {YYYY} und {MM} für Jahr und Monat', 'Folder – {YYYY} and {MM} for year and month'), 'text', 'Belege/{YYYY}/{MM}'],
+  ]]],
   web: [[T('Oberfläche', 'Web interface'), [
     ['Web.Listen', T('Adresse (Neustart nötig)', 'Address (needs a restart)'), 'text', T('localhost:8595, auch im Netz (:8595)', 'localhost:8595, on the network too (:8595)')],
     ['Web.HomeOnly', T('Nur im Heimnetz erreichbar', 'Home network only'), 'bool', true],

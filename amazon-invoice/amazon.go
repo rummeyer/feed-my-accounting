@@ -343,7 +343,7 @@ func byHandFill(ctx context.Context, live *browser.Live, why, fill string) error
 		case <-cancelled:
 			return browser.ErrGivenUp
 		case <-deadline:
-			return fmt.Errorf("live view timed out after %d min", int(waitForHand.Minutes()))
+			return fmt.Errorf("%w after %d min", browser.ErrNoAnswer, int(waitForHand.Minutes()))
 		case <-tick.C:
 			// The login's cookie first, which a page loading does not hold up: after the code,
 			// Amazon's redirect hung for three minutes, and with it a look at the page

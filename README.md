@@ -323,6 +323,26 @@ schedule:                          # optional, run by feed-my-accounting serve
     enabled: true
 ```
 
+### iCloud Drive
+
+The receipts mailed — Amazon, Anthropic, Apple, Vodafone — can be copied to iCloud Drive too, each into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), on *Einstellungen › iCloud Drive* or in `config.yaml`:
+
+```yaml
+icloud:
+  enabled: true
+  remote: icloud                 # default
+  folder: "Belege/{YYYY}/{MM}"   # default
+```
+
+Apple has no API for the Drive: [rclone](https://rclone.org) (1.69 or later, its `iclouddrive` remote) talks to icloud.com as its web page does. Set it up once on the machine, as the user the service runs as:
+
+```bash
+rclone config        # n, name: icloud, storage: iclouddrive, Apple ID, password, then the two-factor code
+rclone lsd icloud:   # the Drive's folders: it works
+```
+
+*Advanced Data Protection* must be off for the Apple ID — with it, the Drive cannot be reached this way. rclone keeps a trust token in `~/.config/rclone/rclone.conf`; when Apple wants a new code, after a month or two, the copy fails — the mail sent all the same, the run saying *sent by mail; iCloud Drive: …* — and `rclone config reconnect icloud:` with a new code sets it up again.
+
 ---
 
 ## Module: travel-expense

@@ -40,6 +40,9 @@ type MailConfig struct {
 	// Mailboxes are further accounts the receipts may come to, searched after this one's: by
 	// IMAP only, the mail goes out from this one.
 	Mailboxes []Mailbox `yaml:"mailboxes,omitempty"`
+	// Archive, if set, keeps the PDFs SendPDFs mailed somewhere else too — iCloud Drive, say.
+	// Not configuration: set by the caller.
+	Archive func(vendor string, files []Attachment) error `yaml:"-" json:"-"`
 }
 
 // Mailbox is a further account to search, its server this one's unless it says otherwise.
@@ -90,7 +93,16 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 		return nil
 	}
 	logger.Printf("Sending %d %s PDF(s)...", len(attachments), vendor)
-	return Send(cfg, "Deine PDF-Rechnungen von "+vendor, attachments...)
+	if err := Send(cfg, "Deine PDF-Rechnungen von "+vendor, attachments...); err != nil {
+		return err
+	}
+	// Mailed: kept in the archive too. Failing there, the mail went all the same — said so.
+	if cfg.Archive != nil {
+		if err := cfg.Archive(vendor, attachments); err != nil {
+			return fmt.Errorf("sent by mail; iCloud Drive: %w", err)
+		}
+	}
+	return nil
 }
 
 // Send sends an email with the given attachments via SMTP.

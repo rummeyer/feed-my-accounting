@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **iCloud Drive**: the receipts mailed — Amazon, Anthropic, Apple, Vodafone — are copied to iCloud Drive too, if switched on in *Einstellungen › iCloud Drive*: each into its month's folder, `Belege/{YYYY}/{MM}` unless set otherwise, by the month its name begins with. By [rclone](https://rclone.org)'s `iclouddrive` remote (1.69 or later), set up once with `rclone config` and a two-factor code. A file there by the name already is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. A copy that fails leaves the mail sent, and says so: *sent by mail; iCloud Drive: …*, the log adding what to do when Apple wants a new code: `rclone config reconnect icloud:` on the Pi.
+- Login gate: a run that ended for want of someone in the live view — the one-time code not given, nobody there at the schedule's run, or *Abbrechen* — is not counted as a login: one by hand, with the code, may follow at once.
+
 ## [1.20.0] - 2026-11-17
 
 ### Added

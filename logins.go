@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"feed-my-accounting/browser"
 )
 
 // The login gate: a site whose bot check takes a run's logins for an attacker — Vodafone reset
@@ -99,6 +102,45 @@ func nextLogin(cfg *Config, site string, now time.Time) time.Time {
 		return allowedFrom(last)
 	}
 	return time.Time{}
+}
+
+// withLogin runs a login to site, noted as one — unless it ended for want of someone in the
+// live view: no code given, nobody there at the schedule's run (17.11.2026). Then no login
+// was made, and one by hand, with the code, may follow at once.
+func withLogin(cfg *Config, site string, run func() error) error {
+	at := time.Now()
+	recordLogin(cfg, site, at)
+	err := run()
+	if browser.Unanswered(err) {
+		dropLogin(cfg, site, at)
+		log.Printf("%s: nobody in the live view, not counted as a login", siteName(site))
+	}
+	return err
+}
+
+// dropLogin takes the login to site at at off the notes again.
+func dropLogin(cfg *Config, site string, at time.Time) {
+	path := loginsPath(cfg)
+	if path == "" {
+		return
+	}
+	loginsMu.Lock()
+	defer loginsMu.Unlock()
+	logins := readLogins(cfg)
+	times := logins[site][:0]
+	for _, t := range logins[site] {
+		if !t.Equal(at) {
+			times = append(times, t)
+		}
+	}
+	if len(times) == 0 {
+		delete(logins, site)
+	} else {
+		logins[site] = times
+	}
+	if data, err := json.MarshalIndent(logins, "", "  "); err == nil {
+		_ = os.WriteFile(path, data, 0o600)
+	}
 }
 
 // recordLogin notes a login to site at at, the last twelve kept.

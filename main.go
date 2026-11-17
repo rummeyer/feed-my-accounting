@@ -79,6 +79,7 @@ func setModuleLogs(w io.Writer) {
 	harvest.SetLogOutput(w)
 	travelexpense.SetLogOutput(w)
 	email.SetLogOutput(w)
+	icloudLog.SetOutput(w)
 	log.SetOutput(w)
 }
 
@@ -358,7 +359,7 @@ func findClient(clients []Client, key string) int {
 func anthropicConfig(cfg *Config) anthropic.Config {
 	f := cfg.AnthropicInvoice.Filter
 	return anthropic.Config{
-		Mail:   cfg.Mail,
+		Mail:   belegeMail(cfg),
 		Filter: anthropic.FilterConfig{Count: f.Count, Subject: f.Subject, From: f.From, Folders: f.Folders},
 	}
 }
@@ -367,7 +368,7 @@ func runAnthropicInvoice(cfg *Config) error { return anthropic.Run(anthropicConf
 
 func appleConfig(cfg *Config) apple.Config {
 	return apple.Config{
-		Mail: cfg.Mail,
+		Mail: belegeMail(cfg),
 		Filter: apple.FilterConfig{
 			Count:   cfg.AppleInvoice.Filter.Count,
 			Subject: cfg.AppleInvoice.Filter.Subject,
@@ -385,7 +386,7 @@ var liveView *browser.Live
 
 func vodafoneConfig(cfg *Config) vodafone.Config {
 	return vodafone.Config{
-		Mail:                cfg.Mail,
+		Mail:                belegeMail(cfg),
 		Username:            cfg.VodafoneInvoice.Username,
 		Password:            cfg.VodafoneInvoice.Password,
 		FallbackToLastMonth: *cfg.VodafoneInvoice.FallbackToLastMonth,
@@ -399,8 +400,7 @@ func runVodafoneInvoice(cfg *Config) error {
 	if err := loginGate(cfg, "vodafone", time.Now()); err != nil {
 		return err
 	}
-	recordLogin(cfg, "vodafone", time.Now())
-	return vodafone.Run(vodafoneConfig(cfg))
+	return withLogin(cfg, "vodafone", func() error { return vodafone.Run(vodafoneConfig(cfg)) })
 }
 
 // amazonBrowser is the folder beside the configuration where Amazon's login stays, and the
@@ -413,7 +413,7 @@ func amazonConfig(cfg *Config) amazon.Config {
 		profile = filepath.Join(cfg.dir, amazonBrowser)
 	}
 	return amazon.Config{
-		Mail:     cfg.Mail,
+		Mail:     belegeMail(cfg),
 		Username: cfg.AmazonInvoice.Username,
 		Password: cfg.AmazonInvoice.Password,
 		Profile:  profile,
@@ -427,8 +427,7 @@ func runAmazonInvoice(cfg *Config) error {
 	if err := loginGate(cfg, "amazon", time.Now()); err != nil {
 		return err
 	}
-	recordLogin(cfg, "amazon", time.Now())
-	return amazon.Run(amazonConfig(cfg))
+	return withLogin(cfg, "amazon", func() error { return amazon.Run(amazonConfig(cfg)) })
 }
 
 func harvestConfig(cfg *Config) harvest.Config {

@@ -104,6 +104,15 @@ type MailFilterConfig struct {
 	Folders []string `yaml:"folders"` // searched in this order
 }
 
+// ICloudConfig copies the receipts mailed to iCloud Drive too, with rclone: Remote is the rclone
+// remote set up for it (`rclone config`, iclouddrive), Folder where in the Drive, {YYYY} and {MM}
+// standing for the receipt's year and month.
+type ICloudConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Remote  string `yaml:"remote,omitempty"` // default "icloud"
+	Folder  string `yaml:"folder,omitempty"` // default "Belege/{YYYY}/{MM}"
+}
+
 // AmazonInvoiceConfig is the Amazon Business login whose orders' invoices are fetched.
 type AmazonInvoiceConfig struct {
 	Username string `yaml:"username"`
@@ -167,6 +176,7 @@ type Config struct {
 	Company          CompanyConfig          `yaml:"company,omitempty"`
 	Staff            StaffConfig            `yaml:"staff"`
 	Mail             email.MailConfig       `yaml:"mail"`
+	ICloud           ICloudConfig           `yaml:"icloud,omitempty"`
 	TravelExpense    TravelExpenseConfig    `yaml:"travel-expense"`
 	AmazonInvoice    AmazonInvoiceConfig    `yaml:"amazon-invoice"`
 	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
@@ -341,6 +351,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if len(cfg.AppleInvoice.Filter.Folders) == 0 {
 		cfg.AppleInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
+	}
+	if cfg.ICloud.Remote == "" {
+		cfg.ICloud.Remote = "icloud"
+	}
+	if cfg.ICloud.Folder == "" {
+		cfg.ICloud.Folder = "Belege/{YYYY}/{MM}"
 	}
 	if cfg.VodafoneInvoice.FallbackToLastMonth == nil {
 		t := true

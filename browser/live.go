@@ -28,6 +28,15 @@ type Live struct {
 // ErrGivenUp is the person's answer when they cancel instead.
 var ErrGivenUp = errors.New("cancelled in the live view")
 
+// ErrNoAnswer is a run's wait in the live view that nobody came to.
+var ErrNoAnswer = errors.New("live view timed out")
+
+// Unanswered says whether err is a run ended for want of someone in the live view: cancelled
+// there, or nobody came. No login made — a code not given, a captcha not solved.
+func Unanswered(err error) bool {
+	return errors.Is(err, ErrGivenUp) || errors.Is(err, ErrNoAnswer)
+}
+
 // Open asks for help on the page of ctx, for reason. The channel closes if the person cancels.
 func (l *Live) Open(ctx context.Context, reason string) <-chan struct{} {
 	return l.OpenWith(ctx, reason, "")

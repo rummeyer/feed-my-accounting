@@ -317,7 +317,7 @@ func byHand(ctx context.Context, live *browser.Live, why string) error {
 		case <-cancelled:
 			return browser.ErrGivenUp
 		case <-deadline:
-			return fmt.Errorf("live view timed out after %d min", int(waitForHand.Minutes()))
+			return fmt.Errorf("%w after %d min", browser.ErrNoAnswer, int(waitForHand.Minutes()))
 		case <-tick.C:
 			var url, text string
 			if err := chromedp.Run(ctx, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery)); err != nil {

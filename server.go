@@ -500,10 +500,14 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 			verb = "senden"
 		}
 		s.start(w, r.kind, fmt.Sprintf("%s %d/%d %s", r.title, month, year, verb), func() ([]File, error) {
+			var pdfs []email.Attachment
+			collect := func() (err error) { pdfs, err = r.collect(cfg, at); return err }
+			var err error
 			if r.gate != "" {
-				recordLogin(cfg, r.gate, time.Now())
+				err = withLogin(cfg, r.gate, collect)
+			} else {
+				err = collect()
 			}
-			pdfs, err := r.collect(cfg, at)
 			if err != nil {
 				return nil, err
 			}

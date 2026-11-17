@@ -16,6 +16,11 @@ mail:
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
+icloud:                          # optional: receipts mailed are copied to iCloud Drive too
+  enabled: false
+  remote: icloud                 # the rclone remote (rclone config, type iclouddrive)
+  folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
+
 
 travel-expense:
   christmasWeekOff: true         # optional, default: true (exclude Dec 24, 27-31)
