@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- amazon-invoice on the command line, in a terminal: Amazon's one-time code is asked there — *Amazon one-time code:* — and typed in as in the live view; a wrong one once more, then the run stops. In cron or a script, with nobody to ask, it stops saying so.
+
+### Fixed
+
+- Login gate: a run with no live view to ask in — on the command line — is not counted as a login either: the one by hand, with the code, may follow at once.
+
 ## [1.23.0] - 2026-11-17
 
 ### Changed

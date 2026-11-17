@@ -300,7 +300,7 @@ var handReasons = map[string]string{
 func byHand(ctx context.Context, live *browser.Live, why string) error {
 	reason := handReasons[why]
 	if live == nil {
-		return fmt.Errorf("%s, log in via web interface", strings.ToLower(reason))
+		return fmt.Errorf("%s, log in via web interface (%w)", strings.ToLower(reason), browser.ErrNoLiveView)
 	}
 	// The cookie banner out of the way first: it covers the login form.
 	chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))

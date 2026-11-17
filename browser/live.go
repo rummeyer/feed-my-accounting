@@ -31,10 +31,14 @@ var ErrGivenUp = errors.New("cancelled in the live view")
 // ErrNoAnswer is a run's wait in the live view that nobody came to.
 var ErrNoAnswer = errors.New("live view timed out")
 
+// ErrNoLiveView is a run that would have asked in the live view, with none to ask in: on the
+// command line, say.
+var ErrNoLiveView = errors.New("no live view")
+
 // Unanswered says whether err is a run ended for want of someone in the live view: cancelled
-// there, or nobody came. No login made — a code not given, a captcha not solved.
+// there, nobody came, or there was none. No login made — a code not given, a captcha not solved.
 func Unanswered(err error) bool {
-	return errors.Is(err, ErrGivenUp) || errors.Is(err, ErrNoAnswer)
+	return errors.Is(err, ErrGivenUp) || errors.Is(err, ErrNoAnswer) || errors.Is(err, ErrNoLiveView)
 }
 
 // Open asks for help on the page of ctx, for reason. The channel closes if the person cancels.

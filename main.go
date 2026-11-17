@@ -19,6 +19,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -412,12 +413,31 @@ func amazonConfig(cfg *Config) amazon.Config {
 	if cfg.dir != "" {
 		profile = filepath.Join(cfg.dir, amazonBrowser)
 	}
-	return amazon.Config{
+	c := amazon.Config{
 		Mail:     belegeMail(cfg),
 		Username: cfg.AmazonInvoice.Username,
 		Password: cfg.AmazonInvoice.Password,
 		Profile:  profile,
 		Live:     liveView,
+	}
+	if liveView == nil {
+		c.Ask = terminalAsk()
+	}
+	return c
+}
+
+// terminalAsk asks in the terminal the command runs in, the answer a line typed there; nil if
+// it runs in none — cron, a script — where nobody is there to answer.
+func terminalAsk() func(prompt string) (string, error) {
+	info, err := os.Stdin.Stat()
+	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+		return nil
+	}
+	in := bufio.NewReader(os.Stdin)
+	return func(prompt string) (string, error) {
+		fmt.Fprint(os.Stderr, prompt)
+		line, err := in.ReadString('\n')
+		return strings.TrimSpace(line), err
 	}
 }
 

@@ -43,6 +43,9 @@ type Config struct {
 	// Live asks someone to type the one-time code, or to log in by hand, in the web
 	// interface's live view. Nil, as on the command line: such a login fails.
 	Live *browser.Live
+	// Ask, without a live view — on the command line, in a terminal — asks someone for the
+	// one-time code there. Nil: such a login fails.
+	Ask func(prompt string) (string, error)
 }
 
 // waitForHand is how long a run waits for someone in the live view.
@@ -180,6 +183,9 @@ func login(ctx context.Context, cfg Config) error {
 			var remember string
 			chromedp.Run(ctx, chromedp.Evaluate(rememberJS, &remember))
 			logger.Printf("Remember this browser: %s", remember)
+			if cfg.Live == nil && cfg.Ask != nil {
+				return codeAsked(ctx, cfg)
+			}
 			return byHand(ctx, cfg.Live, "amazon-otp")
 		case "captcha":
 			return byHand(ctx, cfg.Live, "amazon-captcha")
@@ -228,6 +234,37 @@ const rememberJS = `(() => {
 	box.click();
 	return box.checked ? 'ticked now' : 'not ticked';
 })()`
+
+// codeAsked asks for the one-time code in the terminal and types it in as a person would: twice
+// at the most, a wrong code more than that what a lock is made of. Logged in once Amazon sets
+// its login cookie, its redirect after the code hanging as it may.
+func codeAsked(ctx context.Context, cfg Config) error {
+	for try := 1; try <= 2; try++ {
+		code, err := cfg.Ask("Amazon one-time code: ")
+		if err != nil {
+			return fmt.Errorf("one-time code: %w", err)
+		}
+		code = strings.TrimSpace(code)
+		if code == "" {
+			return fmt.Errorf("no one-time code given (%w)", browser.ErrNoLiveView)
+		}
+		if err := typeInto(ctx, `#auth-mfa-otpcode, input[name=otpCode]`, code); err != nil {
+			return err
+		}
+		for end := time.Now().Add(30 * time.Second); time.Now().Before(end); {
+			if signedIn(ctx) {
+				logger.Println("Logged in with the code")
+				stopLoading(ctx)
+				return nil
+			}
+			if err := browser.Pause(ctx, 2*time.Second, 2*time.Second); err != nil {
+				return err
+			}
+		}
+		logger.Println("Code not taken")
+	}
+	return errors.New("one-time code not taken")
+}
 
 // fieldJS is the sign-in field the page shows: "otp", "password" or "email", else "".
 const fieldJS = `(() => {
@@ -327,7 +364,7 @@ func byHand(ctx context.Context, live *browser.Live, why string) error {
 func byHandFill(ctx context.Context, live *browser.Live, why, fill string) error {
 	reason := handReasons[why]
 	if live == nil {
-		return fmt.Errorf("%s, log in via web interface", strings.ToLower(reason))
+		return fmt.Errorf("%s, log in via web interface (%w)", strings.ToLower(reason), browser.ErrNoLiveView)
 	}
 	logger.Printf("%s - waiting for live view", reason)
 	cancelled := live.OpenWith(ctx, why, fill)
