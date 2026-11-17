@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-11-17
+
+### Changed
+
+- Questions and notices in the page's own look, not the browser's: *Per Mail senden*, the travel expenses sent, the sevDesk draft, cancelling a run in the live view, an error — the live view's frame, the answer on its button: *Senden*, *Anlegen*, *Lauf abbrechen* or *Weiter warten*. Escape says no.
+- Zeitplan: the entries in the order they run next, as the page loads them; one added stays where it is put until the next load. Entries that never run come last.
+
 ## [1.22.0] - 2026-11-17
 
 ### Changed
