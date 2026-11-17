@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-11-17
+
 ### Added
 
 - amazon-invoice on the command line, in a terminal: Amazon's one-time code is asked there — *Amazon one-time code:* — and typed in as in the live view; a wrong one once more, then the run stops. In cron or a script, with nobody to ask, it stops saying so.
