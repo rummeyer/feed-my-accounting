@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-11-17
+
 ### Added
 
 - **Login gate**: Vodafone and Amazon are logged into once a month at the most — not again within 28 days, counted in days — the books closed on the last day of each month, at any hour, February included. Its bot check took the runs' logins for an attacker: three on three days, and Vodafone reset the password (13.11.2026); a day of tries with the password it had reset, and it blocked the address; one more, and it reset the password again (17.11.2026). Each login is noted beside `config.yaml` (`feed-my-accounting-logins.json`); until the next is allowed, *Per Mail senden* is off, beside it *manuell ab 15.12.2026 möglich* — with the schedule on, *per Zeitplan am 21.12.2026* — and a button off takes no hover. The schedule skips the runs the gate would hold back — not started to fail — and shows the next one allowed; on the command line a login too soon fails saying when. By hand, *Per Mail senden* is off too while the schedule's next run would come within 28 days — it would make that run skip, and a month's invoice be missed, logged in on the 19th with last month's — and says when the schedule fetches them instead; switch that schedule off to run it by hand.
@@ -20,16 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - vodafone-invoice: a login MeinVodafone refuses — the password, or the address flagged after wrong tries, which it answers alike — opens the live view in the web interface, to look and log in by hand. On the command line it fails with the reason, as before.
 - vodafone-invoice: the run opens MeinVodafone's login page itself, no detour by the services and their redirect by script — chromedp's wait for the form hung after it for good — and goes by what it shows, looked at every second for 30 s at most: the form, the security code, or MeinVodafone itself when the login stayed. The cookie banner is answered only if it is there.
 - vodafone-invoice: username and password go into fields emptied first, and are checked to be just what is stored — a field the page filled already would have the password appended. If one is not, nothing is sent: the page goes to the live view. The log says only lengths, never the value.
+- README: badges for the release, the build, the licence, the Go version and Buy Me a Coffee — the release read from GitHub, no longer a number to forget. A LICENSE file to go with it, the Sponsor button (`.github/FUNDING.yml`) and a build on GitHub Actions: gofmt, vet, tests and the Pi's binary.
 
 ### Fixed
 
 - The browser says what it is: Chromium, its version, on Linux, without "Headless" — not Chrome 131 on a Mac, which its client hints contradicted, a robot to a bot check.
 - vodafone-invoice: a fresh browser each run again, nothing kept, no *Eingeloggt bleiben*: the profile kept carried Vodafone's bot check's cookies from run to run.
 - vodafone-invoice: a login MeinVodafone turns down stops the run with why — *username or password wrong*, or blocked for now after too many tries — instead of going on logged out and reporting *no invoice found* (14.11.2026). An invoice page that does not load within 30 s is an error too, not an empty page. Mobilfunk is searched first, then Kabel, every run the same.
-
-### Added
-
-- README: badges for the release, the build, the licence, the Go version and Buy Me a Coffee — the release read from GitHub, no longer a number to forget. A LICENSE file to go with it, the Sponsor button (`.github/FUNDING.yml`) and a build on GitHub Actions: gofmt, vet, tests and the Pi's binary.
 
 ## [1.19.0] - 2026-11-13
 
