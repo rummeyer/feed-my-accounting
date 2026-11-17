@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The copy of the receipts mailed is not iCloud Drive's only: any storage rclone has a remote for — Google Drive, OneDrive, Dropbox, Nextcloud, a NAS by SFTP. *Einstellungen › Ablage (rclone)*, `archive:` in `config.yaml` — an `icloud:` block of 1.21 read as it, and saved so — the log `[rclone]`, the place by its kind: `"iclouddrive://…"`, `"drive://…"`; a failed copy *sent by mail; rclone: …*.
+
 ## [1.21.0] - 2026-11-17
 
 ### Added

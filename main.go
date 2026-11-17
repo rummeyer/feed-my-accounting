@@ -79,7 +79,7 @@ func setModuleLogs(w io.Writer) {
 	harvest.SetLogOutput(w)
 	travelexpense.SetLogOutput(w)
 	email.SetLogOutput(w)
-	icloudLog.SetOutput(w)
+	archiveLog.SetOutput(w)
 	log.SetOutput(w)
 }
 

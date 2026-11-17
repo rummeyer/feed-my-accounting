@@ -16,9 +16,9 @@ mail:
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
-icloud:                          # optional: receipts mailed are copied to iCloud Drive too
+archive:                         # optional: receipts mailed are copied to a storage too, by rclone
   enabled: false
-  remote: icloud                 # the rclone remote (rclone config, type iclouddrive)
+  remote: icloud                 # the rclone remote: iCloud Drive, Google Drive, OneDrive, WebDAV, …
   folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
 
 

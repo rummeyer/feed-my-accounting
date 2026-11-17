@@ -191,3 +191,17 @@ func TestStaffCurrent(t *testing.T) {
 		}
 	}
 }
+
+func TestOldICloudBlockRead(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("icloud:\n  enabled: true\n  remote: icloud\n  folder: A/B\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := readConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Archive.Enabled || cfg.Archive.Remote != "icloud" || cfg.Archive.Folder != "A/B" || cfg.ICloud != nil {
+		t.Errorf("got %+v, old %+v", cfg.Archive, cfg.ICloud)
+	}
+}

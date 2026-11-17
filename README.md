@@ -323,25 +323,25 @@ schedule:                          # optional, run by feed-my-accounting serve
     enabled: true
 ```
 
-### iCloud Drive
+### Storage (rclone)
 
-The receipts mailed — Amazon, Anthropic, Apple, Vodafone — can be copied to iCloud Drive too, each into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), on *Einstellungen › iCloud Drive* or in `config.yaml`:
+The receipts mailed — Amazon, Anthropic, Apple, Vodafone — can be copied to a storage too, by [rclone](https://rclone.org): iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud by WebDAV, a NAS by SFTP — any remote set up for it. Each goes into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), or into one folder for all without `{YYYY}`/`{MM}`. A name taken there is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. On *Einstellungen › Ablage (rclone)* or in `config.yaml`:
 
 ```yaml
-icloud:
+archive:
   enabled: true
-  remote: icloud                 # default
+  remote: icloud                 # the rclone remote
   folder: "Belege/{YYYY}/{MM}"   # default
 ```
 
-Apple has no API for the Drive: [rclone](https://rclone.org) (1.69 or later, its `iclouddrive` remote) talks to icloud.com as its web page does. Set it up once on the machine, as the user the service runs as:
+Set the remote up once on the machine, as the user the service runs as, and check it:
 
 ```bash
-rclone config        # n, name: icloud, storage: iclouddrive, Apple ID, password, then the two-factor code
-rclone lsd icloud:   # the Drive's folders: it works
+rclone config        # n, a name, the storage, its login
+rclone lsd icloud:   # its folders: it works
 ```
 
-*Advanced Data Protection* must be off for the Apple ID — with it, the Drive cannot be reached this way. rclone keeps a trust token in `~/.config/rclone/rclone.conf`; when Apple wants a new code, after a month or two, the copy fails — the mail sent all the same, the run saying *sent by mail; iCloud Drive: …* — and `rclone config reconnect icloud:` with a new code sets it up again.
+**iCloud Drive** (`iclouddrive`, rclone 1.69 or later): Apple has no API for the Drive, rclone talks to icloud.com as its web page does. *Advanced Data Protection* must be off for the Apple ID. rclone asks for a two-factor code and keeps a trust token in `~/.config/rclone/rclone.conf`; when Apple wants a new code, after a month or two, the copy fails — the mail sent all the same, the run saying *sent by mail; rclone: …*, the log what to do: `rclone config reconnect icloud:` with a new code.
 
 ---
 

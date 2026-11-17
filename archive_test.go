@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestICloudFolder(t *testing.T) {
+func TestArchiveFolder(t *testing.T) {
 	now := time.Date(2026, 12, 1, 7, 0, 0, 0, time.Local)
 	for _, c := range []struct{ folder, name, want string }{
 		{"Belege/{YYYY}/{MM}", "11_2026_Rechnung_Amazon_17112026.pdf", "Belege/2026/11"},
@@ -14,8 +14,8 @@ func TestICloudFolder(t *testing.T) {
 		{"/Buchhaltung/", "11_2026_x.pdf", "Buchhaltung"},
 		{"{YYYY}-{MM} Belege", "02_2027_x.pdf", "2027-02 Belege"},
 	} {
-		if got := icloudFolder(c.folder, c.name, now); got != c.want {
-			t.Errorf("icloudFolder(%q, %q) = %q, want %q", c.folder, c.name, got, c.want)
+		if got := archiveFolder(c.folder, c.name, now); got != c.want {
+			t.Errorf("archiveFolder(%q, %q) = %q, want %q", c.folder, c.name, got, c.want)
 		}
 	}
 }

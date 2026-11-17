@@ -104,12 +104,12 @@ type MailFilterConfig struct {
 	Folders []string `yaml:"folders"` // searched in this order
 }
 
-// ICloudConfig copies the receipts mailed to iCloud Drive too, with rclone: Remote is the rclone
-// remote set up for it (`rclone config`, iclouddrive), Folder where in the Drive, {YYYY} and {MM}
-// standing for the receipt's year and month.
-type ICloudConfig struct {
+// ArchiveConfig copies the receipts mailed to a storage too, with rclone: Remote is the rclone
+// remote set up for it (`rclone config`: iCloud Drive, Google Drive, OneDrive, WebDAV, …),
+// Folder where in it, {YYYY} and {MM} standing for the receipt's year and month.
+type ArchiveConfig struct {
 	Enabled bool   `yaml:"enabled"`
-	Remote  string `yaml:"remote,omitempty"` // default "icloud"
+	Remote  string `yaml:"remote,omitempty"`
 	Folder  string `yaml:"folder,omitempty"` // default "Belege/{YYYY}/{MM}"
 }
 
@@ -173,10 +173,12 @@ type StaffConfig struct {
 }
 
 type Config struct {
-	Company          CompanyConfig          `yaml:"company,omitempty"`
-	Staff            StaffConfig            `yaml:"staff"`
-	Mail             email.MailConfig       `yaml:"mail"`
-	ICloud           ICloudConfig           `yaml:"icloud,omitempty"`
+	Company CompanyConfig    `yaml:"company,omitempty"`
+	Staff   StaffConfig      `yaml:"staff"`
+	Mail    email.MailConfig `yaml:"mail"`
+	Archive ArchiveConfig    `yaml:"archive,omitempty"`
+	// ICloud is Archive by its name in 1.21: read, and saved as Archive.
+	ICloud           *ArchiveConfig         `yaml:"icloud,omitempty" json:"-"`
 	TravelExpense    TravelExpenseConfig    `yaml:"travel-expense"`
 	AmazonInvoice    AmazonInvoiceConfig    `yaml:"amazon-invoice"`
 	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
@@ -264,6 +266,13 @@ func readConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 	normalizeStaff(&cfg)
+	// The copy's block by its name in 1.21, icloud: as archive, saved so.
+	if cfg.ICloud != nil {
+		if cfg.Archive == (ArchiveConfig{}) {
+			cfg.Archive = *cfg.ICloud
+		}
+		cfg.ICloud = nil
+	}
 	cfg.dir = filepath.Dir(path)
 	return &cfg, nil
 }
@@ -352,11 +361,8 @@ func applyDefaults(cfg *Config) {
 	if len(cfg.AppleInvoice.Filter.Folders) == 0 {
 		cfg.AppleInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
 	}
-	if cfg.ICloud.Remote == "" {
-		cfg.ICloud.Remote = "icloud"
-	}
-	if cfg.ICloud.Folder == "" {
-		cfg.ICloud.Folder = "Belege/{YYYY}/{MM}"
+	if cfg.Archive.Folder == "" {
+		cfg.Archive.Folder = "Belege/{YYYY}/{MM}"
 	}
 	if cfg.VodafoneInvoice.FallbackToLastMonth == nil {
 		t := true
