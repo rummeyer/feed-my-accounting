@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- harvest-invoice: the warning of too few hours counts the days with time entries in the month × 8, not the client's days as the Reisekosten plan them: four days a week at a client warned every month, the plan counting five.
+
 ## [1.24.0] - 2026-11-17
 
 ### Added

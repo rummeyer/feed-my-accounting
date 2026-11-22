@@ -289,40 +289,6 @@ func workdays(cfg *Config) func(time.Time) bool {
 	return tc.Workdays()
 }
 
-// clientDays counts the month's days at the invoice's client as the Reisekosten plan has them:
-// the days it gives the travel expenses' client of the sevDesk client's name — 15 of 20 when
-// another client has a week overnight, not every workday. Without such a client, or a plan,
-// every workday counts.
-func clientDays(cfg *Config) func(time.Time) (int, string) {
-	name := strings.TrimSpace(cfg.HarvestInvoice.SevDesk.ClientName)
-	if name == "" {
-		name = strings.TrimSpace(cfg.HarvestInvoice.Harvest.Client)
-	}
-	return func(from time.Time) (int, string) {
-		if tc, err := travelConfig(cfg); err == nil && name != "" {
-			for i, c := range tc.Clients {
-				if !strings.EqualFold(strings.TrimSpace(c.Name), name) {
-					continue
-				}
-				n := 0
-				for _, d := range travelexpense.Plan(tc, from.Year(), from.Month()) {
-					if d.Client == i {
-						n++
-					}
-				}
-				return n, "days at " + c.Name
-			}
-		}
-		workday, n := workdays(cfg), 0
-		for d := time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC); d.Month() == from.Month(); d = d.AddDate(0, 0, 1) {
-			if workday(d) {
-				n++
-			}
-		}
-		return n, "workdays"
-	}
-}
-
 // parseRange reads YYYY-MM-DD dates; an empty to is the from day.
 func parseRange(from, to string) (time.Time, time.Time, error) {
 	f, err := time.Parse(time.DateOnly, from)
@@ -469,7 +435,6 @@ func harvestConfig(cfg *Config) harvest.Config {
 			ProductNum:   cfg.HarvestInvoice.SevDesk.ProductNum,
 			ReferenceNum: cfg.HarvestInvoice.SevDesk.ReferenceNum,
 		},
-		Days: clientDays(cfg),
 	}
 }
 

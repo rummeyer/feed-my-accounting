@@ -236,3 +236,17 @@ func TestBudgetLines(t *testing.T) {
 		t.Errorf("two: %q", got)
 	}
 }
+
+func TestBookedDays(t *testing.T) {
+	day := func(d int, h float64) Entry {
+		return Entry{Date: time.Date(2026, 11, d, 0, 0, 0, 0, time.Local), Hours: h}
+	}
+	// Four days a week: Monday to Thursday, two entries on one of them, and one of 0 hours.
+	entries := []Entry{day(2, 4), day(2, 4.5), day(3, 8), day(4, 8), day(5, 8), day(6, 0)}
+	if n := bookedDays(entries); n != 4 {
+		t.Errorf("bookedDays() = %d, want 4", n)
+	}
+	if n := bookedDays(nil); n != 0 {
+		t.Errorf("bookedDays(nil) = %d, want 0", n)
+	}
+}

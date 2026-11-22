@@ -26,14 +26,23 @@ type Config struct {
 	Harvest      HarvestAPI    `yaml:"harvest"`
 	SevDesk      SevDeskConfig `yaml:"sevdesk"`
 	Month        time.Time     // the month to invoice; zero is the current one
-	// Days counts the days of the month starting at from that 8 hours at least are expected on,
-	// and says which: "days at Acme GmbH", "workdays". Fewer hours in the month
-	// is a warning. Nil: no check.
-	Days func(from time.Time) (n int, which string)
 }
 
 // hoursPerWorkday are the hours a workday has at least.
 const hoursPerWorkday = 8
+
+// bookedDays counts the days with time entries: each of them a workday of 8 hours at least, so
+// fewer hours in the month is a day booked short. Not the month's workdays — four days a week at
+// a client counted as five warned every month (19.11.2026).
+func bookedDays(entries []Entry) int {
+	days := map[string]bool{}
+	for _, e := range entries {
+		if e.Hours > 0 {
+			days[e.Date.Format(time.DateOnly)] = true
+		}
+	}
+	return len(days)
+}
 
 // HarvestAPI is the access to the Harvest API v2: a personal access token from
 // id.getharvest.com/developers — on every plan, the free one too.
@@ -162,10 +171,7 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), len(entries), report.TotalHours)
 
 	var account Company
-	days, which := 0, ""
-	if cfg.Days != nil {
-		days, which = cfg.Days(from)
-	}
+	days := bookedDays(entries)
 	short := days > 0 && report.TotalHours < float64(days*hoursPerWorkday)
 	// The budgets are a warning only: without them, the work log all the same.
 	var over, ours []Budget
@@ -181,8 +187,8 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 		}
 	}
 	if short {
-		logger.Printf("WARNING: %.2f hours, fewer than %d %s × %d h = %d h: check the time entries in Harvest, %s/time",
-			report.TotalHours, days, which, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
+		logger.Printf("WARNING: %.2f hours, fewer than %d days booked × %d h = %d h: check the time entries in Harvest, %s/time",
+			report.TotalHours, days, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
 	}
 	for _, b := range over {
 		logger.Printf("WARNING: %s", budgetWarning(b, account.BaseURI))
