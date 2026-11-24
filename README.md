@@ -120,7 +120,7 @@ feed-my-accounting serve          # http://<host>:8595
 
 `serve` starts a small web server — one Go binary, the page embedded — with a register card per area of work. Everything it does is also what the command line does; it reads `config.yaml` afresh on every request, so edits by hand count at once.
 
-Every setting is on the card where it is used. Nothing saves by itself: one red *Speichern* at the bottom of the page saves every change on every card — settings, schedule, Zuordnungen, gesperrte Tage — and says beside it what is not saved yet. The first click turns it into *Sicher?*, the second within four seconds saves. *Abbrechen* beside it drops what is not saved yet, everything as saved again.
+A button that sends or transfers something — a mail, the draft to sevDesk, a Pushover test — is solid black; one that only shows or edits here is light. Every setting is on the card where it is used. Nothing saves by itself: one red *Speichern* at the bottom of the page saves every change on every card — settings, schedule, Zuordnungen, gesperrte Tage — and says beside it what is not saved yet. The first click turns it into *Sicher?*, the second within four seconds saves. *Abbrechen* beside it drops what is not saved yet, everything as saved again.
 
 | Card | What it does |
 |------|--------------|

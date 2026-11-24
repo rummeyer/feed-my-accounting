@@ -1390,7 +1390,7 @@ function renderSettings() {
     if (part === 'notify') {
       children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
         'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.')));
-      children.push(el('div', 'actions', button(T('Test senden', 'Send test'), '', async (b) => {
+      children.push(el('div', 'actions', button(T('Test senden', 'Send test'), 'strong', async (b) => {
         b.disabled = true;
         try {
           await api('POST', '/api/notify/test');
