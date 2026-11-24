@@ -701,9 +701,26 @@ func Send(cfg Config, year int, month time.Month, r *Result) error {
 	for _, d := range r.Documents() {
 		attachments = append(attachments, email.Attachment{Filename: d.Filename, Data: d.Data})
 	}
+	// Made anew each time, they go again if asked — a correction — but not unremarked.
+	for i, a := range attachments {
+		attachments[i].Key = a.Filename
+		if ledger := cfg.Mail.Ledger; ledger != nil {
+			if at, ok := ledger.Sent("Reisekosten", attachments[i]); ok {
+				logger.Printf("WARNING: %s was sent on %s already: sevDesk gets it a second time", a.Filename, at.Local().Format("02.01.2006 15:04"))
+			}
+		}
+	}
 	logger.Printf("Sending email with %d travel expense PDF attachment(s)...", len(attachments))
 	subject := fmt.Sprintf("Deine Reisekostenabrechnung %02d/%d", month, year)
-	return email.Send(cfg.Mail, subject, attachments...)
+	if err := email.Send(cfg.Mail, subject, attachments...); err != nil {
+		return err
+	}
+	if ledger := cfg.Mail.Ledger; ledger != nil {
+		if err := ledger.Record("Reisekosten", attachments); err != nil {
+			logger.Printf("WARNING: sent, but not noted as sent: %v", err)
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------

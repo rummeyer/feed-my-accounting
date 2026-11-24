@@ -120,7 +120,7 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 				logger.Printf("Order %s: invoice %d: %v", o.ID, i+1, err)
 				continue
 			}
-			attachments = append(attachments, email.Attachment{Filename: fileName(o, used), Data: data})
+			attachments = append(attachments, email.Attachment{Filename: fileName(o, used), Data: data, Key: fmt.Sprintf("%s#%d", o.ID, i+1)})
 		}
 	}
 	logger.Printf("%d invoices downloaded", len(attachments))

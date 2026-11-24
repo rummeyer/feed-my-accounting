@@ -458,3 +458,15 @@ dialog.ask::backdrop { background: rgb(0 0 0 / 0.45); }
 .live-bar .live-cancel { margin-left: auto; }
 #live-text { flex: 1; min-width: 6em; }
 @media (max-width: 640px) { .live-bar { flex-wrap: wrap; } }
+
+/* Abschluss: a month's sources, each with what it sent and what it waits for. */
+ul.rows.closing li { display: block; }
+.closing-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.closing-head .source { color: var(--headline); text-decoration: none; font-weight: 600; }
+.closing-head .source:hover { text-decoration: underline; }
+.closing-lines { margin: 4px 0 2px; display: grid; gap: 2px; }
+.closing-lines .doc { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.closing-lines .doc .grow { flex: 1; overflow-wrap: anywhere; }
+ul.rows.closing li.open .closing-head .source { color: var(--bad); }
+ul.rows.rules li { flex-wrap: wrap; }
+ul.rows.rules li input.grow { min-width: 140px; }

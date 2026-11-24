@@ -36,6 +36,7 @@
 
     <nav class="tabs" aria-label="Bereiche" data-en-aria-label="Sections">
       <a href="#cron"><span lang="de">Zeitplan</span><span lang="en">Schedule</span></a>
+      <a href="#closing"><span lang="de">Abschluss</span><span lang="en">Closing</span></a>
       <a href="#travel"><span lang="de">Reisekosten</span><span lang="en">Travel</span></a>
       <a href="#receipts"><span lang="de">Belege</span><span lang="en">Receipts</span></a>
       <a href="#invoice"><span lang="de">Kundenrechnung</span><span lang="en">Invoice</span></a>
@@ -51,6 +52,17 @@
       <div class="actions">
         <button type="button" id="schedule-add"><span lang="de">Eintrag hinzufügen</span><span lang="en">Add entry</span></button>
       </div>
+    </section>
+
+    <!-- Abschluss: a month's books, source by source — what was sent, what it still waits for. -->
+    <section id="tab-closing" class="tab" hidden>
+      <div class="month-nav">
+        <button type="button" class="plain" id="closing-prev" aria-label="Vormonat" data-en-aria-label="Previous month">‹</button>
+        <h2 id="closing-title" class="month-title"></h2>
+        <button type="button" class="plain" id="closing-next" aria-label="Nächster Monat" data-en-aria-label="Next month">›</button>
+      </div>
+      <p class="muted" id="closing-note"></p>
+      <ul id="closing" class="rows closing"></ul>
     </section>
 
     <!-- Reisekosten -->
@@ -184,6 +196,17 @@
       </div>
       <div class="console" data-console="vodafone" hidden></div>
       <details class="part-box"><summary><span lang="de">Einstellungen Vodafone</span><span lang="en">Vodafone settings</span></summary><form class="part" data-part="vodafone"></form></details>
+
+      <h2><span lang="de">Weitere Absender</span><span lang="en">Further senders</span></h2>
+      <p class="muted"><span lang="de">PDF-Rechnungen weiterer Absender aus den Postfächern, eine Regel je Absender – Strato, Hetzner, die Bahn: ansehen oder senden an</span><span lang="en">PDF invoices of further senders from the mailboxes, a rule per sender – Strato, Hetzner, the railway: view, or send to</span> <span data-mail-to></span>.</p>
+      <p class="last" data-last="mail-receipts"></p>
+      <div class="actions">
+        <input class="month receipt-month" data-for="mail" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" data-view="mail"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-send="mail" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
+      </div>
+      <div class="console" data-console="mail" hidden></div>
+      <details class="part-box" open><summary><span lang="de">Regeln</span><span lang="en">Rules</span></summary><form class="part" data-part="mailrules"></form></details>
     </section>
 
     <!-- Protokoll -->
@@ -199,6 +222,7 @@
       <form class="part" data-part="staff"></form>
       <form class="part" data-part="mail"></form>
       <form class="part" data-part="archive"></form>
+      <form class="part" data-part="notify"></form>
       <form class="part" data-part="web"></form>
     </section>
     <div class="savebar">

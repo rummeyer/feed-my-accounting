@@ -120,7 +120,8 @@ func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
 				filename = fmt.Sprintf("%s_%d", filename, i+1)
 			}
 		}
-		attachments = append(attachments, email.Attachment{Filename: filename + ".pdf", Data: pdf})
+		// The PDF is made anew from the mail each time, never the same twice: the order is the key.
+		attachments = append(attachments, email.Attachment{Filename: filename + ".pdf", Data: pdf, Key: firstOf(orderNum, msg.MessageID)})
 	}
 
 	return attachments, nil
@@ -177,4 +178,14 @@ func sanitizeFilename(s string) string {
 		s = "invoice"
 	}
 	return s
+}
+
+// firstOf is the first of the values that is not empty.
+func firstOf(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

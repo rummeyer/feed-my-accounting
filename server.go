@@ -115,6 +115,8 @@ func (s *server) handler() http.Handler {
 		},
 		func(cfg *Config, a []email.Attachment) error { return vodafone.Send(vodafoneConfig(cfg), a) }, "vodafone"}
 	mux.HandleFunc("POST /api/vodafone/send", s.receiptsRun(vodafoneReceipts, true))
+	mux.HandleFunc("POST /api/mail/view", s.mailReceiptsRun(false))
+	mux.HandleFunc("POST /api/mail/send", s.mailReceiptsRun(true))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
 	mux.HandleFunc("GET /api/bmf-table", s.bmfTable)
@@ -123,6 +125,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("DELETE /api/logo", s.deleteLogo)
 	mux.HandleFunc("POST /api/harvest/upload", s.harvestUpload)
 	mux.HandleFunc("POST /api/harvest/draft", s.harvestDraft)
+	mux.HandleFunc("GET /api/closing", s.getClosing)
+	mux.HandleFunc("DELETE /api/sent", s.forgetSent)
+	mux.HandleFunc("POST /api/notify/test", s.testNotify)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
 	mux.HandleFunc("DELETE /api/jobs", s.clearJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
@@ -517,6 +522,48 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 			}
 			if send {
 				err = r.send(cfg, pdfs)
+				// Amazon's month is not chosen: the one it fetched.
+				if r.kind == "amazon-invoice" {
+					at = amazon.FetchedMonth(time.Now())
+				}
+				err = checked(cfg, r.kind, at, err)
+			}
+			return files, err
+		})
+	}
+}
+
+// mailReceiptsRun takes the further senders' receipts of a month, by their rules: to look at,
+// or sent — offered for download both.
+func (s *server) mailReceiptsRun(send bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var in struct {
+			Month string `json:"month"`
+		}
+		if !read(w, req, &in) {
+			return
+		}
+		year, month, err := slashMonth(in.Month)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		cfg, err := s.config()
+		if err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		verb := "ansehen"
+		if send {
+			verb = "senden"
+		}
+		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+		s.start(w, "mail-receipts", fmt.Sprintf("Weitere Absender %d/%d %s", month, year, verb), func() ([]File, error) {
+			var pdfs []email.Attachment
+			err := mailReceipts(cfg, at, send, &pdfs)
+			var files []File
+			for _, p := range pdfs {
+				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
 			}
 			return files, err
 		})
@@ -758,7 +805,11 @@ func (s *server) harvestDraft(w http.ResponseWriter, r *http.Request) {
 	report := harvest.ReportData{TotalHours: in.Hours, PeriodFrom: from, PeriodTo: to}
 	title := fmt.Sprintf("Rechnungsentwurf %s – %s, %.2f h", from.Format("02.01."), to.Format("02.01.2006"), in.Hours)
 	s.start(w, "harvest-invoice", title, func() ([]File, error) {
-		return nil, harvest.CreateDraft(harvestConfig(cfg), &report)
+		if err := harvest.CreateDraft(harvestConfig(cfg), &report); err != nil {
+			return nil, err
+		}
+		recordDraft(cfg, time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.Local), "")
+		return nil, nil
 	})
 }
 
@@ -902,6 +953,8 @@ func secrets(cfg *Config) []*string {
 		&cfg.HarvestInvoice.Harvest.Token,
 		&cfg.Web.ProxyToken,
 		&cfg.AmazonInvoice.Password,
+		&cfg.Notify.Pushover.Token,
+		&cfg.Notify.Pushover.User,
 	}
 }
 
@@ -1086,4 +1139,97 @@ func fail(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+}
+
+// lastJobs are the latest run of each job.
+func (s *server) lastJobs() map[string]Job {
+	last := map[string]Job{}
+	for _, job := range s.jobs.List() {
+		if _, seen := last[job.Kind]; !seen && job.Status != "running" {
+			last[job.Kind] = job
+		}
+	}
+	return last
+}
+
+// remind looks over the month before now's, and tells of what it still waits for.
+func (s *server) remind(cfg *Config, now time.Time) {
+	month := time.Date(now.Year(), now.Month()-1, 1, 0, 0, 0, 0, time.Local)
+	d, err := ledgerOf(cfg).Data()
+	if err != nil {
+		log.Printf("closing: %v", err)
+		return
+	}
+	remindClosing(cfg, closing(cfg, d, month, s.lastJobs(), now), month)
+}
+
+// getClosing is a month's books, source by source: ?month=2026-11, the current one without.
+func (s *server) getClosing(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.config()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	now := time.Now()
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
+	if m := r.URL.Query().Get("month"); m != "" {
+		if month, err = time.ParseInLocation("2006-01", m, time.Local); err != nil {
+			fail(w, http.StatusBadRequest, fmt.Errorf("month %q: want YYYY-MM", m))
+			return
+		}
+	}
+	d, err := ledgerOf(cfg).Data()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	reply(w, map[string]any{
+		"month":      month.Format("2006-01"),
+		"rows":       closing(cfg, d, month, s.lastJobs(), now),
+		"closingDay": cfg.Notify.closingDay(),
+		"notify":     notifyOn(cfg),
+	})
+}
+
+// forgetSent takes a receipt out of the ledger: the next run may send it again.
+func (s *server) forgetSent(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Source string `json:"source"`
+		ID     string `json:"id"` // its hash, or its name for one without
+	}
+	if !read(w, r, &in) {
+		return
+	}
+	cfg, err := s.config()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	found, err := ledgerOf(cfg).Forget(in.Source, in.ID)
+	switch {
+	case err != nil:
+		fail(w, http.StatusInternalServerError, err)
+	case !found:
+		fail(w, http.StatusNotFound, errors.New(say(r, "nicht im Verzeichnis", "not in the ledger")))
+	default:
+		reply(w, map[string]bool{"ok": true})
+	}
+}
+
+// testNotify sends a notification to see that they arrive, with the settings as saved.
+func (s *server) testNotify(w http.ResponseWriter, r *http.Request) {
+	cfg, err := s.config()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return
+	}
+	if !notifyOn(cfg) {
+		fail(w, http.StatusBadRequest, errors.New(say(r, "Pushover ist nicht eingerichtet: einschalten, Token und User-Key eintragen und speichern", "Pushover is not set up: switch it on, enter token and user key, and save")))
+		return
+	}
+	if err := push(cfg, "feed-my-accounting: Test", "So kommen die Nachrichten an."); err != nil {
+		fail(w, http.StatusBadGateway, err)
+		return
+	}
+	reply(w, map[string]bool{"ok": true})
 }

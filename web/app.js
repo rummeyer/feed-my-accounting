@@ -162,7 +162,7 @@ for (const link of document.querySelectorAll('[data-lang-link]')) {
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
-const TABS = ['cron', 'travel', 'receipts', 'invoice', 'log', 'settings'];
+const TABS = ['cron', 'closing', 'travel', 'receipts', 'invoice', 'log', 'settings'];
 const loaders = {};
 
 function showTab() {
@@ -210,7 +210,7 @@ async function loadOverview() {
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice') };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -242,6 +242,9 @@ const TITLES = [
   [/^Anthropic-Belege abholen/, 'Fetch Anthropic receipts'],
   [/^Apple-Rechnungen abholen/, 'Fetch Apple invoices'],
   [/^Vodafone-Rechnungen abholen/, 'Fetch Vodafone invoices'],
+  [/^Weitere Absender abholen/, 'Fetch further senders'],
+  [/^Weitere Absender (\S+) ansehen/, 'Further senders $1, view'],
+  [/^Weitere Absender (\S+) senden/, 'Further senders $1, send'],
   [/^Kundenrechnung aus Harvest \(laufender Monat\)/, 'Invoice from Harvest (current month)'],
   [/^Reisekosten (\S+) erzeugen/, 'Travel expenses $1, view'],
   [/^Reisekosten (\S+) senden/, 'Travel expenses $1, send'],
@@ -569,8 +572,8 @@ async function start(name, method, path, body, onDone) {
 
 // Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
-const NAMES = T({ amazon: 'Amazon-Rechnungen', anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen' },
-  { amazon: 'Amazon invoices', anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices' });
+const NAMES = T({ amazon: 'Amazon-Rechnungen', anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen', mail: 'Belege weiterer Absender' },
+  { amazon: 'Amazon invoices', anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices', mail: "further senders' receipts" });
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
@@ -1207,6 +1210,18 @@ const PARTS = {
     ['AppleInvoice.Filter.Subject', T('Betreff', 'Subject'), 'text', 'Deine Rechnung von Apple'],
     ['AppleInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
+  mailrules: [['', [
+    ['MailReceipts.Count', SCAN, 'number', 1000],
+    ['MailReceipts.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
+  ]]],
+  notify: [[T('Benachrichtigung (Pushover)', 'Notifications (Pushover)'), [
+    ['Notify.Pushover.Enabled', T('Per Pushover benachrichtigen', 'Notify by Pushover'), 'bool', false],
+    ['Notify.Pushover.Token', T('API-Token der Anwendung', "The application's API token"), 'secret', 6],
+    ['Notify.Pushover.User', T('User-Key', 'User key'), 'secret', 7],
+    BREAK,
+    ['Notify.Closing', T('Monatsabschluss: melden, was im Vormonat fehlt', 'Closing: tell what last month is missing'), 'bool', true],
+    ['Notify.ClosingDay', T('Am Tag des Monats (9:00)', 'On the day of the month (9:00)'), 'number', 5],
+  ]]],
   vodafone: [['', [
     ['VodafoneInvoice.Username', T('Benutzer', 'User')], ['VodafoneInvoice.Password', T('Passwort', 'Password'), 'secret', 1],
     ['VodafoneInvoice.FallbackToLastMonth', T('Sonst die Rechnung vom Vormonat', 'Else the previous month\'s invoice'), 'bool', true],
@@ -1355,17 +1370,33 @@ function renderSettings() {
       if (part === 'company') children.push(renderLogo());
     }
     if (part === 'archive') {
-      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Anthropic, Apple, Vodafone) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
-        'Receipts sent (Amazon, Anthropic, Apple, Vodafone) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
+      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Anthropic, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
+        'Receipts sent (Amazon, Anthropic, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
     }
     if (part === 'web') {
       children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',
         'Home network only: only devices with a private address (192.168.…, 10.…, localhost), even with the port open by mistake. Off: from outside too, through Caddy say — but only once an employee has a password, and only after logging in. Behind Caddy the visitor\'s address counts; Caddy in Docker (172.…) needs the proxy token, the same as in the Caddyfile.')));
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
+    if (part === 'mailrules') children.unshift(renderRules(cfg));
+    if (part === 'notify') {
+      children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
+        'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.')));
+      children.push(el('div', 'actions', button(T('Test senden', 'Send test'), '', async (b) => {
+        b.disabled = true;
+        try {
+          await api('POST', '/api/notify/test');
+          tell(T('Gesendet – kommt sie auf dem Handy an?', 'Sent – does it arrive on the phone?'));
+        } catch (err) {
+          tell(err.message);
+        } finally {
+          b.disabled = false;
+        }
+      })));
+    }
     if (part === 'mail') {
-      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Anthropic, Apple und Vodafone bei den Belegen.`,
-        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Anthropic, Apple and Vodafone with Receipts.`)));
+      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Anthropic, Apple, Vodafone und weitere Absender bei den Belegen, Pushover hier unten.`,
+        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Anthropic, Apple, Vodafone and further senders with Receipts, Pushover below.`)));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
@@ -1600,6 +1631,46 @@ function renderMailboxes(cfg) {
 }
 
 /**
+ * The further senders' rules: a name, the sender's domains, and optionally what the subject and
+ * the PDF's name contain. Saved with the button at the bottom.
+ */
+function renderRules(cfg) {
+  cfg.MailReceipts ??= {};
+  cfg.MailReceipts.Rules ??= [];
+  const rules = cfg.MailReceipts.Rules;
+  const changed = () => { renderSettings(); refreshSave(); };
+  const input = (rule, key, cls, placeholder, label) => {
+    const i = el('input', cls);
+    i.value = rule[key] ?? '';
+    i.placeholder = placeholder;
+    i.autocomplete = 'off';
+    i.spellcheck = false;
+    i.setAttribute('aria-label', label);
+    i.addEventListener('input', () => { rule[key] = i.value.trim(); refreshSave(); });
+    return i;
+  };
+  const list = el('ul', 'rows staff rules', ...rules.map((rule, i) => {
+    const on = el('input');
+    on.type = 'checkbox';
+    on.checked = !rule.Off;
+    on.title = T('an', 'on');
+    on.setAttribute('aria-label', T('Regel an', 'Rule on'));
+    on.addEventListener('change', () => { rule.Off = !on.checked; refreshSave(); });
+    return el('li', '', on,
+      input(rule, 'Name', 'grow', T('Name, z. B. Strato', 'Name, e.g. Strato'), 'Name'),
+      input(rule, 'From', 'grow', T('Absender-Domain, z. B. strato.de', 'Sender domain, e.g. strato.de'), T('Absender-Domains', 'Sender domains')),
+      input(rule, 'Subject', 'grow', T('Betreff enthält', 'Subject contains'), T('Betreff enthält', 'Subject contains')),
+      input(rule, 'Attachment', 'grow', T('PDF-Name enthält', 'PDF name contains'), T('PDF-Name enthält', 'PDF name contains')),
+      button(T('entfernen', 'remove'), 'link', () => { rules.splice(i, 1); changed(); }));
+  }));
+  return el('div', '',
+    el('p', 'muted', T('Je Regel: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das Wort enthält, mit ihren PDF-Anhängen – benannt wie die übrigen Belege, 11_2026_Rechnung_Strato_03112026.pdf. Was schon gesendet ist, geht nicht noch einmal. Betreff und PDF-Name leer: jede Mail, jedes PDF. Für den Zeitplan: „Weitere Absender abholen“.',
+      'Per rule: mails from these sender domains (several with commas) whose subject contains the word, with their PDF attachments – named as the other receipts, 11_2026_Rechnung_Strato_03112026.pdf. What was sent already does not go again. Subject and PDF name empty: any mail, any PDF. For the schedule: “Fetch further senders”.')),
+    rules.length ? list : el('p', 'muted', T('Noch keine Regel.', 'No rule yet.')),
+    el('div', 'actions', button(T('Regel hinzufügen', 'Add rule'), '', () => { rules.push({ Name: '', From: '' }); changed(); })));
+}
+
+/**
  * The employees, the selected one ticked: the Lieferant on the travel expenses, and whose hours
  * in Harvest make the work log and the invoice. Saved with the button at the bottom.
  */
@@ -1687,6 +1758,73 @@ function renderClients(cfg) {
     refreshSave();
   })));
   return box;
+}
+
+// ── Closing: a month's books, source by source ─────────────────────────────
+
+// The month shown: until the closing day the one before, being closed; after it the current one.
+let closingMonth = null;
+
+async function loadClosing() {
+  let data;
+  const key = closingMonth && `${closingMonth.getFullYear()}-${String(closingMonth.getMonth() + 1).padStart(2, '0')}`;
+  try {
+    data = await api('GET', `/api/closing${key ? `?month=${key}` : ''}`);
+  } catch (err) {
+    $('closing').replaceChildren(el('li', 'badge failed', err.message));
+    return;
+  }
+  if (!closingMonth) {
+    const now = new Date();
+    closingMonth = new Date(now.getFullYear(), now.getMonth() - (now.getDate() <= data.closingDay ? 1 : 0), 1);
+    return loadClosing();
+  }
+  renderClosing(data);
+}
+loaders.closing = loadClosing;
+
+$('closing-prev').addEventListener('click', () => { closingMonth.setMonth(closingMonth.getMonth() - 1); loadClosing(); });
+$('closing-next').addEventListener('click', () => { closingMonth.setMonth(closingMonth.getMonth() + 1); loadClosing(); });
+
+const shortWhen = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+function renderClosing(data) {
+  const name = `${MONTHS[closingMonth.getMonth()]} ${closingMonth.getFullYear()}`;
+  $('closing-title').textContent = name;
+  const open = data.rows.filter((r) => r.open).map((r) => r.source);
+  const expected = data.rows.filter((r) => r.expected).length;
+  const day = `${data.closingDay}.`;
+  $('closing-note').textContent = [
+    open.length ? T(`Noch offen: ${open.join(', ')}.`, `Still open: ${open.join(', ')}.`)
+      : expected ? T(`Alle ${expected} Quellen mit Zeitplan sind erledigt.`, `All ${expected} sources with a schedule are done.`) : '',
+    data.notify ? T(`Am ${day} des Folgemonats um 9:00 kommt per Pushover, was dann noch fehlt.`, `On the ${data.closingDay}th of the next month at 9:00 Pushover tells what is still missing.`)
+      : T(`Mit Pushover (Einstellungen) käme am ${day} des Folgemonats eine Nachricht, wenn noch etwas fehlt.`, `With Pushover (Settings) a message would come on the ${data.closingDay}th of the next month if something is missing.`),
+  ].filter(Boolean).join(' ');
+
+  $('closing').replaceChildren(...data.rows.map((r) => {
+    const sent = r.docs.length;
+    const state = sent ? el('span', 'badge ok', r.source === 'Kundenrechnung' ? T('Entwurf angelegt', 'draft created') : T(`${sent} gesendet`, `${sent} sent`))
+      : !never(r.checked) ? el('span', 'badge ok', T('nichts gefunden', 'nothing found'))
+        : r.open ? el('span', 'badge failed', T('offen', 'open'))
+          : el('span', 'badge', r.expected ? '—' : T('ohne Zeitplan', 'no schedule'));
+    const lines = [];
+    for (const d of r.docs) {
+      const id = d.hash || d.name;
+      lines.push(el('div', 'doc', el('span', 'grow', d.name), el('span', 'muted', shortWhen(d.at)),
+        button(T('vergessen', 'forget'), 'link', async () => {
+          if (!(await ask(T(`${d.name} aus dem Verzeichnis nehmen? Der nächste Lauf sendet den Beleg dann noch einmal an ${mailTo()}.`,
+            `Take ${d.name} out of the ledger? The next run then sends it again to ${mailTo()}.`), { yes: T('Vergessen', 'Forget') }))) return;
+          await api('DELETE', '/api/sent', { source: r.source, id }).catch((err) => tell(err.message));
+          loadClosing();
+        })));
+    }
+    if (!sent && !never(r.checked)) lines.push(el('div', 'muted', T(`Nachgesehen ${shortWhen(r.checked)}, kein Beleg für den Monat.`, `Looked ${shortWhen(r.checked)}, no receipt for the month.`)));
+    if (r.failed) lines.push(el('div', 'badge failed', `${T('Letzter Lauf fehlgeschlagen', 'Last run failed')} ${never(r.failedAt) ? '' : shortWhen(r.failedAt)}: ${r.failed}`));
+    if (r.expected && !never(r.next)) lines.push(el('div', 'muted', `${T('Nächster Lauf', 'Next run')}: ${shortWhen(r.next)}`));
+    const link = el('a', 'source', r.source);
+    link.href = r.job === 'travel-expense' ? '#travel' : r.job === 'harvest-invoice' ? '#invoice' : '#receipts';
+    return el('li', r.open ? 'open' : '', el('div', 'closing-head', link, state), lines.length > 0 && el('div', 'closing-lines small', ...lines));
+  }));
 }
 
 // ── Start ──────────────────────────────────────────────────────────────────

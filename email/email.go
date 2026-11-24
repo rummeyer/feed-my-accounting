@@ -44,6 +44,18 @@ type MailConfig struct {
 	// Archive, if set, keeps the PDFs SendPDFs mailed somewhere else too — a cloud storage, say.
 	// Not configuration: set by the caller.
 	Archive func(vendor string, files []Attachment) error `yaml:"-" json:"-"`
+	// Ledger, if set, keeps what SendPDFs mailed, and keeps it from mailing a receipt twice. Not
+	// configuration: set by the caller.
+	Ledger Ledger `yaml:"-" json:"-"`
+}
+
+// Ledger is the record of the receipts mailed: one mailed already — the same file, or the same
+// receipt by its key — is not mailed again, sevDesk's Autobox would book it twice.
+type Ledger interface {
+	// Sent is when a receipt was mailed before, if it was.
+	Sent(vendor string, a Attachment) (time.Time, bool)
+	// Record notes receipts as mailed now.
+	Record(vendor string, files []Attachment) error
 }
 
 // Mailbox is a further account to search, its server this one's unless it says otherwise.
@@ -85,10 +97,17 @@ func (c MailConfig) accounts() []MailConfig {
 type Attachment struct {
 	Filename string
 	Data     []byte
+	// Key is what the receipt is, whatever its file: an order's number, a mail's Message-ID —
+	// a PDF made anew from an HTML mail differs from the last, its receipt is the same.
+	Key string
 }
 
-// SendPDFs mails a module's PDFs under "Deine PDF-Rechnungen von <vendor>", if there are any.
+// SendPDFs mails a module's PDFs under "Deine PDF-Rechnungen von <vendor>", if there are any —
+// with a ledger, those not mailed before.
 func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
+	if cfg.Ledger != nil {
+		attachments = unsent(cfg.Ledger, vendor, attachments)
+	}
 	if len(attachments) == 0 {
 		logger.Printf("No %s PDFs to send", vendor)
 		return nil
@@ -97,6 +116,11 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 	if err := Send(cfg, "Deine PDF-Rechnungen von "+vendor, attachments...); err != nil {
 		return err
 	}
+	if cfg.Ledger != nil {
+		if err := cfg.Ledger.Record(vendor, attachments); err != nil {
+			logger.Printf("WARNING: sent, but not noted as sent: %v", err)
+		}
+	}
 	// Mailed: kept in the archive too. Failing there, the mail went all the same — said so.
 	if cfg.Archive != nil {
 		if err := cfg.Archive(vendor, attachments); err != nil {
@@ -104,6 +128,22 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 		}
 	}
 	return nil
+}
+
+// unsent are the attachments the ledger has not seen mailed; those it has, said so.
+func unsent(ledger Ledger, vendor string, attachments []Attachment) []Attachment {
+	var fresh []Attachment
+	for _, a := range attachments {
+		if at, ok := ledger.Sent(vendor, a); ok {
+			logger.Printf("%s: sent on %s already — not again", a.Filename, at.Local().Format("02.01.2006 15:04"))
+			continue
+		}
+		fresh = append(fresh, a)
+	}
+	if skipped := len(attachments) - len(fresh); skipped > 0 && len(fresh) == 0 {
+		logger.Printf("All %d %s PDF(s) were sent before", skipped, vendor)
+	}
+	return fresh
 }
 
 // Send sends an email with the given attachments via SMTP.
@@ -146,6 +186,7 @@ type IMAPFilter struct {
 	FromDomain       string    // sender hostname must contain this string, or one of them, comma-separated
 	Subject          string    // exact subject match
 	SubjectPrefix    string    // the subject starts with this, receipt numbers after it
+	SubjectContains  string    // the subject has this in it, whatever the case
 	CurrentMonthOnly bool      // only return emails received in the current month
 	Month            time.Time // only those of this month, when set: its year and month count
 	// Folders are searched one after the other, the latest Count of each: INBOX if none.
@@ -154,6 +195,7 @@ type IMAPFilter struct {
 
 // Message holds an email's subject, date, and HTML body — and with FetchEmails its attachments.
 type Message struct {
+	MessageID   string
 	Subject     string
 	Date        time.Time
 	HTMLBody    string
@@ -328,6 +370,9 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 		if filter.SubjectPrefix != "" && !strings.HasPrefix(env.Subject, filter.SubjectPrefix) {
 			continue
 		}
+		if filter.SubjectContains != "" && !strings.Contains(strings.ToLower(env.Subject), strings.ToLower(filter.SubjectContains)) {
+			continue
+		}
 		logger.Printf("Matched: %q (UID %d)", env.Subject, msg.Uid)
 		uids = append(uids, msg.Uid)
 	}
@@ -362,7 +407,7 @@ func fetchBodies(c *client.Client, uids []uint32, attachments bool) ([]Message, 
 				logger.Printf("WARNING: reading UID %d: %v", msg.Uid, err)
 				continue
 			}
-			m.Subject, m.Date = msg.Envelope.Subject, msg.Envelope.Date
+			m.Subject, m.Date, m.MessageID = msg.Envelope.Subject, msg.Envelope.Date, msg.Envelope.MessageId
 			results = append(results, m)
 			continue
 		}
@@ -372,9 +417,10 @@ func fetchBodies(c *client.Client, uids []uint32, attachments bool) ([]Message, 
 			continue
 		}
 		results = append(results, Message{
-			Subject:  msg.Envelope.Subject,
-			Date:     msg.Envelope.Date,
-			HTMLBody: htmlBody,
+			MessageID: msg.Envelope.MessageId,
+			Subject:   msg.Envelope.Subject,
+			Date:      msg.Envelope.Date,
+			HTMLBody:  htmlBody,
 		})
 	}
 	if err := <-done; err != nil {

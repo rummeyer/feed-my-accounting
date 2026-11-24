@@ -90,7 +90,7 @@ func Receipts(messages []email.Message) []email.Attachment {
 			name = strings.TrimSuffix(name, ".pdf") + fmt.Sprintf("_%d.pdf", named[name])
 		}
 		logger.Printf("%s → %s (%d bytes)", receipt.Filename, name, len(receipt.Data))
-		out = append(out, email.Attachment{Filename: name, Data: receipt.Data})
+		out = append(out, email.Attachment{Filename: name, Data: receipt.Data, Key: receipt.Filename})
 	}
 	return out
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"feed-my-accounting/email"
+	mailreceipts "feed-my-accounting/mail-receipts"
 
 	"gopkg.in/yaml.v3"
 )
@@ -72,7 +73,7 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice or harvest-invoice.
+// amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice, mail-receipts or harvest-invoice.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
@@ -125,6 +126,39 @@ type AnthropicInvoiceConfig struct {
 
 type AppleInvoiceConfig struct {
 	Filter MailFilterConfig `yaml:"filter"`
+}
+
+// NotifyConfig is how the phone is told: by Pushover, of a scheduled run that failed, and on the
+// closing day of what last month is still waiting for.
+type NotifyConfig struct {
+	Pushover struct {
+		Enabled bool   `yaml:"enabled"`
+		Token   string `yaml:"token,omitempty"` // the application's API token
+		User    string `yaml:"user,omitempty"`  // the user's key
+	} `yaml:"pushover"`
+	// ClosingDay is the day of the month, at 9:00, that the month before is looked over; 0 is the 5th.
+	ClosingDay int `yaml:"closingDay,omitempty"`
+	// Closing tells of a month not complete on its closing day: unless switched off.
+	Closing *bool `yaml:"closing,omitempty"`
+}
+
+// closingOn says whether a month not complete is told of.
+func (n NotifyConfig) closingOn() bool { return n.Closing == nil || *n.Closing }
+
+// closingDay is the day the month before is looked over.
+func (n NotifyConfig) closingDay() int {
+	if n.ClosingDay < 1 || n.ClosingDay > 28 {
+		return 5
+	}
+	return n.ClosingDay
+}
+
+// MailReceiptsConfig are the further senders whose PDFs are taken from the mailboxes, a rule
+// each, and where to look for them.
+type MailReceiptsConfig struct {
+	Count   int                 `yaml:"count,omitempty"`   // how many of the month's mails to scan at the most, in each folder
+	Folders []string            `yaml:"folders,omitempty"` // searched in this order
+	Rules   []mailreceipts.Rule `yaml:"rules,omitempty"`
 }
 
 type VodafoneInvoiceConfig struct {
@@ -184,6 +218,8 @@ type Config struct {
 	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
 	AppleInvoice     AppleInvoiceConfig     `yaml:"apple-invoice"`
 	VodafoneInvoice  VodafoneInvoiceConfig  `yaml:"vodafone-invoice"`
+	MailReceipts     MailReceiptsConfig     `yaml:"mail-receipts,omitempty"`
+	Notify           NotifyConfig           `yaml:"notify,omitempty"`
 	HarvestInvoice   HarvestInvoiceConfig   `yaml:"harvest-invoice"`
 	Web              WebConfig              `yaml:"web,omitempty"`
 	Schedule         []ScheduleEntry        `yaml:"schedule,omitempty"`
@@ -360,6 +396,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if len(cfg.AppleInvoice.Filter.Folders) == 0 {
 		cfg.AppleInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
+	}
+	if cfg.MailReceipts.Count == 0 {
+		cfg.MailReceipts.Count = 1000
+	}
+	if len(cfg.MailReceipts.Folders) == 0 {
+		cfg.MailReceipts.Folders = []string{"INBOX", "Rechnungen"}
 	}
 	if cfg.Archive.Folder == "" {
 		cfg.Archive.Folder = "Belege/{YYYY}/{MM}"

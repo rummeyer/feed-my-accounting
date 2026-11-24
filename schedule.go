@@ -319,6 +319,7 @@ var scheduledJobs = map[string]scheduledJob{
 	"anthropic-invoice": {"Anthropic-Belege abholen", noFiles(runAnthropicInvoice)},
 	"apple-invoice":     {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice":  {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
+	"mail-receipts":     {"Weitere Absender abholen", noFiles(runMailReceipts)},
 	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", func(cfg *Config) ([]File, error) {
 		now := time.Now()
 		return withFile(runHarvestInvoice(cfg, now.Year(), now.Month(), false))
@@ -463,6 +464,10 @@ func (s *server) scheduler() {
 			log.Printf("schedule: %v", err)
 			continue
 		}
+		// On the closing day, the month before looked over: what it still waits for, told.
+		if n := cfg.Notify; n.closingOn() && notifyOn(cfg) && now.Day() == n.closingDay() && now.Hour() == 9 && now.Minute() == 0 {
+			go s.remind(cfg, now)
+		}
 		for _, entry := range cfg.Schedule {
 			if !entry.Enabled {
 				continue
@@ -494,7 +499,14 @@ func (s *server) scheduler() {
 				delete(pending, job)
 				continue
 			}
-			if _, err := s.jobs.Start(job, sj.title+" · Zeitplan", func() ([]File, error) { return sj.run(cfg) }); err == nil {
+			run := func() ([]File, error) {
+				files, err := sj.run(cfg)
+				if err != nil {
+					pushLogged(cfg, sj.title+" fehlgeschlagen", err.Error())
+				}
+				return files, err
+			}
+			if _, err := s.jobs.Start(job, sj.title+" · Zeitplan", run); err == nil {
 				delete(pending, job)
 			}
 		}

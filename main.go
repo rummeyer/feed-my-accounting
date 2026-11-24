@@ -14,6 +14,7 @@
 //	anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
 //	apple-invoice             Fetch Apple invoice emails and send as PDFs
 //	vodafone-invoice          Download Vodafone invoices and send via email
+//	mail-receipts             Fetch the further senders' PDFs, by the rules set, and send them
 //	harvest-invoice           Create sevDesk invoice from Harvest monthly report
 //	serve                     Web interface on web.listen (default :8595)
 package main
@@ -37,6 +38,7 @@ import (
 	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
 	harvest "feed-my-accounting/harvest-invoice"
+	mailreceipts "feed-my-accounting/mail-receipts"
 	"feed-my-accounting/pdfdoc"
 	travelexpense "feed-my-accounting/travel-expense"
 	vodafone "feed-my-accounting/vodafone-invoice"
@@ -80,6 +82,7 @@ func setModuleLogs(w io.Writer) {
 	harvest.SetLogOutput(w)
 	travelexpense.SetLogOutput(w)
 	email.SetLogOutput(w)
+	mailreceipts.SetLogOutput(w)
 	archiveLog.SetOutput(w)
 	log.SetOutput(w)
 }
@@ -151,6 +154,10 @@ func main() {
 			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
 			os.Exit(1)
 		}
+		if err := runMailReceipts(cfg); err != nil {
+			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
+			os.Exit(1)
+		}
 		if err := runVodafoneInvoice(cfg); err != nil {
 			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
 			os.Exit(1)
@@ -185,6 +192,12 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "mail-receipts":
+		if err := runMailReceipts(cfg); err != nil {
+			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "vodafone-invoice":
 		if err := runVodafoneInvoice(cfg); err != nil {
 			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
@@ -216,7 +229,11 @@ func runTravelExpense(cfg *Config, year int, month time.Month) error {
 	if err != nil {
 		return err
 	}
-	return travelexpense.Run(tc, year, month)
+	if err := travelexpense.Run(tc, year, month); err != nil {
+		return err
+	}
+	noteChecked(cfg, jobSources["travel-expense"], time.Date(year, month, 1, 0, 0, 0, 0, time.Local))
+	return nil
 }
 
 // travelConfig turns the YAML's travel-expense section into the module's: dates parsed, and
@@ -243,7 +260,7 @@ func travelConfig(cfg *Config) (travelexpense.Config, error) {
 		}
 	}
 	tc := travelexpense.Config{
-		Mail:             cfg.Mail,
+		Mail:             ledgerMail(cfg),
 		Employee:         cfg.Staff.Current,
 		Clients:          clients,
 		ChristmasWeekOff: te.ChristmasWeekOff,
@@ -331,7 +348,17 @@ func anthropicConfig(cfg *Config) anthropic.Config {
 	}
 }
 
-func runAnthropicInvoice(cfg *Config) error { return anthropic.Run(anthropicConfig(cfg)) }
+func runAnthropicInvoice(cfg *Config) error {
+	return checked(cfg, "anthropic-invoice", time.Now(), anthropic.Run(anthropicConfig(cfg)))
+}
+
+// checked is a run's error; without one, the month is noted as looked at by the job's source.
+func checked(cfg *Config, job string, month time.Time, err error) error {
+	if err == nil {
+		noteChecked(cfg, sourceName(job), month)
+	}
+	return err
+}
 
 func appleConfig(cfg *Config) apple.Config {
 	return apple.Config{
@@ -345,7 +372,40 @@ func appleConfig(cfg *Config) apple.Config {
 	}
 }
 
-func runAppleInvoice(cfg *Config) error { return apple.Run(appleConfig(cfg)) }
+func runAppleInvoice(cfg *Config) error {
+	return checked(cfg, "apple-invoice", time.Now(), apple.Run(appleConfig(cfg)))
+}
+
+func mailReceiptsConfig(cfg *Config) mailreceipts.Config {
+	mr := cfg.MailReceipts
+	return mailreceipts.Config{Mail: belegeMail(cfg), Rules: mr.Rules, Count: mr.Count, Folders: mr.Folders}
+}
+
+// runMailReceipts sends the current month's receipts of the further senders, each rule's month
+// noted as looked at.
+func runMailReceipts(cfg *Config) error {
+	return mailReceipts(cfg, time.Now(), true, nil)
+}
+
+// mailReceipts collects the month's receipts of the further senders, and sends them if asked —
+// each rule's month noted as looked at; found, if given, gets them all.
+func mailReceipts(cfg *Config, month time.Time, send bool, found *[]email.Attachment) error {
+	mc := mailReceiptsConfig(cfg)
+	receipts, err := mailreceipts.Collect(mc, month)
+	for _, r := range receipts {
+		if found != nil {
+			*found = append(*found, r.Files...)
+		}
+		if !send {
+			continue
+		}
+		if err := mailreceipts.Send(mc, []mailreceipts.Receipts{r}); err != nil {
+			return err
+		}
+		noteChecked(cfg, r.Rule.Name, month)
+	}
+	return err
+}
 
 // liveView is where a run asks someone to take over a page — a captcha at Vodafone's login,
 // say: the web interface's, set as it starts; nil on the command line, where nobody is asked.
@@ -367,7 +427,7 @@ func runVodafoneInvoice(cfg *Config) error {
 	if err := loginGate(cfg, "vodafone", time.Now()); err != nil {
 		return err
 	}
-	return withLogin(cfg, "vodafone", func() error { return vodafone.Run(vodafoneConfig(cfg)) })
+	return checked(cfg, "vodafone-invoice", time.Now(), withLogin(cfg, "vodafone", func() error { return vodafone.Run(vodafoneConfig(cfg)) }))
 }
 
 // amazonBrowser is the folder beside the configuration where Amazon's login stays, and the
@@ -413,7 +473,7 @@ func runAmazonInvoice(cfg *Config) error {
 	if err := loginGate(cfg, "amazon", time.Now()); err != nil {
 		return err
 	}
-	return withLogin(cfg, "amazon", func() error { return amazon.Run(amazonConfig(cfg)) })
+	return checked(cfg, "amazon-invoice", amazon.FetchedMonth(time.Now()), withLogin(cfg, "amazon", func() error { return amazon.Run(amazonConfig(cfg)) }))
 }
 
 func harvestConfig(cfg *Config) harvest.Config {
@@ -446,7 +506,15 @@ func runHarvestInvoice(cfg *Config, year int, month time.Month, logOnly bool) (*
 	if logOnly {
 		return harvest.WorkLogOnly(hc)
 	}
-	return harvest.Run(hc)
+	doc, err := harvest.Run(hc)
+	if err == nil {
+		name := ""
+		if doc != nil {
+			name = doc.Filename
+		}
+		recordDraft(cfg, hc.Month, name)
+	}
+	return doc, err
 }
 
 // harvestFromCommandLine is runHarvestInvoice with the work log saved in the current directory.
@@ -503,6 +571,7 @@ Commands:
   anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
+  mail-receipts             Fetch the further senders' PDFs, by the rules set, and send them
   harvest-invoice [M/YYYY]  Create sevDesk draft invoice from the month's Harvest hours
   serve                     Web interface on web.listen (default :8595)
 

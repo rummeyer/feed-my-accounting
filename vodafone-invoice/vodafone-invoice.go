@@ -134,7 +134,8 @@ func Collect(cfg Config) ([]email.Attachment, error) {
 	attachments := make([]email.Attachment, 0, len(results))
 	for _, inv := range results {
 		if len(inv.PDFData) > 0 {
-			attachments = append(attachments, email.Attachment{Filename: inv.Filename, Data: inv.PDFData})
+			// One invoice a month per contract, as its name says.
+			attachments = append(attachments, email.Attachment{Filename: inv.Filename, Data: inv.PDFData, Key: inv.Filename})
 		}
 	}
 	return attachments, nil
