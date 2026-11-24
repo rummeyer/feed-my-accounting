@@ -19,9 +19,9 @@
 
 A single command that closes your books for the month.
 
-Every month, freelancers and small businesses juggle the same ritual: collect invoices from Anthropic, Apple and Vodafone, generate travel expense reports, turn Harvest timesheets into outgoing invoices, and feed everything into the accounting system. **feed-my-accounting** automates all of it — from source to [sevDesk](https://sevdesk.de).
+Every month, freelancers and small businesses juggle the same ritual: collect invoices from Amazon, Apple, Vodafone and whoever else mails them, generate travel expense reports, turn Harvest timesheets into outgoing invoices, feed everything into the accounting system — none of it twice — and tell the tax adviser once the month is booked. **feed-my-accounting** automates all of it — from source to [sevDesk](https://sevdesk.de).
 
-It connects its sources — mailboxes, MeinVodafone, the Harvest API and your calendar — to your sevDesk account, each handled by a dedicated module:
+It connects its sources — mailboxes, Amazon Business, MeinVodafone, the Harvest API and your calendar — to your sevDesk account, each handled by a dedicated module:
 
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
@@ -34,15 +34,15 @@ It connects its sources — mailboxes, MeinVodafone, the Harvest API and your ca
 
 ### How it all fits together
 
-<p align="center"><img src="docs/architecture.svg" alt="Architecture: the web interface, the Zeitplan and the command line start feed-my-accounting, one Go binary with one config.yaml. Its sources — mailboxes over IMAP, MeinVodafone, the Harvest API with time entries and project budgets, and the calendar with clients, vacation and assignments — feed five modules: anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice and travel-expense. Four of them send their PDFs by email to the sevDesk Autobox; harvest-invoice creates a draft E-Rechnung in sevDesk with headless Chrome. Every run's PDFs and log are in the Protokoll. It runs on a Raspberry Pi behind Caddy with HTTPS." width="900"></p>
+<p align="center"><img src="docs/architecture.svg" alt="Architecture: the web interface, the Zeitplan and the command line start feed-my-accounting, one Go binary with one config.yaml. Its sources — mailboxes over IMAP, the Amazon Business and MeinVodafone portals, the Harvest API with time entries and project budgets, and the calendar with clients, vacation and assignments — feed six modules: mail-receipts, apple-invoice, amazon-invoice, vodafone-invoice, harvest-invoice and travel-expense. Five of them send their PDFs by email to the sevDesk Autobox; harvest-invoice creates a draft E-Rechnung in sevDesk with headless Chrome, with the hours the budget allows. A ledger keeps each receipt from going twice and shows the month on Abschluss, with Pushover and the tax adviser; every run's PDFs and log are in the Protokoll. It runs on a Raspberry Pi behind Caddy with HTTPS." width="900"></p>
 
-Five modules — mail-receipts, amazon, apple, vodafone and travel-expense — collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
+Five modules — mail-receipts, amazon, apple, vodafone and travel-expense — collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records — each receipt once, none you filed by hand. The sixth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
 
 Run once a month with a single command — or schedule it with cron — and your accounting is fed.
 
 All modules share a single `config.yaml` with a common `mail` block for SMTP/IMAP credentials and addresses.
 
-Run them from the command line or cron as before — or start the **web interface** (`feed-my-accounting serve`): a register card per area of work, a month calendar for the travel expenses with vacation and client assignments, Harvest PDF upload for the sevDesk draft, a built-in **schedule** that replaces crontab, a live log of every run, and the settings. See [Web interface](#web-interface).
+Run them from the command line or cron as before — or start the **web interface** (`feed-my-accounting serve`): first the month's **closing** — what came in, what is still missing, the tax adviser told — then a register card per area of work, a month calendar for the travel expenses with vacation and client assignments, Harvest PDF upload for the sevDesk draft, a built-in **schedule** that replaces crontab, a live log of every run, and the settings. See [Web interface](#web-interface).
 
 ## Requirements
 
@@ -104,11 +104,15 @@ feed-my-accounting serve          # http://<host>:8595
 ```
 
 <p align="center">
+  <img src="docs/closing.png" alt="The Abschluss card for November 2026 with made-up receipts: a road block, the month under way, still open the Kundenrechnung and the tax adviser's invoice; source by source the receipts sent — travel expenses, Apple, Vodafone, Anthropic, Strato — an Amazon invoice filed by hand, each with an (×) to send it again and the next scheduled run; beneath, the tax adviser to be told, with all receipts as a zip" width="760">
+</p>
+
+<p align="center">
   <img src="docs/travel.png" alt="The Reisekosten card for December 2026 with fictional companies: each client in its own colour — an overnight trip to Miami for Globex Inc. from the 3rd to the 9th with a moon on each day, day trips to Acme GmbH in light blue and Initech GmbH in green in blocks on the other workdays, three vacation days hatched, the Christmas week grey, and the month's totals" width="760">
 </p>
 
 <p align="center">
-  <img src="docs/cron.png" alt="The Zeitplan card: six jobs in the order they run next, each with its cron expression and next runs — Amazon on the last day, L, Anthropic on the last workday, LW" width="380">
+  <img src="docs/cron.png" alt="The Zeitplan card: six jobs in the order they run next, each with its cron expression and next runs — Vodafone on the 21st, Weitere Absender, Amazon and the Kundenrechnung on the last day and workday" width="380">
   <img src="docs/log.png" alt="The Protokoll card: a run's live output and the three PDFs it made" width="380">
 </p>
 
@@ -515,6 +519,8 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 
 ## Module: mail-receipts
 
+<p align="center"><img src="docs/rules.png" alt="The rules on Belege › Weitere Absender: Anthropic, Strato, the tax adviser by datev.de, a railway rule switched off — each with its sender domains, the word in the subject and in the PDF's name" width="760"></p>
+
 The PDF invoices of senders without a module of their own, by rules set up on *Belege › Weitere Absender* — no code for a new one. Each rule: a name, the sender's domains, and if need be what the subject and the PDF's name contain.
 
 1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same mail found twice counts once
@@ -716,8 +722,15 @@ feed-my-accounting/
 ├── config.go                      # unified YAML config structs, loading and saving
 ├── server.go                      # web interface: pages and JSON API
 ├── auth.go                        # logins per employee, sessions, home network only
+├── logins.go                      # the login gate: Amazon and Vodafone not too often
 ├── jobs.go                        # runs one job at a time, keeps its output
 ├── schedule.go                    # cron expressions and the built-in scheduler
+├── ledger.go                      # every receipt sent, once: feed-my-accounting-sent.json
+├── filed.go                       # receipts filed by hand in the storage, not sent again
+├── closing.go                     # the month's books per source, and its state
+├── notify.go                      # Pushover: failed runs, and the closing day
+├── advisor.go                     # the tax adviser's mail, the month's receipts zipped
+├── archive.go                     # receipts copied to the storage with rclone
 ├── feed-my-accounting.service     # systemd unit for the web interface
 ├── config.yaml.example
 └── go.mod
