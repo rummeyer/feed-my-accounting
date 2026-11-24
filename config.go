@@ -73,7 +73,7 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice, mail-receipts or harvest-invoice.
+// amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts or harvest-invoice.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
@@ -212,17 +212,18 @@ type Config struct {
 	Mail    email.MailConfig `yaml:"mail"`
 	Archive ArchiveConfig    `yaml:"archive,omitempty"`
 	// ICloud is Archive by its name in 1.21: read, and saved as Archive.
-	ICloud           *ArchiveConfig         `yaml:"icloud,omitempty" json:"-"`
-	TravelExpense    TravelExpenseConfig    `yaml:"travel-expense"`
-	AmazonInvoice    AmazonInvoiceConfig    `yaml:"amazon-invoice"`
-	AnthropicInvoice AnthropicInvoiceConfig `yaml:"anthropic-invoice"`
-	AppleInvoice     AppleInvoiceConfig     `yaml:"apple-invoice"`
-	VodafoneInvoice  VodafoneInvoiceConfig  `yaml:"vodafone-invoice"`
-	MailReceipts     MailReceiptsConfig     `yaml:"mail-receipts,omitempty"`
-	Notify           NotifyConfig           `yaml:"notify,omitempty"`
-	HarvestInvoice   HarvestInvoiceConfig   `yaml:"harvest-invoice"`
-	Web              WebConfig              `yaml:"web,omitempty"`
-	Schedule         []ScheduleEntry        `yaml:"schedule,omitempty"`
+	ICloud        *ArchiveConfig      `yaml:"icloud,omitempty" json:"-"`
+	TravelExpense TravelExpenseConfig `yaml:"travel-expense"`
+	AmazonInvoice AmazonInvoiceConfig `yaml:"amazon-invoice"`
+	// AnthropicInvoice is the module of before 1.25, a mail rule since: read, and made one.
+	AnthropicInvoice *AnthropicInvoiceConfig `yaml:"anthropic-invoice,omitempty" json:"-"`
+	AppleInvoice     AppleInvoiceConfig      `yaml:"apple-invoice"`
+	VodafoneInvoice  VodafoneInvoiceConfig   `yaml:"vodafone-invoice"`
+	MailReceipts     MailReceiptsConfig      `yaml:"mail-receipts,omitempty"`
+	Notify           NotifyConfig            `yaml:"notify,omitempty"`
+	HarvestInvoice   HarvestInvoiceConfig    `yaml:"harvest-invoice"`
+	Web              WebConfig               `yaml:"web,omitempty"`
+	Schedule         []ScheduleEntry         `yaml:"schedule,omitempty"`
 
 	dir string // the folder the configuration is in, where the logo is kept beside it
 }
@@ -309,6 +310,7 @@ func readConfig(path string) (*Config, error) {
 		}
 		cfg.ICloud = nil
 	}
+	anthropicToRule(&cfg)
 	cfg.dir = filepath.Dir(path)
 	return &cfg, nil
 }
@@ -373,18 +375,6 @@ func applyDefaults(cfg *Config) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username
 	}
-	if cfg.AnthropicInvoice.Filter.Count == 0 {
-		cfg.AnthropicInvoice.Filter.Count = 1000
-	}
-	if cfg.AnthropicInvoice.Filter.From == "" {
-		cfg.AnthropicInvoice.Filter.From = "mail.anthropic.com, stripe.com"
-	}
-	if cfg.AnthropicInvoice.Filter.Subject == "" {
-		cfg.AnthropicInvoice.Filter.Subject = "Your receipt from Anthropic"
-	}
-	if len(cfg.AnthropicInvoice.Filter.Folders) == 0 {
-		cfg.AnthropicInvoice.Filter.Folders = []string{"INBOX", "Rechnungen"}
-	}
 	if cfg.AppleInvoice.Filter.Count == 0 {
 		cfg.AppleInvoice.Filter.Count = 1000
 	}
@@ -417,4 +407,52 @@ func applyDefaults(cfg *Config) {
 	if cfg.Web.Listen == "" {
 		cfg.Web.Listen = ":8595"
 	}
+}
+
+// anthropicToRule makes the Anthropic module of before 1.25 a rule of mail-receipts, as it is
+// since: its filter the rule — the receipt PDF of each mail, not the invoice beside it — and its
+// schedule entry mail-receipts', unless that has one already.
+func anthropicToRule(cfg *Config) {
+	scheduled := -1
+	for i, e := range cfg.Schedule {
+		if e.Job == "anthropic-invoice" {
+			scheduled = i
+		}
+	}
+	if cfg.AnthropicInvoice == nil && scheduled < 0 {
+		return
+	}
+	var f MailFilterConfig
+	if cfg.AnthropicInvoice != nil {
+		f = cfg.AnthropicInvoice.Filter
+	}
+	has := false
+	for _, r := range cfg.MailReceipts.Rules {
+		has = has || strings.EqualFold(r.Name, "Anthropic")
+	}
+	if !has {
+		rule := mailreceipts.Rule{Name: "Anthropic", From: f.From, Subject: f.Subject, Attachment: "receipt"}
+		if rule.From == "" {
+			rule.From = "mail.anthropic.com, stripe.com"
+		}
+		if rule.Subject == "" {
+			rule.Subject = "Your receipt from Anthropic"
+		}
+		cfg.MailReceipts.Rules = append([]mailreceipts.Rule{rule}, cfg.MailReceipts.Rules...)
+	}
+	if len(cfg.MailReceipts.Folders) == 0 && len(f.Folders) > 0 {
+		cfg.MailReceipts.Folders = f.Folders
+	}
+	if cfg.MailReceipts.Count == 0 && f.Count > 0 {
+		cfg.MailReceipts.Count = f.Count
+	}
+	if scheduled >= 0 {
+		taken := slices.ContainsFunc(cfg.Schedule, func(e ScheduleEntry) bool { return e.Job == "mail-receipts" })
+		if taken {
+			cfg.Schedule = slices.Delete(cfg.Schedule, scheduled, scheduled+1)
+		} else {
+			cfg.Schedule[scheduled].Job = "mail-receipts"
+		}
+	}
+	cfg.AnthropicInvoice = nil
 }

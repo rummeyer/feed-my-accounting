@@ -26,18 +26,17 @@ It connects its sources — mailboxes, MeinVodafone, the Harvest API and your ca
 | Module | Source | What it does | Delivery |
 |--------|--------|-------------|----------|
 | **travel-expense** | Config (clients, distances) | Generates Kilometergelderstattung, Verpflegungsmehraufwand and Übernachtungspauschale PDFs | Email → sevDesk Autobox |
-| **anthropic-invoice** | IMAP inbox and *Rechnungen* | Fetches Anthropic's receipt emails and takes the receipt PDF each brings | Email → sevDesk Autobox |
 | **apple-invoice** | IMAP inbox and *Rechnungen* | Fetches Apple invoice emails, converts HTML to PDF via headless Chrome | Email → sevDesk Autobox |
 | **amazon-invoice** | Amazon Business (amazon.de) | Logs in via headless Chrome, downloads the invoices of the month's orders | Email → sevDesk Autobox |
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
-| **mail-receipts** | IMAP inbox and *Rechnungen* | Takes the PDF invoices of further senders — Strato, the tax adviser, a web shop — by a rule each, set up on the web interface | Email → sevDesk Autobox |
+| **mail-receipts** | IMAP inbox and *Rechnungen* | Takes the PDF invoices of senders by a rule each — Anthropic's receipts, Strato, the tax adviser, set up on the web interface | Email → sevDesk Autobox |
 | **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, makes the work log PDF, creates the draft invoice in sevDesk | Direct browser automation |
 
 ### How it all fits together
 
 <p align="center"><img src="docs/architecture.svg" alt="Architecture: the web interface, the Zeitplan and the command line start feed-my-accounting, one Go binary with one config.yaml. Its sources — mailboxes over IMAP, MeinVodafone, the Harvest API with time entries and project budgets, and the calendar with clients, vacation and assignments — feed five modules: anthropic-invoice, apple-invoice, vodafone-invoice, harvest-invoice and travel-expense. Four of them send their PDFs by email to the sevDesk Autobox; harvest-invoice creates a draft E-Rechnung in sevDesk with headless Chrome. Every run's PDFs and log are in the Protokoll. It runs on a Raspberry Pi behind Caddy with HTTPS." width="900"></p>
 
-Four modules — anthropic, apple, vodafone and travel-expense — collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
+Five modules — mail-receipts, amazon, apple, vodafone and travel-expense — collect documents and deliver them as email attachments to sevDesk's **Autobox** — an inbox that automatically imports and OCR-parses incoming PDFs as bookkeeping records. The fifth (harvest-invoice) goes further: it logs into sevDesk directly and creates a fully populated draft invoice, ready for review.
 
 Run once a month with a single command — or schedule it with cron — and your accounting is fed.
 
@@ -76,13 +75,12 @@ feed-my-accounting travel-expense 3/2026
 feed-my-accounting travel-expense 12/2025
 
 # Apple invoice emails → PDF → email
-feed-my-accounting anthropic-invoice
 feed-my-accounting apple-invoice
 
 # Vodafone invoices → email
 feed-my-accounting vodafone-invoice
 
-# Further senders' PDF invoices, by the rules set → email
+# PDF invoices by the rules set — Anthropic, Strato, … → email
 feed-my-accounting mail-receipts
 
 # Harvest → sevDesk draft invoice (current month, or the one given)
@@ -123,9 +121,9 @@ Every setting is on the card where it is used. Nothing saves by itself: one red 
 | Card | What it does |
 |------|--------------|
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), and beneath it in one line when it last ran — *manuell* or *zeitgesteuert*, the same day as *vor 2 h* — and its next runs, as many as fit; and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
-| **Abschluss** | A month's books, source by source: the receipts sent for it, with when, each to *vergessen* — then the next run sends it again; *nichts gefunden* where a run looked and found none; *offen*, in red, where the schedule runs a source that has neither sent nor looked yet; its last run's error, and its next run. Until the closing day the month before, after it the current one; ‹ › for others. See [Never twice, and the month's closing](#never-twice-and-the-months-closing). |
+| **Abschluss** | A month's books, source by source: the receipts sent for it, with when, each with an (×) that takes it out of the ledger — several at a time, the next run sends them again, until then struck through; *nichts gefunden* where a run looked and found none; *offen*, in red, where the schedule runs a source that has neither sent nor looked yet; its last run's error, and its next run. Until the closing day the month before, after it the current one; ‹ › for others. See [Never twice, and the month's closing](#never-twice-and-the-months-closing). |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
-| **Belege** | Amazon, Anthropic, Apple and Vodafone invoices on demand, each with its settings: the Amazon and Vodafone logins, the Anthropic and Apple mail filters. Anthropic and Apple with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking; Amazon and Vodafone with *Per Mail senden* only, as each run is a login, Vodafone's held to one in 28 days: Amazon, Anthropic and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. Last, *Weitere Absender*: the rules for further senders, by month to look at or to send — see [mail-receipts](#module-mail-receipts). |
+| **Belege** | Amazon, Apple and Vodafone invoices on demand, each with its settings: the Amazon and Vodafone logins, the Apple mail filter. Apple with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking; Amazon and Vodafone with *Per Mail senden* only, as each run is a login, Vodafone's held to one in 28 days: Amazon and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. Last, *Weitere Absender*: the rules for further senders, by month to look at or to send — see [mail-receipts](#module-mail-receipts). |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the days booked × 8 log a warning with the link to the time entries in Harvest: each day with an entry a workday of 8 hours at least, however many days a week are worked for the client. A project of the work log over its budget in Harvest — hours or money, as Harvest's project budget report has it — logs a warning too, with the link to the project; a monthly budget only for the current month, Harvest reporting only its spending. As a fallback, behind its own flap at the foot of the card, *Manuelle Eingabe*: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in — the current month at first — or filled from a work log PDF dropped in, Harvest's or one from here, and correctable either way; then *Entwurf in sevDesk anlegen* creates the draft invoice for the client, article and reference of the settings beneath — with the same duplicate check. Folded away last on the card, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. *Löschen* at the bottom, after *Sicher?*, empties it. |
 | **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, the storage, **Pushover** with *Test senden*, and the web interface's address and password. |
@@ -282,13 +280,6 @@ travel-expense:
       overnight: true
       note: Miami
 
-anthropic-invoice:
-  filter:
-    count: 1000                    # the month's emails at the most, in each folder
-    from: "mail.anthropic.com, stripe.com"
-    subject: "Your receipt from Anthropic"   # the subject's start
-    folders: [INBOX, Rechnungen]   # searched in this order: the inbox first
-
 apple-invoice:
   filter:
     count: 1000                    # the month's emails at the most, in each folder
@@ -300,7 +291,11 @@ mail-receipts:                     # optional: further senders' PDF invoices, a 
   count: 1000                      # default
   folders: [INBOX, Rechnungen]     # default
   rules:
-    - name: Strato                 # in the file names and the mail's subject
+    - name: Anthropic              # in the file names and the mail's subject
+      from: "mail.anthropic.com, stripe.com"
+      subject: "Your receipt from Anthropic"
+      attachment: "receipt"        # the receipt, not the invoice beside it
+    - name: Strato
       from: "strato.de"            # sender domains, comma-separated
       subject: "Rechnung"          # optional: the subject contains it, whatever the case
       attachment: ""               # optional: the PDF's name contains it
@@ -341,7 +336,7 @@ web:                               # optional, for feed-my-accounting serve
   password: ""                     # optional: asked for by the browser
 
 schedule:                          # optional, run by feed-my-accounting serve
-  - job: travel-expense            # travel-expense, amazon-invoice, anthropic-invoice, apple-invoice, vodafone-invoice, mail-receipts, harvest-invoice
+  - job: travel-expense            # travel-expense, amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts, harvest-invoice
     cron: "0 6 5 * *"              # minute hour day month weekday
     enabled: true
   - job: harvest-invoice
@@ -351,7 +346,7 @@ schedule:                          # optional, run by feed-my-accounting serve
 
 ### Storage (rclone)
 
-The receipts mailed — Amazon, Anthropic, Apple, Vodafone, the further senders' — can be copied to a storage too, by [rclone](https://rclone.org): iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud by WebDAV, a NAS by SFTP — any remote set up for it. Each goes into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), or into one folder for all without `{YYYY}`/`{MM}`. A name taken there is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. On *Einstellungen › Ablage (rclone)* or in `config.yaml`:
+The receipts mailed — Amazon, Apple, Vodafone, the rules' — can be copied to a storage too, by [rclone](https://rclone.org): iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud by WebDAV, a NAS by SFTP — any remote set up for it. Each goes into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), or into one folder for all without `{YYYY}`/`{MM}`. A name taken there is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. On *Einstellungen › Ablage (rclone)* or in `config.yaml`:
 
 ```yaml
 archive:
@@ -371,7 +366,7 @@ rclone lsd icloud:   # its folders: it works
 
 ### Never twice, and the month's closing
 
-What goes to sevDesk's Autobox is booked — twice if it comes twice. So every receipt mailed is noted in `feed-my-accounting-sent.json` beside the configuration: its name, its SHA-256, and what it is — the Amazon order and its invoice, the Apple order, the Anthropic receipt's number, the mail and attachment of a further sender. A run, scheduled or by hand, leaves out what was sent before, the same file or the same receipt fetched anew, and says so: *sent on 12.11.2026 11:37 already — not again*. Nothing new: no mail. The travel expenses, made anew each time, go again when sent again — a correction — with a warning in the log. A receipt that should go again: *vergessen* beside it on *Abschluss*.
+What goes to sevDesk's Autobox is booked — twice if it comes twice. So every receipt mailed is noted in `feed-my-accounting-sent.json` beside the configuration: its name, its SHA-256, and what it is — the Amazon order and its invoice, the Apple order, the mail and attachment of a rule's receipt — Anthropic's, say. A run, scheduled or by hand, leaves out what was sent before, the same file or the same receipt fetched anew, and says so: *sent on 12.11.2026 11:37 already — not again*. Nothing new: no mail. The travel expenses, made anew each time, go again when sent again — a correction — with a warning in the log. A receipt that should go again: the (×) beside it on *Abschluss*, and the next run sends it.
 
 The ledger also notes, for each source and month, when a run last looked — finding nothing is an answer too. *Abschluss* shows a month from it, and on the closing day — the 5th by default, at 9:00 — the month before is looked over: with Pushover set up, the phone is told what is still *offen*, a source the schedule runs that has neither sent nor looked: *Monatsabschluss November 2026 — Noch offen: Vodafone*. Nothing when it is complete. A scheduled run that fails is told at once, with its error; runs by hand are seen on the page.
 
@@ -511,32 +506,26 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 
 The PDF invoices of senders without a module of their own, by rules set up on *Belege › Weitere Absender* — no code for a new one. Each rule: a name, the sender's domains, and if need be what the subject and the PDF's name contain.
 
-1. Searches the folders in order, as anthropic-invoice does, in the main mailbox and then each of `mail.mailboxes`; the same mail found twice counts once
+1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same mail found twice counts once
 2. Takes the month's mails of each rule — the current month's on the schedule, *Weitere Absender abholen*; any month's on the web interface — and their PDF attachments
 3. Names each by the rule and the mail's date, as the other receipts are: `11_2026_Rechnung_Strato_03112026.pdf`; a second of the same day `…_2.pdf`
 4. Sends each rule's in one email, *Deine PDF-Rechnungen von Strato* — those not sent before
 
 PDFs only: a sender whose invoice is the mail itself, as Apple's, needs a module of its own.
 
----
-
-## Module: anthropic-invoice
-
-Fetches Anthropic's receipt emails — *Your receipt from Anthropic, PBC #2999-5691-3003*, from `invoice+statements@mail.anthropic.com`, or for Anthropic Ireland from Stripe (`stripe.com`) — and sends the receipt PDF each brings, not the invoice beside it, in one email.
-
-1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same receipt found twice counts once, the first
-2. Takes the current month's emails — on the web interface any month's, to look at or to send
-3. Names each receipt by its email's date, as the other receipts are: `11_2026_Rechnung_Anthropic_12112026.pdf`; a second of the same day `…_12112026_2.pdf`
-4. Sends them via SMTP — nothing if there are none
-
-### anthropic-invoice config options
+**Anthropic** is such a rule since 1.25 — the module anthropic-invoice of before became one on the first start, its schedule entry *Weitere Absender abholen*: mails from `mail.anthropic.com, stripe.com` — Anthropic Ireland's come from Stripe — whose subject contains *Your receipt from Anthropic*, and of their two PDFs the one whose name contains *receipt*, not the invoice. `feed-my-accounting anthropic-invoice` runs mail-receipts.
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `filter.count` | The month's emails to scan at the most, in each folder — the IMAP server picks the month's, however full the folder | `1000` |
-| `filter.from` | Sender domains to match, comma-separated | `mail.anthropic.com, stripe.com` |
-| `filter.subject` | The subject's start | `Your receipt from Anthropic` |
-| `filter.folders` | Folders to search, in this order | `INBOX`, `Rechnungen` |
+| `count` | The month's emails to scan at the most, in each folder | `1000` |
+| `folders` | Folders to search, in this order | `INBOX`, `Rechnungen` |
+| `rules[].name` | The sender, in the file names and the mail's subject | — |
+| `rules[].from` | Sender domains, comma-separated | — |
+| `rules[].subject` | The subject contains it, whatever the case; empty: any | — |
+| `rules[].attachment` | The PDF's name contains it, whatever the case; empty: any PDF | — |
+| `rules[].off` | Switched off: left out | `false` |
+
+---
 
 ## Module: apple-invoice
 
@@ -695,8 +684,8 @@ feed-my-accounting/
 │   └── pdf.go                     # the PDF's layout
 ├── pdfdoc/
 │   └── pdfdoc.go                 # shared PDF basics: A4 pages, blocks never split, Document
-├── anthropic-invoice/
-│   └── anthropic.go               # Config, Run(), the receipts and their names
+├── mail-receipts/
+│   └── mailreceipts.go            # rules, the PDFs of their mails and their names
 ├── apple-invoice/
 │   ├── apple-invoice.go            # Config, Run(), invoice parsing
 │   └── pdf.go                      # HTML→PDF conversion, HTML cleanup

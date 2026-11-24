@@ -14,12 +14,11 @@ import (
 func TestClosingSaysWhatAMonthWaitsFor(t *testing.T) {
 	cfg := &Config{dir: t.TempDir()}
 	cfg.Schedule = []ScheduleEntry{
-		{Job: "anthropic-invoice", Cron: "0 7 L * *", Enabled: true},
 		{Job: "apple-invoice", Cron: "0 7 3 * *", Enabled: true},
 		{Job: "vodafone-invoice", Cron: "0 7 21 * *", Enabled: true},
 		{Job: "mail-receipts", Cron: "0 7 L * *", Enabled: true},
 	}
-	cfg.MailReceipts.Rules = []mailreceipts.Rule{{Name: "Strato", From: "strato.de"}, {Name: "Alt", From: "x.de", Off: true}}
+	cfg.MailReceipts.Rules = []mailreceipts.Rule{{Name: "Anthropic", From: "mail.anthropic.com"}, {Name: "Strato", From: "strato.de"}, {Name: "Alt", From: "x.de", Off: true}}
 	l := ledgerOf(cfg)
 	_ = l.Record("Anthropic", []email.Attachment{{Filename: "11_2026_Rechnung_Anthropic_12112026.pdf", Data: []byte("a")}})
 	_ = l.Checked("Apple", time.Date(2026, 11, 3, 0, 0, 0, 0, time.Local)) // looked, nothing there
@@ -33,7 +32,7 @@ func TestClosingSaysWhatAMonthWaitsFor(t *testing.T) {
 		by[r.Source] = r
 		names = append(names, r.Source)
 	}
-	if got := strings.Join(names, ","); got != "Reisekosten,Kundenrechnung,Amazon,Anthropic,Apple,Vodafone,Strato" {
+	if got := strings.Join(names, ","); got != "Reisekosten,Kundenrechnung,Amazon,Apple,Vodafone,Anthropic,Strato" {
 		t.Errorf("sources: %s", got)
 	}
 	if r := by["Anthropic"]; r.Open || len(r.Docs) != 1 {

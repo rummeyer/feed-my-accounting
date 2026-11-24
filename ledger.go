@@ -235,10 +235,9 @@ func sourceName(job string) string {
 
 // jobSources are the sources by the jobs that fetch them.
 var jobSources = map[string]string{
-	"travel-expense":    "Reisekosten",
-	"harvest-invoice":   "Kundenrechnung",
-	"amazon-invoice":    "Amazon",
-	"anthropic-invoice": "Anthropic",
-	"apple-invoice":     "Apple",
-	"vodafone-invoice":  "Vodafone",
+	"travel-expense":   "Reisekosten",
+	"harvest-invoice":  "Kundenrechnung",
+	"amazon-invoice":   "Amazon",
+	"apple-invoice":    "Apple",
+	"vodafone-invoice": "Vodafone",
 }

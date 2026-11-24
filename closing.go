@@ -25,7 +25,7 @@ type closingRow struct {
 // ones, then a further sender per rule switched on.
 func closingSources(cfg *Config) [][2]string {
 	out := [][2]string{}
-	for _, job := range []string{"travel-expense", "harvest-invoice", "amazon-invoice", "anthropic-invoice", "apple-invoice", "vodafone-invoice"} {
+	for _, job := range []string{"travel-expense", "harvest-invoice", "amazon-invoice", "apple-invoice", "vodafone-invoice"} {
 		out = append(out, [2]string{jobSources[job], job})
 	}
 	for _, r := range cfg.MailReceipts.Rules {

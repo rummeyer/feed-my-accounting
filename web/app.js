@@ -570,10 +570,10 @@ async function start(name, method, path, body, onDone) {
   }
 }
 
-// Anthropic's and Apple's receipts by month: to look at, or sent after asking. The month as on
+// Apple's and the further senders' receipts by month: to look at, or sent after asking. The month as on
 // the command line, the current one at first.
-const NAMES = T({ amazon: 'Amazon-Rechnungen', anthropic: 'Anthropic-Belege', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen', mail: 'Belege weiterer Absender' },
-  { amazon: 'Amazon invoices', anthropic: 'Anthropic receipts', apple: 'Apple invoices', vodafone: 'Vodafone invoices', mail: "further senders' receipts" });
+const NAMES = T({ amazon: 'Amazon-Rechnungen', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen', mail: 'Belege weiterer Absender' },
+  { amazon: 'Amazon invoices', apple: 'Apple invoices', vodafone: 'Vodafone invoices', mail: "further senders' receipts" });
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
@@ -1198,12 +1198,6 @@ const PARTS = {
   amazon: [['', [
     ['AmazonInvoice.Username', T('E-Mail-Adresse (Amazon Business)', 'Email address (Amazon Business)')], ['AmazonInvoice.Password', T('Passwort', 'Password'), 'secret', 5],
   ]]],
-  anthropic: [['', [
-    ['AnthropicInvoice.Filter.Count', SCAN, 'number', 1000],
-    ['AnthropicInvoice.Filter.From', T('Absender-Domains', 'Sender domains'), 'text', 'mail.anthropic.com, stripe.com'],
-    ['AnthropicInvoice.Filter.Subject', T('Betreff beginnt mit', 'Subject starts with'), 'text', 'Your receipt from Anthropic'],
-    ['AnthropicInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
-  ]]],
   apple: [['', [
     ['AppleInvoice.Filter.Count', SCAN, 'number', 1000],
     ['AppleInvoice.Filter.From', T('Absender-Domain', 'Sender domain'), 'text', 'apple.com'],
@@ -1370,8 +1364,8 @@ function renderSettings() {
       if (part === 'company') children.push(renderLogo());
     }
     if (part === 'archive') {
-      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Anthropic, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
-        'Receipts sent (Amazon, Anthropic, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
+      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
+        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
     }
     if (part === 'web') {
       children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',
@@ -1395,8 +1389,8 @@ function renderSettings() {
       })));
     }
     if (part === 'mail') {
-      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Anthropic, Apple, Vodafone und weitere Absender bei den Belegen, Pushover hier unten.`,
-        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Anthropic, Apple, Vodafone and further senders with Receipts, Pushover below.`)));
+      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Apple, Vodafone und weitere Absender bei den Belegen, Pushover hier unten.`,
+        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Apple, Vodafone and further senders with Receipts, Pushover below.`)));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
@@ -1786,6 +1780,27 @@ loaders.closing = loadClosing;
 $('closing-prev').addEventListener('click', () => { closingMonth.setMonth(closingMonth.getMonth() - 1); loadClosing(); });
 $('closing-next').addEventListener('click', () => { closingMonth.setMonth(closingMonth.getMonth() + 1); loadClosing(); });
 
+// The receipts taken out of the ledger while the page is open: shown struck through, as going
+// again with the next run — gone from the ledger, they would else be gone from the list.
+const unsent = [];
+
+/** (×): the receipt out of the ledger, at once — several in a row, the next run sends them all. */
+function unsendButton(row, doc, id) {
+  const b = button('×', 'link unsend', async () => {
+    b.disabled = true;
+    try {
+      await api('DELETE', '/api/sent', { source: row.source, id });
+      unsent.push({ source: row.source, name: doc.name, month: doc.month });
+    } catch (err) {
+      tell(err.message);
+    }
+    loadClosing();
+  });
+  b.title = T('Erneut senden: aus dem Verzeichnis nehmen – der nächste Lauf schickt den Beleg noch einmal', 'Send again: take it out of the ledger – the next run sends it once more');
+  b.setAttribute('aria-label', b.title);
+  return b;
+}
+
 const shortWhen = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 function renderClosing(data) {
@@ -1811,12 +1826,11 @@ function renderClosing(data) {
     for (const d of r.docs) {
       const id = d.hash || d.name;
       lines.push(el('div', 'doc', el('span', 'grow', d.name), el('span', 'muted', shortWhen(d.at)),
-        button(T('vergessen', 'forget'), 'link', async () => {
-          if (!(await ask(T(`${d.name} aus dem Verzeichnis nehmen? Der nächste Lauf sendet den Beleg dann noch einmal an ${mailTo()}.`,
-            `Take ${d.name} out of the ledger? The next run then sends it again to ${mailTo()}.`), { yes: T('Vergessen', 'Forget') }))) return;
-          await api('DELETE', '/api/sent', { source: r.source, id }).catch((err) => tell(err.message));
-          loadClosing();
-        })));
+        // A draft in sevDesk is made once; a receipt taken out goes again with the next run.
+        r.job !== 'harvest-invoice' && unsendButton(r, d, id)));
+    }
+    for (const d of unsent.filter((u) => u.source === r.source && u.month === data.month)) {
+      lines.push(el('div', 'doc unsent', el('span', 'grow', d.name), el('span', 'muted', T('geht beim nächsten Lauf erneut', 'goes again with the next run'))));
     }
     if (!sent && !never(r.checked)) lines.push(el('div', 'muted', T(`Nachgesehen ${shortWhen(r.checked)}, kein Beleg für den Monat.`, `Looked ${shortWhen(r.checked)}, no receipt for the month.`)));
     if (r.failed) lines.push(el('div', 'badge failed', `${T('Letzter Lauf fehlgeschlagen', 'Last run failed')} ${never(r.failedAt) ? '' : shortWhen(r.failedAt)}: ${r.failed}`));

@@ -11,7 +11,6 @@
 //	all [M/YYYY]              Run all modules (default when no command given)
 //	travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
 //	amazon-invoice            Download a month's Amazon Business invoices (on its last day the current, else the previous) and send via email
-//	anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
 //	apple-invoice             Fetch Apple invoice emails and send as PDFs
 //	vodafone-invoice          Download Vodafone invoices and send via email
 //	mail-receipts             Fetch the further senders' PDFs, by the rules set, and send them
@@ -33,7 +32,6 @@ import (
 	"time"
 
 	amazon "feed-my-accounting/amazon-invoice"
-	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
@@ -76,7 +74,6 @@ func setupLogging() (io.Closer, error) {
 // setModuleLogs routes every module's log output to w.
 func setModuleLogs(w io.Writer) {
 	amazon.SetLogOutput(w)
-	anthropic.SetLogOutput(w)
 	apple.SetLogOutput(w)
 	vodafone.SetLogOutput(w)
 	harvest.SetLogOutput(w)
@@ -146,10 +143,6 @@ func main() {
 			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
 			os.Exit(1)
 		}
-		if err := runAnthropicInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "anthropic-invoice error: %v\n", err)
-			os.Exit(1)
-		}
 		if err := runAppleInvoice(cfg); err != nil {
 			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
 			os.Exit(1)
@@ -180,9 +173,10 @@ func main() {
 			os.Exit(1)
 		}
 
-	case "anthropic-invoice":
-		if err := runAnthropicInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "anthropic-invoice error: %v\n", err)
+	case "anthropic-invoice": // a rule of mail-receipts since 1.25
+		fmt.Fprintln(logOut, "anthropic-invoice is a rule of mail-receipts now: running mail-receipts")
+		if err := runMailReceipts(cfg); err != nil {
+			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -338,18 +332,6 @@ func findClient(clients []Client, key string) int {
 		}
 	}
 	return -1
-}
-
-func anthropicConfig(cfg *Config) anthropic.Config {
-	f := cfg.AnthropicInvoice.Filter
-	return anthropic.Config{
-		Mail:   belegeMail(cfg),
-		Filter: anthropic.FilterConfig{Count: f.Count, Subject: f.Subject, From: f.From, Folders: f.Folders},
-	}
-}
-
-func runAnthropicInvoice(cfg *Config) error {
-	return checked(cfg, "anthropic-invoice", time.Now(), anthropic.Run(anthropicConfig(cfg)))
 }
 
 // checked is a run's error; without one, the month is noted as looked at by the job's source.
@@ -568,7 +550,6 @@ Commands:
   all [M/YYYY]              Run all modules (default when no command given)
   travel-expense [M/YYYY]   Generate and send monthly travel expense PDFs
   amazon-invoice            Download a month's Amazon Business invoices: on a month's last day the current one, else the previous
-  anthropic-invoice         Fetch Anthropic receipt emails and send their PDFs
   apple-invoice             Fetch Apple invoice emails and send as PDFs
   vodafone-invoice          Download Vodafone invoices and send via email
   mail-receipts             Fetch the further senders' PDFs, by the rules set, and send them

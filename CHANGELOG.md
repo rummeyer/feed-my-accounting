@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Never twice**: every receipt mailed is noted in `feed-my-accounting-sent.json` beside the configuration — its name, its SHA-256 and what it is: the Amazon order, the Apple order, the Anthropic receipt's number. A run leaves out what was sent before and says so; nothing new, no mail. sevDesk's Autobox booked a receipt twice when it came twice — on 17.11.2026 four Amazon invoices came four times. The travel expenses, made anew, go again on asking, with a warning.
-- **Abschluss**: a tab with a month's books, source by source — the receipts sent, *nichts gefunden* where a run looked and found none, *offen* where a scheduled source has done neither, its last run's error and its next run. *vergessen* lets a receipt go again.
+- **Abschluss**: a tab with a month's books, source by source — the receipts sent, *nichts gefunden* where a run looked and found none, *offen* where a scheduled source has done neither, its last run's error and its next run. (×) beside a receipt takes it out of the ledger: the next run sends it again — several at a time.
 - **Pushover**: a scheduled run that fails is told at once; on the closing day — the 5th by default, at 9:00 — what the month before is still missing. On *Einstellungen › Benachrichtigung*, with *Test senden*.
-- **mail-receipts**: further senders' PDF invoices by rules on the web interface — the sender's domains, words in the subject and in the PDF's name — named as the other receipts, sent once each. On the schedule as *Weitere Absender abholen*, on the command line as `mail-receipts`.
+- **mail-receipts**: PDF invoices by rules on the web interface — the sender's domains, words in the subject and in the PDF's name — named as the other receipts, sent once each. On the schedule as *Weitere Absender abholen*, on the command line as `mail-receipts`.
 
 ### Changed
 
+- **Anthropic is a mail rule**, not a module: on the first start the module's filter becomes the rule *Anthropic* — the receipt PDF, not the invoice beside it — and its schedule entry *Weitere Absender abholen*. Its receipts sent before count as sent. `anthropic-invoice` on the command line runs mail-receipts.
 - harvest-invoice: the warning of too few hours counts the days with time entries in the month × 8, not the client's days as the Reisekosten plan them: four days a week at a client warned every month, the plan counting five.
 
 ## [1.24.0] - 2026-11-17

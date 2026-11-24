@@ -24,7 +24,6 @@ import (
 	"time"
 
 	amazon "feed-my-accounting/amazon-invoice"
-	anthropic "feed-my-accounting/anthropic-invoice"
 	apple "feed-my-accounting/apple-invoice"
 	"feed-my-accounting/browser"
 	"feed-my-accounting/email"
@@ -61,6 +60,13 @@ func runServe(configPath string) error {
 		jobs:       NewJobs(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-jobs.json")),
 		sessions:   newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-sessions.json")),
 	}
+	// The Anthropic module of before, a mail rule now: written so, once.
+	if raw, err := os.ReadFile(configPath); err == nil && strings.Contains(string(raw), "anthropic-invoice") {
+		if err := s.change(func(*Config) error { return nil }); err != nil {
+			return err
+		}
+		log.Printf("anthropic-invoice is a rule of mail-receipts now: %s rewritten", configPath)
+	}
 	if err := s.change(moveOldPassword); err != nil {
 		return err
 	}
@@ -86,12 +92,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/travel/send", s.travelRun(true))
 	mux.HandleFunc("PUT /api/travel/blocked", s.saveBlocked)
 	mux.HandleFunc("PUT /api/travel/assignments", s.saveAssignments)
-	// Anthropic's and Apple's receipts of a month: to look at, or sent — offered for download both.
-	anthropicReceipts := receipts{"anthropic-invoice", "Anthropic-Belege",
-		func(cfg *Config, m time.Time) ([]email.Attachment, error) {
-			return anthropic.Collect(anthropicConfig(cfg), m)
-		},
-		func(cfg *Config, a []email.Attachment) error { return anthropic.Send(anthropicConfig(cfg), a) }, ""}
+	// Apple's receipts of a month: to look at, or sent — offered for download both.
 	appleReceipts := receipts{"apple-invoice", "Apple-Rechnungen",
 		func(cfg *Config, m time.Time) ([]email.Attachment, error) { return apple.Collect(appleConfig(cfg), m) },
 		func(cfg *Config, a []email.Attachment) error { return apple.Send(appleConfig(cfg), a) }, ""}
@@ -103,8 +104,6 @@ func (s *server) handler() http.Handler {
 		},
 		func(cfg *Config, a []email.Attachment) error { return amazon.Send(amazonConfig(cfg), a) }, "amazon"}
 	mux.HandleFunc("POST /api/amazon/send", s.receiptsRun(amazonReceipts, true))
-	mux.HandleFunc("POST /api/anthropic/view", s.receiptsRun(anthropicReceipts, false))
-	mux.HandleFunc("POST /api/anthropic/send", s.receiptsRun(anthropicReceipts, true))
 	mux.HandleFunc("POST /api/apple/view", s.receiptsRun(appleReceipts, false))
 	mux.HandleFunc("POST /api/apple/send", s.receiptsRun(appleReceipts, true))
 	// Vodafone's current invoices: the month is not chosen, MeinVodafone has the current one only.

@@ -205,3 +205,40 @@ func TestOldICloudBlockRead(t *testing.T) {
 		t.Errorf("got %+v, old %+v", cfg.Archive, cfg.ICloud)
 	}
 }
+
+func TestAnthropicBecomesAMailRule(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	os.WriteFile(path, []byte(`anthropic-invoice:
+  filter:
+    folders: [INBOX, Belege]
+schedule:
+  - job: anthropic-invoice
+    cron: "0 7 L * *"
+    enabled: true
+`), 0o600)
+	cfg, err := readConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AnthropicInvoice != nil || len(cfg.MailReceipts.Rules) != 1 {
+		t.Fatalf("want the module gone, one rule: %+v", cfg.MailReceipts)
+	}
+	r := cfg.MailReceipts.Rules[0]
+	if r.Name != "Anthropic" || r.From != "mail.anthropic.com, stripe.com" || r.Subject != "Your receipt from Anthropic" || r.Attachment != "receipt" {
+		t.Errorf("the rule: %+v", r)
+	}
+	if got := cfg.MailReceipts.Folders; len(got) != 2 || got[1] != "Belege" {
+		t.Errorf("its folders kept: %v", got)
+	}
+	if len(cfg.Schedule) != 1 || cfg.Schedule[0].Job != "mail-receipts" || cfg.Schedule[0].Cron != "0 7 L * *" {
+		t.Errorf("its schedule mail-receipts': %+v", cfg.Schedule)
+	}
+	// Read again after saving: as it is, nothing twice.
+	if err := saveConfig(path, cfg); err != nil {
+		t.Fatal(err)
+	}
+	again, _ := readConfig(path)
+	if len(again.MailReceipts.Rules) != 1 || len(again.Schedule) != 1 {
+		t.Errorf("saved and read again: %+v %+v", again.MailReceipts.Rules, again.Schedule)
+	}
+}
