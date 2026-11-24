@@ -228,12 +228,17 @@ func TestBudgetWarning(t *testing.T) {
 
 func TestBudgetLines(t *testing.T) {
 	one := []Budget{{Project: "A", By: "project", Budget: 240, Spent: 89}}
-	if got := budgetLines(one); !reflect.DeepEqual(got, []string{"151,00 Stunden verbleibend"}) {
-		t.Errorf("one: %q", got)
+	if got := budgetLines(one); !reflect.DeepEqual(got, []budgetLine{{"151,00 Stunden verbleibend", false}}) {
+		t.Errorf("one: %+v", got)
+	}
+	// Less than a twelfth of 1440 h left: short; 120 h just not. A monthly budget only spent beyond.
+	short := []Budget{{Project: "A", By: "project", Budget: 1440, Spent: 1330}, {Project: "B", By: "project", Budget: 1440, Spent: 1320}, {Project: "C", By: "project", Monthly: true, Budget: 160, Spent: 155}}
+	if got := budgetLines(short); !reflect.DeepEqual(got, []budgetLine{{"110,00 Stunden verbleibend (A)", true}, {"120,00 Stunden verbleibend (B)", false}, {"5,00 Stunden verbleibend (C)", false}}) {
+		t.Errorf("short: %+v", got)
 	}
 	two := []Budget{{Project: "A", By: "project", Budget: 100, Spent: 112}, {Project: "B", By: "task", Budget: 50, Spent: 20}, {Project: "C", By: "project_cost", Budget: 5000, Spent: 1}}
-	if got := budgetLines(two); !reflect.DeepEqual(got, []string{"12,00 Stunden über Budget (A)", "30,00 Stunden verbleibend (B)"}) {
-		t.Errorf("two: %q", got)
+	if got := budgetLines(two); !reflect.DeepEqual(got, []budgetLine{{"12,00 Stunden über Budget (A)", true}, {"30,00 Stunden verbleibend (B)", false}}) {
+		t.Errorf("two: %+v", got)
 	}
 }
 

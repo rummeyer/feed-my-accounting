@@ -108,7 +108,7 @@ func WorkLogName(from time.Time, invoice string) string {
 
 // logHead is the report's title, the company's logo or name, and the summary of the period: its
 // totals, and the clients, projects, tasks and people in it.
-func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry, left []string) error {
+func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry, left []budgetLine) error {
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
@@ -152,7 +152,15 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	bold(pdf, hours(open)+" Stunden abrechenbar, nicht abgerechnet", 70, 8)
 	for _, line := range left {
 		pdf.SetX(logMargin + 22)
-		bold(pdf, tr(line), 70, 8)
+		if line.Short {
+			// Little left, or none: red, as a warning on the page itself.
+			pdf.SetFont("Helvetica", "B", 8)
+			pdf.SetTextColor(180, 30, 30)
+			pdf.MultiCell(70, 5, tr(line.Text), "", "L", false)
+			pdf.SetTextColor(20, 20, 20)
+			continue
+		}
+		bold(pdf, tr(line.Text), 70, 8)
 	}
 	bottomLeft := pdf.GetY()
 
@@ -179,10 +187,18 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	return nil
 }
 
+// budgetLine is a line of what is left of a budget, and whether that is short: less than a
+// month's share of the whole — a twelfth, 120 of 1440 hours — or spent beyond. A monthly budget
+// is short only spent beyond.
+type budgetLine struct {
+	Text  string
+	Short bool
+}
+
 // budgetLines is what is left of the budgets in hours: "151,00 Stunden verbleibend", or
 // "12,00 Stunden über Budget"; with the project's name where there are several.
-func budgetLines(budgets []Budget) []string {
-	var lines []string
+func budgetLines(budgets []Budget) []budgetLine {
+	var lines []budgetLine
 	var inHours []Budget
 	for _, b := range budgets {
 		if !b.Cost() && b.By != "none" && b.Budget > 0 {
@@ -197,7 +213,9 @@ func budgetLines(budgets []Budget) []string {
 		if len(inHours) > 1 {
 			line += " (" + b.Project + ")"
 		}
-		lines = append(lines, line)
+		left := b.Budget - b.Spent
+		short := left < 0 || (!b.Monthly && left < b.Budget/12)
+		lines = append(lines, budgetLine{Text: line, Short: short})
 	}
 	return lines
 }
