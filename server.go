@@ -127,6 +127,7 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("GET /api/closing", s.getClosing)
 	mux.HandleFunc("DELETE /api/sent", s.forgetSent)
 	mux.HandleFunc("POST /api/notify/test", s.testNotify)
+	mux.HandleFunc("POST /api/advisor/send", s.advisorSend)
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
 	mux.HandleFunc("DELETE /api/jobs", s.clearJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
@@ -1182,11 +1183,15 @@ func (s *server) getClosing(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
+	rows := closing(cfg, d, month, s.lastJobs(), now)
+	mail := advisorMail(cfg, month)
 	reply(w, map[string]any{
 		"month":      month.Format("2006-01"),
-		"rows":       closing(cfg, d, month, s.lastJobs(), now),
+		"rows":       rows,
+		"light":      closingLight(rows, month, cfg.Notify.closingDay(), now),
 		"closingDay": cfg.Notify.closingDay(),
 		"notify":     notifyOn(cfg),
+		"advisor":    map[string]any{"to": mail.To, "subject": mail.Subject, "text": mail.Text, "informed": d.Informed[month.Format("2006-01")], "zip": cfg.Archive.Enabled && cfg.Archive.Remote != ""},
 	})
 }
 

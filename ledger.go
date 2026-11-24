@@ -39,6 +39,8 @@ type ledgerData struct {
 	Docs []SentDoc `json:"docs"`
 	// Checked is when each source last looked at a month, by source and month: 2026-11.
 	Checked map[string]map[string]time.Time `json:"checked"`
+	// Informed is when the tax adviser was told a month is booked, by month: 2026-11.
+	Informed map[string]time.Time `json:"informed,omitempty"`
 }
 
 // Ledger is the ledger in its file.
@@ -165,6 +167,16 @@ func markChecked(d *ledgerData, source, month string, at time.Time) {
 		d.Checked[source] = map[string]time.Time{}
 	}
 	d.Checked[source][month] = at
+}
+
+// Inform notes that the tax adviser was told the month is booked, now.
+func (l *Ledger) Inform(month time.Time) error {
+	return l.change(func(d *ledgerData) {
+		if d.Informed == nil {
+			d.Informed = map[string]time.Time{}
+		}
+		d.Informed[month.Format("2006-01")] = time.Now()
+	})
 }
 
 // Forget takes a receipt out of the ledger, by its hash, or by name for one without: it may be

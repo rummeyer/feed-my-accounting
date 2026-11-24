@@ -472,3 +472,17 @@ ul.rows.rules li { flex-wrap: wrap; }
 ul.rows.rules li input.grow { min-width: 140px; }
 .closing-lines .doc .unsend { font-size: 16px; line-height: 1; padding: 0 4px; }
 .closing-lines .doc.unsent .grow { text-decoration: line-through; color: var(--muted); }
+
+/* The month's light: one of red, yellow, green lit, the others dim. */
+.closing-state { display: flex; align-items: center; gap: 14px; margin: 4px 0 10px; }
+.closing-state p { margin: 0; }
+.light { display: inline-flex; gap: 5px; padding: 5px 7px; background: var(--ink); border-radius: 12px; flex: none; }
+.light i { width: 14px; height: 14px; border-radius: 50%; background: var(--muted); opacity: 0.35; }
+.light[data-state="red"] i.red { background: #d9412f; opacity: 1; box-shadow: 0 0 6px #d9412f; }
+.light[data-state="yellow"] i.yellow { background: #e3b21c; opacity: 1; box-shadow: 0 0 6px #e3b21c; }
+.light[data-state="green"] i.green { background: #3fae5a; opacity: 1; box-shadow: 0 0 6px #3fae5a; }
+.advisor { margin-top: 18px; }
+.mail-preview { font-family: var(--mono); font-size: 13px; white-space: pre-wrap; background: var(--cell); border: 1px solid var(--rule); padding: 10px 12px; margin: 8px 0; }
+textarea { font: 14px/1.4 var(--mono); letter-spacing: normal; text-transform: none; width: 100%; box-sizing: border-box; background: var(--cell); color: var(--ink); border: 1px solid var(--panel-edge); padding: 6px 9px; resize: vertical; }
+textarea:focus { outline: 1px dotted var(--headline); outline-offset: 1px; }
+.grid label:has(textarea) { grid-column: 1 / -1; }

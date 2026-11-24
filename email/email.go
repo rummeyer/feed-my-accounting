@@ -130,6 +130,39 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 	return nil
 }
 
+// Mail is one email to someone: the tax adviser told the month is booked, say.
+type Mail struct {
+	To, Bcc     string
+	Subject     string
+	Text        string // plain text
+	Attachments []Attachment
+}
+
+// SendMail sends m from the account's sender, to m's recipients only: no copy to the Autobox.
+func SendMail(cfg MailConfig, m Mail) error {
+	msg := gomail.NewMessage()
+	msg.SetHeader("From", cfg.From)
+	msg.SetHeader("To", m.To)
+	if m.Bcc != "" {
+		msg.SetHeader("Bcc", m.Bcc)
+	}
+	msg.SetHeader("Subject", m.Subject)
+	msg.SetBody("text/plain", m.Text)
+	for _, a := range m.Attachments {
+		data := a.Data
+		msg.Attach(a.Filename, gomail.SetCopyFunc(func(w io.Writer) error {
+			_, err := w.Write(data)
+			return err
+		}))
+	}
+	logger.Printf("Sending %q to %s with %d attachment(s)", m.Subject, m.To, len(m.Attachments))
+	if err := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.Username, cfg.Password).DialAndSend(msg); err != nil {
+		return err
+	}
+	logger.Println("Email sent")
+	return nil
+}
+
 // unsent are the attachments the ledger has not seen mailed; those it has, said so.
 func unsent(ledger Ledger, vendor string, attachments []Attachment) []Attachment {
 	var fresh []Attachment

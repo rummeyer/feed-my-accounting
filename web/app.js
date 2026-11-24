@@ -1205,6 +1205,11 @@ const PARTS = {
     ['AppleInvoice.Filter.Subject', T('Betreff', 'Subject'), 'text', 'Deine Rechnung von Apple'],
     ['AppleInvoice.Filter.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
+  advisor: [[T('Steuerberater', 'Tax adviser'), [
+    ['Advisor.To', T('E-Mail-Adresse', 'Email address')],
+    ['Advisor.Subject', T('Betreff', 'Subject'), 'text', 'Belege {MM}/{YYYY}'],
+    ['Advisor.Text', T('Text', 'Text'), 'textarea', T('Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße', 'Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße')],
+  ]]],
   mailrules: [['', [
     ['MailReceipts.Count', SCAN, 'number', 1000],
     ['MailReceipts.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
@@ -1273,8 +1278,10 @@ function field(obj, [path, label, type, extra]) {
     });
     return el('label', '', label, input);
   } else {
-    input = el('input');
-    input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
+    // A text of several lines — the mail to the tax adviser — in a box of its own.
+    input = el(type === 'textarea' ? 'textarea' : 'input');
+    if (type === 'textarea') input.rows = 6;
+    else input.type = type === 'secret' ? 'password' : type === 'number' || type === 'money' ? 'number' : 'text';
     input.dataset.path = path;
     if (type === 'money') {
       input.step = '0.01';
@@ -1304,7 +1311,7 @@ function field(obj, [path, label, type, extra]) {
       : value || (type === 'number' || type === 'money' ? '' : value ?? '');
     if (type === 'secret') input.placeholder = settings.secretsSet[extra] ? T('gespeichert — zum Ändern eingeben', 'saved — type to change') : '';
     // Left empty, the default applies: shown as the hint.
-    if ((type === 'text' || type === 'number' || type === 'list') && extra !== undefined) input.placeholder = `${DEFAULT}: ${extra}`;
+    if ((type === 'text' || type === 'number' || type === 'list' || type === 'textarea') && extra !== undefined) input.placeholder = `${DEFAULT}: ${extra}`;
     // Left empty, another field's value applies: shown as the hint, as it is typed there.
     if (type === 'shadow') {
       input.dataset.shadowOf = extra;
@@ -1375,6 +1382,10 @@ function renderSettings() {
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mailrules') children.unshift(renderRules(cfg));
+    if (part === 'advisor') {
+      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – nur an ihn, nicht an die Autobox, eine Blindkopie an den Absender aus Einstellungen › E-Mail. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
+        '“Inform tax adviser” on Closing sends this mail – to him only, not to the Autobox, a blind copy to the sender from Settings › E-mail. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
+    }
     if (part === 'notify') {
       children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
         'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.')));
@@ -1805,9 +1816,19 @@ function unsendButton(row, doc, id) {
 
 const shortWhen = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+let closingData = null;
+
+const LIGHT = () => T({ green: 'Vollständig', yellow: 'Noch offen', red: 'Handlungsbedarf' }, { green: 'Complete', yellow: 'Still open', red: 'Needs attention' });
+
 function renderClosing(data) {
+  closingData = data;
   const name = `${MONTHS[closingMonth.getMonth()]} ${closingMonth.getFullYear()}`;
   $('closing-title').textContent = name;
+  const light = $('closing-light');
+  light.dataset.state = data.light;
+  light.title = LIGHT()[data.light];
+  light.setAttribute('aria-label', `${T('Ampel', 'Traffic light')}: ${LIGHT()[data.light]}`);
+  renderAdvisor(data);
   const open = data.rows.filter((r) => r.open).map((r) => r.source);
   const expected = data.rows.filter((r) => r.expected).length;
   const day = `${data.closingDay}.`;
@@ -1842,6 +1863,32 @@ function renderClosing(data) {
     return el('li', r.open ? 'open' : '', el('div', 'closing-head', link, state), lines.length > 0 && el('div', 'closing-lines small', ...lines));
   }));
 }
+
+/** The tax adviser's mail of the month as it will go, and whether and when it went. */
+function renderAdvisor(data) {
+  const a = data.advisor;
+  $('advisor-preview').textContent = a.to ? `${T('An', 'To')}: ${a.to}\n${T('Betreff', 'Subject')}: ${a.subject}\n\n${a.text}` : '';
+  $('advisor-preview').hidden = !a.to;
+  $('advisor-note').textContent = !a.to ? T('Noch keine Adresse: unter Einstellungen › Steuerberater eintragen.', 'No address yet: enter it under Settings › Tax adviser.')
+    : !never(a.informed) ? T(`Informiert am ${shortWhen(a.informed)}.`, `Informed on ${shortWhen(a.informed)}.`)
+      : T('Noch nicht informiert.', 'Not informed yet.');
+  $('advisor-send').disabled = !a.to;
+  $('advisor-zip-label').hidden = !a.zip;
+  if (!a.zip) $('advisor-zip').checked = false;
+}
+
+$('advisor-send').addEventListener('click', async () => {
+  const data = closingData;
+  if (!data) return;
+  const a = data.advisor;
+  const zip = $('advisor-zip').checked;
+  const open = data.rows.filter((r) => r.open).map((r) => r.source);
+  const lines = [T(`„${a.subject}“ an ${a.to} senden${zip ? ', mit allen Belegen des Monats als ZIP' : ''}?`, `Send “${a.subject}” to ${a.to}${zip ? ', with all of the month\'s receipts as zip' : ''}?`)];
+  if (open.length) lines.push(T(`Achtung, noch offen: ${open.join(', ')}.`, `Mind, still open: ${open.join(', ')}.`));
+  if (!never(a.informed)) lines.push(T(`Schon informiert am ${shortWhen(a.informed)}.`, `Informed already on ${shortWhen(a.informed)}.`));
+  if (!(await ask(lines.join('\n\n'), { yes: T('Senden', 'Send') }))) return;
+  start('advisor', 'POST', '/api/advisor/send', { month: data.month, zip }, () => loadClosing());
+});
 
 // ── Start ──────────────────────────────────────────────────────────────────
 

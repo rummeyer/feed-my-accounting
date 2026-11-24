@@ -128,6 +128,14 @@ type AppleInvoiceConfig struct {
 	Filter MailFilterConfig `yaml:"filter"`
 }
 
+// AdvisorConfig is the tax adviser, told by mail once a month is booked: the address, and the
+// mail's subject and text, {MM}, {YYYY} and {MONAT} standing for the month.
+type AdvisorConfig struct {
+	To      string `yaml:"to,omitempty"`
+	Subject string `yaml:"subject,omitempty"` // default "Belege {MM}/{YYYY}"
+	Text    string `yaml:"text,omitempty"`    // default: all receipts of {MM}/{YYYY} booked in sevDesk
+}
+
 // NotifyConfig is how the phone is told: by Pushover, of a scheduled run that failed, and on the
 // closing day of what last month is still waiting for.
 type NotifyConfig struct {
@@ -222,6 +230,7 @@ type Config struct {
 	VodafoneInvoice  VodafoneInvoiceConfig   `yaml:"vodafone-invoice"`
 	MailReceipts     MailReceiptsConfig      `yaml:"mail-receipts,omitempty"`
 	Notify           NotifyConfig            `yaml:"notify,omitempty"`
+	Advisor          AdvisorConfig           `yaml:"advisor,omitempty"`
 	HarvestInvoice   HarvestInvoiceConfig    `yaml:"harvest-invoice"`
 	Web              WebConfig               `yaml:"web,omitempty"`
 	Schedule         []ScheduleEntry         `yaml:"schedule,omitempty"`

@@ -84,3 +84,25 @@ func closing(cfg *Config, d ledgerData, month time.Time, last map[string]Job, no
 	}
 	return rows
 }
+
+// closingLight is a month's state at a glance: green, nothing open and no run failed; yellow,
+// still open, but its runs and the closing day to come; red, a run failed, or still open after
+// the closing day of the month after.
+func closingLight(rows []closingRow, month time.Time, closingDay int, now time.Time) string {
+	due := time.Date(month.Year(), month.Month()+1, closingDay, 9, 0, 0, 0, time.Local)
+	open := false
+	for _, r := range rows {
+		// A failed run counts for the month it could have fetched: not one before the month.
+		if r.Failed != "" && !r.FailedAt.Before(month) && (r.Open || len(r.Docs) == 0 && r.Checked.IsZero()) {
+			return "red"
+		}
+		open = open || r.Open
+	}
+	switch {
+	case !open:
+		return "green"
+	case now.Before(due):
+		return "yellow"
+	}
+	return "red"
+}

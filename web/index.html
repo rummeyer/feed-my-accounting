@@ -61,8 +61,24 @@
         <h2 id="closing-title" class="month-title"></h2>
         <button type="button" class="plain" id="closing-next" aria-label="Nächster Monat" data-en-aria-label="Next month">›</button>
       </div>
-      <p class="muted" id="closing-note"></p>
+      <!-- The month at a glance: red, yellow, green. -->
+      <div class="closing-state">
+        <span class="light" id="closing-light" role="img"><i class="red"></i><i class="yellow"></i><i class="green"></i></span>
+        <p class="muted" id="closing-note"></p>
+      </div>
       <ul id="closing" class="rows closing"></ul>
+
+      <!-- Booked: the tax adviser told, the month's receipts zipped beside it if asked. -->
+      <div class="advisor">
+        <h2><span lang="de">Steuerberater</span><span lang="en">Tax adviser</span></h2>
+        <p class="muted" id="advisor-note"></p>
+        <pre class="mail-preview" id="advisor-preview"></pre>
+        <div class="actions">
+          <label class="check" id="advisor-zip-label"><input type="checkbox" id="advisor-zip"> <span lang="de">Alle Belege als ZIP anhängen</span><span lang="en">Attach all receipts as zip</span></label>
+          <button type="button" id="advisor-send" class="strong"><span lang="de">Steuerberater informieren</span><span lang="en">Inform tax adviser</span></button>
+        </div>
+        <div class="console" data-console="advisor" hidden></div>
+      </div>
     </section>
 
     <!-- Reisekosten -->
@@ -212,6 +228,7 @@
       <form class="part" data-part="mail"></form>
       <form class="part" data-part="archive"></form>
       <form class="part" data-part="notify"></form>
+      <form class="part" data-part="advisor"></form>
       <form class="part" data-part="web"></form>
     </section>
     <div class="savebar">
