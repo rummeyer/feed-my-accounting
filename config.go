@@ -133,8 +133,9 @@ type AppleInvoiceConfig struct {
 type NotifyConfig struct {
 	Pushover struct {
 		Enabled bool   `yaml:"enabled"`
-		Token   string `yaml:"token,omitempty"` // the application's API token
-		User    string `yaml:"user,omitempty"`  // the user's key
+		Token   string `yaml:"token,omitempty"`  // the application's API token
+		User    string `yaml:"user,omitempty"`   // the user's key
+		Device  string `yaml:"device,omitempty"` // one device's name; empty: all of the user's
 	} `yaml:"pushover"`
 	// ClosingDay is the day of the month, at 9:00, that the month before is looked over; 0 is the 5th.
 	ClosingDay int `yaml:"closingDay,omitempty"`

@@ -59,7 +59,7 @@ func TestReminderNamesWhatIsOpen(t *testing.T) {
 	var got []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
-		got = append(got, r.Form.Get("title")+": "+r.Form.Get("message"))
+		got = append(got, r.Form.Get("title")+": "+r.Form.Get("message")+" @"+r.Form.Get("device"))
 		w.Write([]byte(`{"status":1}`))
 	}))
 	defer srv.Close()
@@ -68,11 +68,11 @@ func TestReminderNamesWhatIsOpen(t *testing.T) {
 	defer func() { pushoverURL = old }()
 
 	cfg := &Config{}
-	cfg.Notify.Pushover.Enabled, cfg.Notify.Pushover.Token, cfg.Notify.Pushover.User = true, "t", "u"
+	cfg.Notify.Pushover.Enabled, cfg.Notify.Pushover.Token, cfg.Notify.Pushover.User, cfg.Notify.Pushover.Device = true, "t", "u", "iPhone"
 	month := time.Date(2026, 11, 1, 0, 0, 0, 0, time.Local)
 	remindClosing(cfg, []closingRow{{Source: "Apple"}, {Source: "Vodafone", Open: true}, {Source: "Strato", Open: true}}, month)
 	remindClosing(cfg, []closingRow{{Source: "Apple"}}, month)
-	if len(got) != 1 || !strings.Contains(got[0], "November 2026") || !strings.Contains(got[0], "Vodafone, Strato") {
+	if len(got) != 1 || !strings.Contains(got[0], "November 2026") || !strings.Contains(got[0], "Vodafone, Strato") || !strings.HasSuffix(got[0], "@iPhone") {
 		t.Errorf("one notification of what is open, none when complete: %q", got)
 	}
 	cfg.Notify.Pushover.Enabled = false

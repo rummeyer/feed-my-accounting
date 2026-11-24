@@ -1212,6 +1212,7 @@ const PARTS = {
     ['Notify.Pushover.Enabled', T('Per Pushover benachrichtigen', 'Notify by Pushover'), 'bool', false],
     ['Notify.Pushover.Token', T('API-Token der Anwendung', "The application's API token"), 'secret', 6],
     ['Notify.Pushover.User', T('User-Key', 'User key'), 'secret', 7],
+    ['Notify.Pushover.Device', T('Gerät', 'Device'), 'text', T('alle', 'all')],
     BREAK,
     ['Notify.Closing', T('Monatsabschluss: melden, was im Vormonat fehlt', 'Closing: tell what last month is missing'), 'bool', true],
     ['Notify.ClosingDay', T('Am Tag des Monats (9:00)', 'On the day of the month (9:00)'), 'number', 5],

@@ -309,6 +309,7 @@ notify:                            # optional: Pushover, to the phone
     enabled: true
     token: "your-pushover-application-token"
     user: "your-pushover-user-key"
+    device: ""                     # optional: one device's name; empty: all
   closingDay: 5                    # default: the 5th, at 9:00, the month before looked over
   closing: true                    # default: tell of a month not complete
 

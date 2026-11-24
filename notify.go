@@ -31,6 +31,9 @@ func push(cfg *Config, title, text string) error {
 	}
 	p := cfg.Notify.Pushover
 	form := url.Values{"token": {p.Token}, "user": {p.User}, "title": {title}, "message": {text}}
+	if p.Device != "" {
+		form.Set("device", p.Device)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, pushoverURL, strings.NewReader(form.Encode()))
