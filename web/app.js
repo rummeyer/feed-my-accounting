@@ -162,11 +162,12 @@ for (const link of document.querySelectorAll('[data-lang-link]')) {
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
-const TABS = ['cron', 'closing', 'travel', 'receipts', 'invoice', 'log', 'settings'];
+const TABS = ['closing', 'cron', 'travel', 'receipts', 'invoice', 'log', 'settings'];
 const loaders = {};
 
 function showTab() {
-  const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'cron';
+  // The closing first: the overview.
+  const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'closing';
   for (const t of TABS) $(`tab-${t}`).hidden = t !== name;
   // The Protokoll has nothing to save: its button empties it instead.
   for (const id of ['save-all', 'save-note', 'discard-all']) $(id).hidden = name === 'log';
