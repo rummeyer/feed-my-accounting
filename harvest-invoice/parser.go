@@ -77,7 +77,14 @@ func pdfText(pdfData []byte) (string, error) {
 	return text.String(), nil
 }
 
+// billablePattern is the work log's line when hours are beyond the budget: "120,00 Stunden
+// abrechenbar, 34,00 Stunden nicht abrechenbar" — the billable ones are what is invoiced.
+var billablePattern = regexp.MustCompile(`([\d.,]+)\s+Stunden abrechenbar,\s*[\d.,]+\s+Stunden nicht abrechenbar`)
+
 func hoursIn(pdfText string) (float64, error) {
+	if matches := billablePattern.FindStringSubmatch(pdfText); len(matches) >= 2 {
+		return parseFloat(matches[1])
+	}
 	if matches := totalHoursPattern.FindStringSubmatch(pdfText); len(matches) >= 2 {
 		return parseFloat(matches[1])
 	}

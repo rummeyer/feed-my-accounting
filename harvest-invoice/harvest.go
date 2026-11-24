@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"time"
 
@@ -165,14 +166,16 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	var booked float64
 	for _, e := range entries {
-		report.TotalHours += e.Hours
+		booked += e.Hours
 	}
+	report.TotalHours = booked
 	logger.Printf("Period: %s – %s, %d time entries, %.2f hours", report.PeriodFrom.Format("02.01.2006"), report.PeriodTo.Format("02.01.2006"), len(entries), report.TotalHours)
 
 	var account Company
 	days := bookedDays(entries)
-	short := days > 0 && report.TotalHours < float64(days*hoursPerWorkday)
+	short := days > 0 && booked < float64(days*hoursPerWorkday)
 	// The budgets are a warning only: without them, the work log all the same.
 	var over, ours []Budget
 	if budgets, err := APIBudgets(cfg.Harvest); err != nil {
@@ -188,7 +191,12 @@ func monthReport(cfg Config) (*ReportData, *pdfdoc.Document, error) {
 	}
 	if short {
 		logger.Printf("WARNING: %.2f hours, fewer than %d days booked × %d h = %d h: check the time entries in Harvest, %s/time",
-			report.TotalHours, days, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
+			booked, days, hoursPerWorkday, days*hoursPerWorkday, account.BaseURI)
+	}
+	// Beyond the budget is not billed: the draft takes what the budgets have room for.
+	if in, beyond := Billable(entries, ours); beyond > 0 {
+		logger.Printf("WARNING: %.2f h of %.2f h beyond the budget: not billable, the draft takes %.2f h", beyond, booked, in)
+		report.TotalHours = in
 	}
 	for _, b := range over {
 		logger.Printf("WARNING: %s", budgetWarning(b, account.BaseURI))
@@ -261,6 +269,37 @@ func alreadyInvoiced(ctx context.Context, cfg Config, report *ReportData) (exist
 	}
 	return existing, true, nil
 }
+
+// Billable is the hours of the entries that their projects' budgets in hours have room for, and
+// those beyond. What a budget had left before the month is what it has left now plus the
+// month's own hours, which Harvest counts as spent already. A project without a budget in hours:
+// all of its hours.
+func Billable(entries []Entry, budgets []Budget) (in, beyond float64) {
+	month := map[int]float64{}
+	for _, e := range entries {
+		month[e.ProjectID] += e.Hours
+	}
+	capped := map[int]bool{}
+	for _, b := range budgets {
+		h, ours := month[b.ProjectID]
+		if !ours || capped[b.ProjectID] || b.Cost() || b.By == "none" || b.Budget <= 0 {
+			continue
+		}
+		capped[b.ProjectID] = true
+		fit := min(h, max(0, b.Budget-b.Spent+h))
+		in += fit
+		beyond += h - fit
+	}
+	for id, h := range month {
+		if !capped[id] {
+			in += h
+		}
+	}
+	return roundHours(in), roundHours(beyond)
+}
+
+// roundHours is hours to the hundredth, as the reports have them.
+func roundHours(h float64) float64 { return math.Round(h*100) / 100 }
 
 // budgetsOf is the budgets of the entries' projects, as they stand now. A monthly budget's
 // spending is this month's, as Harvest reports it: only for the month of now.

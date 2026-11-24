@@ -74,7 +74,8 @@ func WorkLog(company, logo string, from, to time.Time, entries []Entry, budgets 
 			pdf.CellFormat(186, 6, fmt.Sprintf("Seite %d von {nb}", pdf.PageNo()), "", 0, "C", false, 0, "")
 		})
 	})
-	if err := logHead(doc, tr, company, logo, from, to, total, open, entries, budgetLines(budgets)); err != nil {
+	in, beyond := Billable(entries, budgets)
+	if err := logHead(doc, tr, company, logo, from, to, total, open, in, beyond, entries, budgetLines(budgets)); err != nil {
 		return nil, err
 	}
 	tableHead(doc.Fpdf, tr)
@@ -108,7 +109,7 @@ func WorkLogName(from time.Time, invoice string) string {
 
 // logHead is the report's title, the company's logo or name, and the summary of the period: its
 // totals, and the clients, projects, tasks and people in it.
-func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open float64, entries []Entry, left []budgetLine) error {
+func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from, to time.Time, total, open, in, beyond float64, entries []Entry, left []budgetLine) error {
 	pdf := doc.Fpdf
 	pdf.SetTextColor(20, 20, 20)
 	pdf.SetFont("Helvetica", "B", 20)
@@ -149,7 +150,24 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 	label(pdf, "Gesamt", 22)
 	bold(pdf, hours(total)+" Stunden", 70, 9)
 	pdf.SetX(logMargin + 22)
-	bold(pdf, hours(open)+" Stunden abrechenbar, nicht abgerechnet", 70, 8)
+	if beyond > 0 {
+		// Beyond the budget: what is billed, and in red what is not.
+		pdf.SetFont("Helvetica", "B", 8)
+		pdf.SetTextColor(20, 20, 20)
+		first, second := hours(in)+" Stunden abrechenbar, ", hours(beyond)+" Stunden nicht abrechenbar"
+		pdf.Write(5, first)
+		// The column ends where the right one begins: the red part beneath, if it does not fit.
+		if pdf.GetStringWidth(first+second) > 72 {
+			pdf.Ln(5)
+			pdf.SetX(logMargin + 22)
+		}
+		pdf.SetTextColor(180, 30, 30)
+		pdf.Write(5, second)
+		pdf.SetTextColor(20, 20, 20)
+		pdf.Ln(5)
+	} else {
+		bold(pdf, hours(open)+" Stunden abrechenbar, nicht abgerechnet", 70, 8)
+	}
 	for _, line := range left {
 		pdf.SetX(logMargin + 22)
 		if line.Short {
@@ -188,15 +206,16 @@ func logHead(doc *pdfdoc.Doc, tr func(string) string, company, logo string, from
 }
 
 // budgetLine is a line of what is left of a budget, and whether that is short: less than a
-// month's share of the whole — a twelfth, 120 of 1440 hours — or spent beyond. A monthly budget
-// is short only spent beyond.
+// month's share of the whole — a twelfth, 120 of 1440 hours — or none. A monthly budget is short
+// only with none left.
 type budgetLine struct {
 	Text  string
 	Short bool
 }
 
-// budgetLines is what is left of the budgets in hours: "151,00 Stunden verbleibend", or
-// "12,00 Stunden über Budget"; with the project's name where there are several.
+// budgetLines is what is left of the budgets in hours: "151,00 Stunden verbleibend", or "Keine
+// Stunden verbleibend" — what is beyond stands beside the billable hours; with the project's
+// name where there are several.
 func budgetLines(budgets []Budget) []budgetLine {
 	var lines []budgetLine
 	var inHours []Budget
@@ -207,14 +226,14 @@ func budgetLines(budgets []Budget) []budgetLine {
 	}
 	for _, b := range inHours {
 		line := hours(b.Budget-b.Spent) + " Stunden verbleibend"
-		if b.Spent > b.Budget {
-			line = hours(b.Spent-b.Budget) + " Stunden über Budget"
+		if b.Spent >= b.Budget {
+			line = "Keine Stunden verbleibend"
 		}
 		if len(inHours) > 1 {
 			line += " (" + b.Project + ")"
 		}
 		left := b.Budget - b.Spent
-		short := left < 0 || (!b.Monthly && left < b.Budget/12)
+		short := left <= 0 || (!b.Monthly && left < b.Budget/12)
 		lines = append(lines, budgetLine{Text: line, Short: short})
 	}
 	return lines

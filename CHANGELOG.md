@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Work log: the hours left of the budget in red when less than a twelfth of it is left — a month's share, under 120 of 1440 hours — or it is spent beyond.
+- Work log: the hours left of the budget in red when less than a twelfth of it is left — a month's share, under 120 of 1440 hours — and *Keine Stunden verbleibend* in red when none is.
+- harvest-invoice: hours beyond the project's budget are not billed. With 120 hours left before the month and 154 booked, the work log says *120,00 Stunden abrechenbar* and in red *34,00 Stunden nicht abrechenbar*, and the draft in sevDesk takes 120 hours — the manual entry too, from the work log dropped in.
 - **Anthropic is a mail rule**, not a module: on the first start the module's filter becomes the rule *Anthropic* — the receipt PDF, not the invoice beside it — and its schedule entry *Weitere Absender abholen*. Its receipts sent before count as sent. `anthropic-invoice` on the command line runs mail-receipts.
 - harvest-invoice: the warning of too few hours counts the days with time entries in the month × 8, not the client's days as the Reisekosten plan them: four days a week at a client warned every month, the plan counting five.
 

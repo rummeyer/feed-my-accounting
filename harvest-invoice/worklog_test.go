@@ -237,7 +237,7 @@ func TestBudgetLines(t *testing.T) {
 		t.Errorf("short: %+v", got)
 	}
 	two := []Budget{{Project: "A", By: "project", Budget: 100, Spent: 112}, {Project: "B", By: "task", Budget: 50, Spent: 20}, {Project: "C", By: "project_cost", Budget: 5000, Spent: 1}}
-	if got := budgetLines(two); !reflect.DeepEqual(got, []budgetLine{{"12,00 Stunden über Budget (A)", true}, {"30,00 Stunden verbleibend (B)", false}}) {
+	if got := budgetLines(two); !reflect.DeepEqual(got, []budgetLine{{"Keine Stunden verbleibend (A)", true}, {"30,00 Stunden verbleibend (B)", false}}) {
 		t.Errorf("two: %+v", got)
 	}
 }
@@ -253,5 +253,49 @@ func TestBookedDays(t *testing.T) {
 	}
 	if n := bookedDays(nil); n != 0 {
 		t.Errorf("bookedDays(nil) = %d, want 0", n)
+	}
+}
+
+// 154 h booked, 120 h of the budget left before the month: 120 h billable, 34 h not.
+func TestBeyondTheBudget(t *testing.T) {
+	d := time.Date(2026, 11, 2, 0, 0, 0, 0, time.Local)
+	var entries []Entry
+	for i := 0; i < 14; i++ {
+		entries = append(entries, Entry{Date: d.AddDate(0, 0, i), Client: "Muster GmbH", Project: "Beratung", ProjectID: 1, Task: "Beratung", Person: "Max", Hours: 11, Billable: true})
+	}
+	// Harvest counts the month as spent: 1320 before it, 1474 now.
+	budget := []Budget{{ProjectID: 1, Project: "Beratung", By: "project", Budget: 1440, Spent: 1474}}
+	if in, beyond := Billable(entries, budget); in != 120 || beyond != 34 {
+		t.Fatalf("want 120 in, 34 beyond: %v %v", in, beyond)
+	}
+	// Spent beyond before the month: none of it.
+	if in, beyond := Billable(entries, []Budget{{ProjectID: 1, By: "project", Budget: 1440, Spent: 1600}}); in != 0 || beyond != 154 {
+		t.Errorf("none left before: %v %v", in, beyond)
+	}
+	// Room enough, or no budget in hours: all of it.
+	if in, beyond := Billable(entries, []Budget{{ProjectID: 1, By: "project", Budget: 1440, Spent: 500}}); in != 154 || beyond != 0 {
+		t.Errorf("room enough: %v %v", in, beyond)
+	}
+	if in, _ := Billable(entries, []Budget{{ProjectID: 1, By: "project_cost", Budget: 10, Spent: 99}}); in != 154 {
+		t.Errorf("a budget in money caps nothing: %v", in)
+	}
+
+	data, err := WorkLog("Muster Consulting", "", d, d.AddDate(0, 0, 27), entries, budget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text, err := pdfText(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The red part a text of its own in the PDF.
+	for _, want := range []string{"154,00 Stunden", "120,00 Stunden abrechenbar,", "34,00 Stunden nicht abrechenbar", "Keine Stunden verbleibend"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("work log without %q", want)
+		}
+	}
+	// Uploaded, it gives the billable hours, as the draft takes them.
+	if r, err := ParseReportPDF(data); err != nil || r.TotalHours != 120 {
+		t.Errorf("read back %v, want 120: %v", r, err)
 	}
 }
