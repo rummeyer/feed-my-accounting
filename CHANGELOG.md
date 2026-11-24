@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-11-24
+
 ### Added
 
 - **Never twice**: every receipt mailed is noted in `feed-my-accounting-sent.json` beside the configuration — its name, its SHA-256 and what it is: the Amazon order, the Apple order, the Anthropic receipt's number. A run leaves out what was sent before and says so; nothing new, no mail. sevDesk's Autobox booked a receipt twice when it came twice — on 17.11.2026 four Amazon invoices came four times. The travel expenses, made anew, go again on asking, with a warning.
