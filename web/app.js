@@ -1853,10 +1853,11 @@ function renderClosing(data) {
     const lines = [];
     for (const d of r.docs) {
       const id = d.hash || d.name;
-      const when = d.filed ? (d.filed === d.name ? T('von Hand abgelegt', 'filed by hand') : T(`von Hand abgelegt als ${d.filed}`, `filed by hand as ${d.filed}`)) : shortWhen(d.at);
-      lines.push(el('div', 'doc', el('span', 'grow', d.name), el('span', 'muted', when),
+      // Filed by hand: said on a line of its own beneath the name, the date being the finding's.
+      const filed = d.filed && el('span', 'filed muted', d.filed === d.name ? T('von Hand abgelegt', 'filed by hand') : T(`von Hand abgelegt als ${d.filed}`, `filed by hand as ${d.filed}`));
+      lines.push(el('div', 'doc', el('span', 'grow', d.name), !d.filed && el('span', 'muted', shortWhen(d.at)),
         // A draft in sevDesk is made once; a receipt taken out goes again with the next run.
-        r.job !== 'harvest-invoice' && unsendButton(r, d, id)));
+        r.job !== 'harvest-invoice' && unsendButton(r, d, id), filed));
     }
     for (const d of unsent.filter((u) => u.source === r.source && u.month === data.month)) {
       lines.push(el('div', 'doc unsent', el('span', 'grow', d.name), el('span', 'muted', T('geht beim nächsten Lauf erneut', 'goes again with the next run'))));

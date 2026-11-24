@@ -483,3 +483,5 @@ ul.rows.rules li input.grow { min-width: 140px; }
 textarea { font: 14px/1.4 var(--mono); letter-spacing: normal; text-transform: none; width: 100%; box-sizing: border-box; background: var(--cell); color: var(--ink); border: 1px solid var(--panel-edge); padding: 6px 9px; resize: vertical; }
 textarea:focus { outline: 1px dotted var(--headline); outline-offset: 1px; }
 .grid label:has(textarea) { grid-column: 1 / -1; }
+.closing-lines .doc { row-gap: 0; }
+.closing-lines .doc .filed { flex-basis: 100%; overflow-wrap: anywhere; }
