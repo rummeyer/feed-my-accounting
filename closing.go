@@ -85,24 +85,24 @@ func closing(cfg *Config, d ledgerData, month time.Time, last map[string]Job, no
 	return rows
 }
 
-// closingLight is a month's state at a glance: green, nothing open and no run failed; yellow,
-// still open, but its runs and the closing day to come; red, a run failed, or still open after
-// the closing day of the month after.
-func closingLight(rows []closingRow, month time.Time, closingDay int, now time.Time) string {
-	due := time.Date(month.Year(), month.Month()+1, closingDay, 9, 0, 0, 0, time.Local)
-	open := false
+// closingState is a month's state at a glance: "done" when nothing is open and the invoice is
+// drafted in sevDesk; "none" while nothing has happened for it yet — nothing sent, nothing looked
+// at; else "progress".
+func closingState(rows []closingRow) string {
+	open, drafted, begun := false, false, false
 	for _, r := range rows {
-		// A failed run counts for the month it could have fetched: not one before the month.
-		if r.Failed != "" && !r.FailedAt.Before(month) && (r.Open || len(r.Docs) == 0 && r.Checked.IsZero()) {
-			return "red"
-		}
 		open = open || r.Open
+		did := len(r.Docs) > 0 || !r.Checked.IsZero()
+		begun = begun || did
+		if r.Job == "harvest-invoice" {
+			drafted = len(r.Docs) > 0
+		}
 	}
 	switch {
-	case !open:
-		return "green"
-	case now.Before(due):
-		return "yellow"
+	case !begun:
+		return "none"
+	case !open && drafted:
+		return "done"
 	}
-	return "red"
+	return "progress"
 }

@@ -1188,7 +1188,7 @@ func (s *server) getClosing(w http.ResponseWriter, r *http.Request) {
 	reply(w, map[string]any{
 		"month":      month.Format("2006-01"),
 		"rows":       rows,
-		"light":      closingLight(rows, month, cfg.Notify.closingDay(), now),
+		"state":      closingState(rows),
 		"closingDay": cfg.Notify.closingDay(),
 		"notify":     notifyOn(cfg),
 		"advisor":    map[string]any{"to": mail.To, "subject": mail.Subject, "text": mail.Text, "informed": d.Informed[month.Format("2006-01")], "zip": cfg.Archive.Enabled && cfg.Archive.Remote != ""},

@@ -11,28 +11,28 @@ func TestLedgerKeepsReceiptsFromGoingTwice(t *testing.T) {
 	cfg := &Config{dir: t.TempDir()}
 	l := ledgerOf(cfg)
 	invoice := email.Attachment{Filename: "11_2026_Rechnung_Amazon_17112026.pdf", Data: []byte("pdf 1"), Key: "302-1#1"}
-	if _, ok := l.Sent("Amazon", invoice); ok {
+	if _, ok, _ := l.Sent("Amazon", invoice); ok {
 		t.Fatal("nothing sent yet")
 	}
 	if err := l.Record("Amazon", []email.Attachment{invoice}); err != nil {
 		t.Fatal(err)
 	}
 	// The same file, by another name; the same order, downloaded anew: both sent already.
-	if _, ok := l.Sent("Amazon", email.Attachment{Filename: "other.pdf", Data: []byte("pdf 1")}); !ok {
+	if _, ok, _ := l.Sent("Amazon", email.Attachment{Filename: "other.pdf", Data: []byte("pdf 1")}); !ok {
 		t.Error("the same file was sent")
 	}
-	if _, ok := l.Sent("Amazon", email.Attachment{Filename: "11_2026_Rechnung_Amazon_17112026_2.pdf", Data: []byte("pdf 1b"), Key: "302-1#1"}); !ok {
+	if _, ok, _ := l.Sent("Amazon", email.Attachment{Filename: "11_2026_Rechnung_Amazon_17112026_2.pdf", Data: []byte("pdf 1b"), Key: "302-1#1"}); !ok {
 		t.Error("the same order's invoice was sent")
 	}
 	// Another order the same day, under the name the first had: not sent.
-	if _, ok := l.Sent("Amazon", email.Attachment{Filename: invoice.Filename, Data: []byte("pdf 2"), Key: "302-2#1"}); ok {
+	if _, ok, _ := l.Sent("Amazon", email.Attachment{Filename: invoice.Filename, Data: []byte("pdf 2"), Key: "302-2#1"}); ok {
 		t.Error("another order's invoice is new")
 	}
 	// An entry from before keys goes by its name.
 	_ = l.change(func(d *ledgerData) {
 		d.Docs = append(d.Docs, SentDoc{Source: "Apple", Name: "11_2026_Rechnung_Apple_MX1.pdf", Month: "2026-11"})
 	})
-	if _, ok := l.Sent("Apple", email.Attachment{Filename: "11_2026_Rechnung_Apple_MX1.pdf", Data: []byte("rendered anew"), Key: "MX1"}); !ok {
+	if _, ok, _ := l.Sent("Apple", email.Attachment{Filename: "11_2026_Rechnung_Apple_MX1.pdf", Data: []byte("rendered anew"), Key: "MX1"}); !ok {
 		t.Error("an entry without key goes by its name")
 	}
 	// Drafts have no file: never taken for one another.
@@ -55,7 +55,7 @@ func TestLedgerKeepsReceiptsFromGoingTwice(t *testing.T) {
 	if ok, err := l.Forget("Amazon", hashOf([]byte("pdf 1"))); !ok || err != nil {
 		t.Fatalf("forget: %v %v", ok, err)
 	}
-	if _, ok := l.Sent("Amazon", invoice); ok {
+	if _, ok, _ := l.Sent("Amazon", invoice); ok {
 		t.Error("forgotten, it is new again")
 	}
 }
@@ -74,7 +74,7 @@ func TestSendPDFsLeavesOutWhatWasSent(t *testing.T) {
 	if err := email.SendPDFs(mail, "Anthropic", []email.Attachment{old, {Filename: "b.pdf", Data: []byte("b")}}); err == nil {
 		t.Error("a new one is sent")
 	}
-	if _, ok := l.Sent("Anthropic", email.Attachment{Filename: "b.pdf", Data: []byte("b")}); ok {
+	if _, ok, _ := l.Sent("Anthropic", email.Attachment{Filename: "b.pdf", Data: []byte("b")}); ok {
 		t.Error("not sent, not recorded")
 	}
 }

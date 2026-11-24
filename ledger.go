@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -33,12 +34,16 @@ type SentDoc struct {
 	Size   int       `json:"size,omitempty"`
 	Month  string    `json:"month"` // 2026-11: the receipt's, as its name begins, else when it was sent
 	At     time.Time `json:"at"`
+	// Filed is a receipt not sent but found in the storage, put there by hand — booked by hand.
+	Filed string `json:"filed,omitempty"` // its name there
 }
 
 type ledgerData struct {
 	Docs []SentDoc `json:"docs"`
 	// Checked is when each source last looked at a month, by source and month: 2026-11.
 	Checked map[string]map[string]time.Time `json:"checked"`
+	// Again are the receipts taken out to go again: past what the storage has filed by hand.
+	Again []SentDoc `json:"again,omitempty"`
 	// Informed is when the tax adviser was told a month is booked, by month: 2026-11.
 	Informed map[string]time.Time `json:"informed,omitempty"`
 }
@@ -129,14 +134,43 @@ func sentBefore(docs []SentDoc, source string, a email.Attachment) (SentDoc, boo
 	return SentDoc{}, false
 }
 
-// Sent is when a receipt was mailed before, if it was.
-func (l *Ledger) Sent(source string, a email.Attachment) (time.Time, bool) {
+// Sent says whether a receipt was mailed before, or found filed by hand, and when.
+func (l *Ledger) Sent(source string, a email.Attachment) (string, bool, error) {
 	d, err := l.Data()
 	if err != nil {
-		return time.Time{}, false
+		return "", false, fmt.Errorf("ledger: %w", err)
 	}
 	doc, ok := sentBefore(d.Docs, source, a)
-	return doc.At, ok
+	if !ok {
+		return "", false, nil
+	}
+	if doc.Filed != "" {
+		return "filed by hand as " + doc.Filed, true, nil
+	}
+	return "sent on " + doc.At.Local().Format("02.01.2006 15:04") + " already", true, nil
+}
+
+// again says whether a receipt was taken out to go again.
+func (l *Ledger) again(source string, a email.Attachment) bool {
+	d, err := l.Data()
+	if err != nil {
+		return false
+	}
+	_, ok := sentBefore(d.Again, source, a)
+	return ok
+}
+
+// RecordFiled notes a receipt found in the storage, filed by hand, as booked.
+func (l *Ledger) RecordFiled(source string, a email.Attachment, filed string) error {
+	now := time.Now()
+	return l.change(func(d *ledgerData) {
+		if _, ok := sentBefore(d.Docs, source, a); ok {
+			return
+		}
+		doc := SentDoc{Source: source, Name: a.Filename, Key: a.Key, Hash: hashOf(a.Data), Size: len(a.Data), Month: docMonth(a.Filename, now), At: now, Filed: filed}
+		d.Docs = append(d.Docs, doc)
+		markChecked(d, source, doc.Month, now)
+	})
 }
 
 // Record notes receipts as mailed now, and their months as looked at.
@@ -150,6 +184,11 @@ func (l *Ledger) Record(source string, files []email.Attachment) error {
 			doc := SentDoc{Source: source, Name: f.Filename, Key: f.Key, Hash: hashOf(f.Data), Size: len(f.Data), Month: docMonth(f.Filename, now), At: now}
 			d.Docs = append(d.Docs, doc)
 			markChecked(d, source, doc.Month, now)
+			// Sent again as asked: no longer waiting to.
+			d.Again = slices.DeleteFunc(d.Again, func(a SentDoc) bool {
+				_, same := sentBefore([]SentDoc{a}, source, f)
+				return same
+			})
 		}
 	})
 }
@@ -186,7 +225,11 @@ func (l *Ledger) Forget(source, id string) (bool, error) {
 	err := l.change(func(d *ledgerData) {
 		d.Docs = slices.DeleteFunc(d.Docs, func(doc SentDoc) bool {
 			gone := doc.Source == source && (doc.Hash == id || doc.Hash == "" && doc.Name == id)
-			found = found || gone
+			if gone {
+				found = true
+				// Past the storage too: what is filed by hand there goes all the same.
+				d.Again = append(d.Again, doc)
+			}
 			return gone
 		})
 	})

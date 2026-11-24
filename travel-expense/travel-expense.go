@@ -705,8 +705,8 @@ func Send(cfg Config, year int, month time.Month, r *Result) error {
 	for i, a := range attachments {
 		attachments[i].Key = a.Filename
 		if ledger := cfg.Mail.Ledger; ledger != nil {
-			if at, ok := ledger.Sent("Reisekosten", attachments[i]); ok {
-				logger.Printf("WARNING: %s was sent on %s already: sevDesk gets it a second time", a.Filename, at.Local().Format("02.01.2006 15:04"))
+			if how, sent, _ := ledger.Sent("Reisekosten", attachments[i]); sent {
+				logger.Printf("WARNING: %s: %s: sevDesk gets it a second time", a.Filename, how)
 			}
 		}
 	}

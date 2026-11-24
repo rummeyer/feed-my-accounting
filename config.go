@@ -132,6 +132,7 @@ type AppleInvoiceConfig struct {
 // mail's subject and text, {MM}, {YYYY} and {MONAT} standing for the month.
 type AdvisorConfig struct {
 	To      string `yaml:"to,omitempty"`
+	Bcc     string `yaml:"bcc,omitempty"`     // a blind copy, to oneself say; empty: none
 	Subject string `yaml:"subject,omitempty"` // default "Belege {MM}/{YYYY}"
 	Text    string `yaml:"text,omitempty"`    // default: all receipts of {MM}/{YYYY} booked in sevDesk
 }

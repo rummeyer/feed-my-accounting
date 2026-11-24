@@ -1207,6 +1207,7 @@ const PARTS = {
   ]]],
   advisor: [[T('Steuerberater', 'Tax adviser'), [
     ['Advisor.To', T('E-Mail-Adresse', 'Email address')],
+    ['Advisor.Bcc', T('Blindkopie (BCC) an', 'Blind copy (BCC) to'), 'text', T('keine', 'none')],
     ['Advisor.Subject', T('Betreff', 'Subject'), 'text', 'Belege {MM}/{YYYY}'],
     ['Advisor.Text', T('Text', 'Text'), 'textarea', T('Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße', 'Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße')],
   ]]],
@@ -1383,8 +1384,8 @@ function renderSettings() {
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mailrules') children.unshift(renderRules(cfg));
     if (part === 'advisor') {
-      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – nur an ihn, nicht an die Autobox, eine Blindkopie an den Absender aus Einstellungen › E-Mail. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
-        '“Inform tax adviser” on Closing sends this mail – to him only, not to the Autobox, a blind copy to the sender from Settings › E-mail. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
+      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – nur an ihn, nicht an die Autobox; als Blindkopie an die Adresse darunter, wenn eine eingetragen ist. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
+        '“Inform tax adviser” on Closing sends this mail – to him only, not to the Autobox; a blind copy to the address beneath, if one is set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
     }
     if (part === 'notify') {
       children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
@@ -1818,16 +1819,17 @@ const shortWhen = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit'
 
 let closingData = null;
 
-const LIGHT = () => T({ green: 'Vollständig', yellow: 'Noch offen', red: 'Handlungsbedarf' }, { green: 'Complete', yellow: 'Still open', red: 'Needs attention' });
+const STATE = () => T({ done: 'Abgeschlossen: alle Belege da, Rechnung in sevDesk', progress: 'In Arbeit', none: 'Noch nichts passiert' },
+  { done: 'Closed: all receipts in, invoice in sevDesk', progress: 'Under way', none: 'Nothing has happened yet' });
 
 function renderClosing(data) {
   closingData = data;
   const name = `${MONTHS[closingMonth.getMonth()]} ${closingMonth.getFullYear()}`;
   $('closing-title').textContent = name;
-  const light = $('closing-light');
-  light.dataset.state = data.light;
-  light.title = LIGHT()[data.light];
-  light.setAttribute('aria-label', `${T('Ampel', 'Traffic light')}: ${LIGHT()[data.light]}`);
+  const state = $('closing-state');
+  state.dataset.state = data.state;
+  state.title = STATE()[data.state];
+  state.setAttribute('aria-label', STATE()[data.state]);
   renderAdvisor(data);
   const open = data.rows.filter((r) => r.open).map((r) => r.source);
   const expected = data.rows.filter((r) => r.expected).length;
@@ -1841,14 +1843,18 @@ function renderClosing(data) {
 
   $('closing').replaceChildren(...data.rows.map((r) => {
     const sent = r.docs.length;
-    const state = sent ? el('span', 'badge ok', r.source === 'Kundenrechnung' ? T('Entwurf angelegt', 'draft created') : T(`${sent} gesendet`, `${sent} sent`))
+    // Filed by hand: found in the storage, booked by hand rather than sent.
+    const filed = r.docs.filter((d) => d.filed).length;
+    const counted = [sent - filed && T(`${sent - filed} gesendet`, `${sent - filed} sent`), filed && T(`${filed} von Hand`, `${filed} by hand`)].filter(Boolean).join(', ');
+    const state = sent ? el('span', 'badge ok', r.source === 'Kundenrechnung' ? T('Entwurf angelegt', 'draft created') : counted)
       : !never(r.checked) ? el('span', 'badge ok', T('nichts gefunden', 'nothing found'))
         : r.open ? el('span', 'badge failed', T('offen', 'open'))
           : el('span', 'badge', r.expected ? '—' : T('ohne Zeitplan', 'no schedule'));
     const lines = [];
     for (const d of r.docs) {
       const id = d.hash || d.name;
-      lines.push(el('div', 'doc', el('span', 'grow', d.name), el('span', 'muted', shortWhen(d.at)),
+      const when = d.filed ? (d.filed === d.name ? T('von Hand abgelegt', 'filed by hand') : T(`von Hand abgelegt als ${d.filed}`, `filed by hand as ${d.filed}`)) : shortWhen(d.at);
+      lines.push(el('div', 'doc', el('span', 'grow', d.name), el('span', 'muted', when),
         // A draft in sevDesk is made once; a receipt taken out goes again with the next run.
         r.job !== 'harvest-invoice' && unsendButton(r, d, id)));
     }
@@ -1867,8 +1873,6 @@ function renderClosing(data) {
 /** The tax adviser's mail of the month as it will go, and whether and when it went. */
 function renderAdvisor(data) {
   const a = data.advisor;
-  $('advisor-preview').textContent = a.to ? `${T('An', 'To')}: ${a.to}\n${T('Betreff', 'Subject')}: ${a.subject}\n\n${a.text}` : '';
-  $('advisor-preview').hidden = !a.to;
   $('advisor-note').textContent = !a.to ? T('Noch keine Adresse: unter Einstellungen › Steuerberater eintragen.', 'No address yet: enter it under Settings › Tax adviser.')
     : !never(a.informed) ? T(`Informiert am ${shortWhen(a.informed)}.`, `Informed on ${shortWhen(a.informed)}.`)
       : T('Noch nicht informiert.', 'Not informed yet.');

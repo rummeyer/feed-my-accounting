@@ -61,9 +61,10 @@
         <h2 id="closing-title" class="month-title"></h2>
         <button type="button" class="plain" id="closing-next" aria-label="Nächster Monat" data-en-aria-label="Next month">›</button>
       </div>
-      <!-- The month at a glance: red, yellow, green. -->
+      <!-- The month at a glance: a green tick when all is in and the invoice drafted, a road block
+           while it is under way, a red cross while nothing has happened yet. -->
       <div class="closing-state">
-        <span class="light" id="closing-light" role="img"><i class="red"></i><i class="yellow"></i><i class="green"></i></span>
+        <span class="state" id="closing-state" role="img"><svg class="state-icon done" viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges" aria-hidden="true"><path fill="#3fae5a" d="M13 4h2v1h-2z M12 5h2v1h-2z M11 6h2v1h-2z M2 7h2v1H2z M10 7h2v1h-2z M3 8h2v1H3z M9 8h2v1H9z M4 9h2v1H4z M8 9h2v1H8z M5 10h4v1H5z M6 11h2v1H6z"/></svg><svg class="state-icon progress" viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges" aria-hidden="true"><rect x="7" y="1" width="2" height="2" fill="#e3a21c"/><rect x="0" y="3" width="16" height="6" fill="#2e2e2e"/><rect x="1" y="4" width="14" height="4" fill="#fbfbfa"/><path fill="#d9412f" d="M1 4h2v4H1z M5 4h2v4H5z M9 4h2v4H9z M13 4h2v4h-2z"/><path fill="#5a5a5a" d="M3 9h2v5H3z M11 9h2v5h-2z M2 14h4v1H2z M10 14h4v1h-4z"/></svg><svg class="state-icon none" viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges" aria-hidden="true"><path fill="#d9412f" d="M3 3h2v1H3z M11 3h2v1h-2z M4 4h2v1H4z M10 4h2v1h-2z M5 5h2v1H5z M9 5h2v1H9z M6 6h4v1H6z M7 7h2v2H7z M6 9h4v1H6z M5 10h2v1H5z M9 10h2v1H9z M4 11h2v1H4z M10 11h2v1h-2z M3 12h2v1H3z M11 12h2v1h-2z"/></svg></span>
         <p class="muted" id="closing-note"></p>
       </div>
       <ul id="closing" class="rows closing"></ul>
@@ -72,7 +73,6 @@
       <div class="advisor">
         <h2><span lang="de">Steuerberater</span><span lang="en">Tax adviser</span></h2>
         <p class="muted" id="advisor-note"></p>
-        <pre class="mail-preview" id="advisor-preview"></pre>
         <div class="actions">
           <label class="check" id="advisor-zip-label"><input type="checkbox" id="advisor-zip"> <span lang="de">Alle Belege als ZIP anhängen</span><span lang="en">Attach all receipts as zip</span></label>
           <button type="button" id="advisor-send" class="strong"><span lang="de">Steuerberater informieren</span><span lang="en">Inform tax adviser</span></button>

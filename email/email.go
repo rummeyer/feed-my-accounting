@@ -52,8 +52,9 @@ type MailConfig struct {
 // Ledger is the record of the receipts mailed: one mailed already — the same file, or the same
 // receipt by its key — is not mailed again, sevDesk's Autobox would book it twice.
 type Ledger interface {
-	// Sent is when a receipt was mailed before, if it was.
-	Sent(vendor string, a Attachment) (time.Time, bool)
+	// Sent says whether a receipt went to the books before, and how — "sent on 12.11.2026
+	// 11:37", "filed by hand as …" — or that it could not be told.
+	Sent(vendor string, a Attachment) (how string, sent bool, err error)
 	// Record notes receipts as mailed now.
 	Record(vendor string, files []Attachment) error
 }
@@ -106,7 +107,10 @@ type Attachment struct {
 // with a ledger, those not mailed before.
 func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 	if cfg.Ledger != nil {
-		attachments = unsent(cfg.Ledger, vendor, attachments)
+		var err error
+		if attachments, err = unsent(cfg.Ledger, vendor, attachments); err != nil {
+			return fmt.Errorf("not sent, so that none goes twice: %w", err)
+		}
 	}
 	if len(attachments) == 0 {
 		logger.Printf("No %s PDFs to send", vendor)
@@ -164,19 +168,23 @@ func SendMail(cfg MailConfig, m Mail) error {
 }
 
 // unsent are the attachments the ledger has not seen mailed; those it has, said so.
-func unsent(ledger Ledger, vendor string, attachments []Attachment) []Attachment {
+func unsent(ledger Ledger, vendor string, attachments []Attachment) ([]Attachment, error) {
 	var fresh []Attachment
 	for _, a := range attachments {
-		if at, ok := ledger.Sent(vendor, a); ok {
-			logger.Printf("%s: sent on %s already — not again", a.Filename, at.Local().Format("02.01.2006 15:04"))
+		how, sent, err := ledger.Sent(vendor, a)
+		if err != nil {
+			return nil, err
+		}
+		if sent {
+			logger.Printf("%s: %s — not again", a.Filename, how)
 			continue
 		}
 		fresh = append(fresh, a)
 	}
 	if skipped := len(attachments) - len(fresh); skipped > 0 && len(fresh) == 0 {
-		logger.Printf("All %d %s PDF(s) were sent before", skipped, vendor)
+		logger.Printf("All %d %s PDF(s) went to the books before", skipped, vendor)
 	}
-	return fresh
+	return fresh, nil
 }
 
 // Send sends an email with the given attachments via SMTP.

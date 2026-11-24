@@ -38,10 +38,14 @@ func archiveFolder(folder, name string, now time.Time) string {
 	return strings.Trim(strings.NewReplacer("{YYYY}", year, "{MM}", month).Replace(folder), "/")
 }
 
-// belegeMail is the mail configuration the receipts go out with: none mailed twice, and with the
-// copy switched on, what is mailed is copied to the storage too.
+// belegeMail is the mail configuration the receipts go out with: none mailed twice, none filed by
+// hand in the storage, and with the copy switched on, what is mailed is copied there too.
 func belegeMail(cfg *Config) email.MailConfig {
 	mail := ledgerMail(cfg)
+	// Filed by hand in the storage: booked, not sent.
+	if l, ok := mail.Ledger.(*Ledger); ok && cfg.Archive.Enabled && cfg.Archive.Remote != "" {
+		mail.Ledger = &filedLedger{Ledger: l, archive: cfg.Archive}
+	}
 	if cfg.Archive.Enabled {
 		ac := cfg.Archive
 		mail.Archive = func(vendor string, files []email.Attachment) error {
