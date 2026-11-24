@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-11-24
+
+### Changed
+
+- A button that sends or transfers something is solid: *Steuerberater informieren*, *Aus Harvest anlegen* and *Test senden* now look as *Per Mail senden* does; one that only shows or edits here stays light.
+
 ## [1.25.0] - 2026-11-24
 
 ### Added
