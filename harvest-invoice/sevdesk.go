@@ -255,8 +255,11 @@ func findInvoice(ctx context.Context, clientName string, from, to time.Time) (*i
 			continue
 		}
 		row.next = nextNumber(rows)
-		logger.Printf("Found invoice: %s (%s, Datum %s, Nr. %q, next %q) — cells %q",
-			clientName, row.Status, row.Datum, row.number(), row.next, row.Cells)
+		number := row.number()
+		if number == "" {
+			number = "– (next " + row.next + ")"
+		}
+		logger.Printf("Found invoice: %s, Nr. %s", clientName, number)
 		return &row, nil
 	}
 
