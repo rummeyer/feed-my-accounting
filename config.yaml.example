@@ -21,6 +21,12 @@ archive:                         # optional: receipts mailed are copied to a sto
   remote: icloud                 # the rclone remote: iCloud Drive, Google Drive, OneDrive, WebDAV, …
   folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
 
+paperless:                       # optional: receipts mailed are uploaded to Paperless-ngx too
+  enabled: false
+  url: "http://nas:8000"
+  token: "..."                   # API token: Paperless › My Profile
+  tags: [Firma]                  # given each receipt; made if missing
+
 
 travel-expense:
   christmasWeekOff: true         # optional, default: true (exclude Dec 24, 27-31)

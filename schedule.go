@@ -463,6 +463,10 @@ func (s *server) scheduler() {
 			log.Printf("schedule: %v", err)
 			continue
 		}
+		// Receipts waiting for Paperless, every ten minutes: the NAS may be on by now.
+		if cfg.Paperless.Enabled && now.Minute()%10 == 0 {
+			go flushPaperless(cfg)
+		}
 		// On the closing day, the month before looked over: what it still waits for, told.
 		if n := cfg.Notify; n.closingOn() && notifyOn(cfg) && now.Day() == n.closingDay() && now.Hour() == 9 && now.Minute() == 0 {
 			go s.remind(cfg, now)

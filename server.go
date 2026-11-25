@@ -955,6 +955,7 @@ func secrets(cfg *Config) []*string {
 		&cfg.AmazonInvoice.Password,
 		&cfg.Notify.Pushover.Token,
 		&cfg.Notify.Pushover.User,
+		&cfg.Paperless.Token,
 	}
 }
 

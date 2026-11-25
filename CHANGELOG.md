@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Paperless**: the receipts mailed are uploaded to Paperless-ngx too, beside rclone or instead of it — the sender as correspondent, the day from the name as created, a title from the name and the tags set (`Firma`, say). While Paperless cannot be reached, the NAS off, they wait beside the configuration and go up once it answers: after each sending and every ten minutes. On *Einstellungen › Paperless*.
+
 ## [1.25.1] - 2026-11-24
 
 ### Changed

@@ -81,6 +81,7 @@ func setModuleLogs(w io.Writer) {
 	email.SetLogOutput(w)
 	mailreceipts.SetLogOutput(w)
 	archiveLog.SetOutput(w)
+	paperlessLog.SetOutput(w)
 	log.SetOutput(w)
 }
 

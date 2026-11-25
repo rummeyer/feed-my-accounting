@@ -130,7 +130,7 @@ A button that sends or transfers something — a mail, the draft to sevDesk, a P
 | **Belege** | Amazon, Apple and Vodafone invoices on demand, each with its settings: the Amazon and Vodafone logins, the Apple mail filter. Apple with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking; Amazon and Vodafone with *Per Mail senden* only, as each run is a login, Vodafone's held to one in 28 days: Amazon and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. Last, *Weitere Absender*: the rules for further senders, by month to look at or to send — see [mail-receipts](#module-mail-receipts). |
 | **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the days booked × 8 log a warning with the link to the time entries in Harvest: each day with an entry a workday of 8 hours at least, however many days a week are worked for the client. A project of the work log over its budget in Harvest — hours or money, as Harvest's project budget report has it — logs a warning too, with the link to the project; a monthly budget only for the current month, Harvest reporting only its spending. As a fallback, behind its own flap at the foot of the card, *Manuelle Eingabe*: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in — the current month at first — or filled from a work log PDF dropped in, Harvest's or one from here, and correctable either way; then *Entwurf in sevDesk anlegen* creates the draft invoice for the client, article and reference of the settings beneath — with the same duplicate check. Folded away last on the card, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. *Löschen* at the bottom, after *Sicher?*, empties it. |
-| **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, the storage, **Pushover** with *Test senden*, and the web interface's address and password. |
+| **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, the storage, **Paperless**, **Pushover** with *Test senden*, and the web interface's address and password. |
 
 Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.
 
@@ -374,6 +374,22 @@ rclone lsd icloud:   # its folders: it works
 ```
 
 **iCloud Drive** (`iclouddrive`, rclone 1.69 or later): Apple has no API for the Drive, rclone talks to icloud.com as its web page does. *Advanced Data Protection* must be off for the Apple ID. rclone asks for a two-factor code and keeps a trust token in `~/.config/rclone/rclone.conf`; when Apple wants a new code, after a month or two, the copy fails — the mail sent all the same, the run saying *sent by mail; rclone: …*, the log what to do: `rclone config reconnect icloud:` with a new code.
+
+### Paperless
+
+Beside the storage, or instead of it, the receipts mailed can go to [Paperless-ngx](https://docs.paperless-ngx.com) by its API: the sender as the correspondent (Amazon, Apple, a rule's name; none for the travel expenses), the day from the name as created (`…_17112026.pdf`, else Paperless reads it from the PDF), the title from the name (*Rechnung Amazon 17.11.2026*) and the tags set — `Firma`, say, for a workflow there to give it its storage path. A tag or correspondent Paperless does not have yet is made. On *Einstellungen › Paperless* or in `config.yaml`:
+
+```yaml
+paperless:
+  enabled: true
+  url: "http://nas:8000"
+  token: "..."                   # Paperless › My Profile › API Auth Token
+  tags: [Firma]
+```
+
+Paperless on a NAS that is off most of the time is fine: each receipt waits in `feed-my-accounting-paperless/` beside the configuration until Paperless takes it — tried right after sending and every ten minutes while the web interface runs. Not reaching Paperless never fails a run; the log says how many wait. Paperless refuses a file it has already, so a receipt uploaded twice is still one document.
+
+<p align="center"><img src="docs/storage.png" alt="Einstellungen: Ablage (rclone) with Belege ablegen ticked, the remote icloud and the folder Belege/{YYYY}/{MM}; beneath, Paperless with Belege hochladen ticked, the address http://nas:8000, the API token saved and the tag Firma" width="760"></p>
 
 ### Never twice, and the month's closing
 
@@ -731,6 +747,7 @@ feed-my-accounting/
 ├── notify.go                      # Pushover: failed runs, and the closing day
 ├── advisor.go                     # the tax adviser's mail, the month's receipts zipped
 ├── archive.go                     # receipts copied to the storage with rclone
+├── paperless.go                   # receipts uploaded to Paperless-ngx, waiting while it is off
 ├── feed-my-accounting.service     # systemd unit for the web interface
 ├── config.yaml.example
 └── go.mod

@@ -1171,6 +1171,13 @@ const PARTS = {
     ['Archive.Remote', T('rclone-Remote', 'rclone remote')],
     ['Archive.Folder', T('Ordner', 'Folder'), 'text', 'Belege/{YYYY}/{MM}'],
   ]]],
+  // Receipts mailed, uploaded to Paperless-ngx too — waiting on the Pi while it is off.
+  paperless: [['Paperless', [
+    ['Paperless.Enabled', T('Belege hochladen', 'Upload receipts'), 'bool', false],
+    ['Paperless.URL', T('Adresse (etwa http://nas:8000)', 'Address (http://nas:8000, say)')],
+    ['Paperless.Token', T('API-Token', 'API token'), 'secret', 8],
+    ['Paperless.Tags', T('Tags (etwa Firma)', 'Tags (Firma, say)'), 'list', T('keine', 'none')],
+  ]]],
   web: [[T('Oberfläche', 'Web interface'), [
     ['Web.Listen', T('Adresse (Neustart nötig)', 'Address (needs a restart)'), 'text', T('localhost:8595, auch im Netz (:8595)', 'localhost:8595, on the network too (:8595)')],
     ['Web.HomeOnly', T('Nur im Heimnetz erreichbar', 'Home network only'), 'bool', true],
@@ -1376,6 +1383,10 @@ function renderSettings() {
     if (part === 'archive') {
       children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
         'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
+    }
+    if (part === 'paperless') {
+      children.push(el('p', 'muted', T('Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags – etwa Firma, nach dem ein Workflow in Paperless ablegt. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
+        'Receipts sent also go to Paperless-ngx, with the sender as correspondent, the date from the file name and the tags – Firma, say, for a workflow in Paperless to file them by. While Paperless cannot be reached (NAS off), the receipts wait on the Pi and go up once it is back; it is tried every ten minutes. The API token is in Paperless under My Profile.')));
     }
     if (part === 'web') {
       children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',

@@ -39,16 +39,28 @@ func archiveFolder(folder, name string, now time.Time) string {
 }
 
 // belegeMail is the mail configuration the receipts go out with: none mailed twice, none filed by
-// hand in the storage, and with the copy switched on, what is mailed is copied there too.
+// hand in the storage, and with the copy switched on, what is mailed is copied there too — and
+// with Paperless switched on, uploaded there, or waiting to be.
 func belegeMail(cfg *Config) email.MailConfig {
 	mail := ledgerMail(cfg)
 	// Filed by hand in the storage: booked, not sent.
 	if l, ok := mail.Ledger.(*Ledger); ok && cfg.Archive.Enabled && cfg.Archive.Remote != "" {
 		mail.Ledger = &filedLedger{Ledger: l, archive: cfg.Archive}
 	}
-	if cfg.Archive.Enabled {
+	paperlessOn := cfg.Paperless.Enabled && cfg.dir != ""
+	if cfg.Archive.Enabled || paperlessOn {
 		ac := cfg.Archive
 		mail.Archive = func(vendor string, files []email.Attachment) error {
+			if paperlessOn {
+				// Never failing the run: what Paperless does not take now waits for it.
+				if err := queueForPaperless(cfg.dir, vendor, files); err != nil {
+					paperlessLog.Printf("WARNING: not queued for Paperless: %v", err)
+				}
+				flushPaperless(cfg)
+			}
+			if !ac.Enabled {
+				return nil
+			}
 			err := copyToArchive(ac, files)
 			if err != nil {
 				// A login the storage wants anew, as a rule — Apple's code, a token run out: what

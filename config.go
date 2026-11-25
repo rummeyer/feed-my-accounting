@@ -114,6 +114,16 @@ type ArchiveConfig struct {
 	Folder  string `yaml:"folder,omitempty"` // default "Belege/{YYYY}/{MM}"
 }
 
+// PaperlessConfig uploads the receipts mailed to Paperless-ngx too: URL its address,
+// http://nas:8000, Token an API token of the user they belong to, Tags given each — Firma, for a
+// workflow there to file them by.
+type PaperlessConfig struct {
+	Enabled bool     `yaml:"enabled"`
+	URL     string   `yaml:"url,omitempty"`
+	Token   string   `yaml:"token,omitempty"`
+	Tags    []string `yaml:"tags,omitempty"`
+}
+
 // AmazonInvoiceConfig is the Amazon Business login whose orders' invoices are fetched.
 type AmazonInvoiceConfig struct {
 	Username string `yaml:"username"`
@@ -223,6 +233,7 @@ type Config struct {
 	Archive ArchiveConfig    `yaml:"archive,omitempty"`
 	// ICloud is Archive by its name in 1.21: read, and saved as Archive.
 	ICloud        *ArchiveConfig      `yaml:"icloud,omitempty" json:"-"`
+	Paperless     PaperlessConfig     `yaml:"paperless,omitempty"`
 	TravelExpense TravelExpenseConfig `yaml:"travel-expense"`
 	AmazonInvoice AmazonInvoiceConfig `yaml:"amazon-invoice"`
 	// AnthropicInvoice is the module of before 1.25, a mail rule since: read, and made one.
