@@ -364,7 +364,10 @@ archive:
   enabled: true
   remote: icloud                 # the rclone remote
   folder: "Belege/{YYYY}/{MM}"   # default
+  invoiceFolder: "Rechnungen/{YYYY}"   # optional: the work logs, by invoice
 ```
+
+With *Ordner für Rechnungen* set, the Kundenrechnung run puts the work log there too, named after its invoice — `11_2026_Rechnung_0203_WorkLog.pdf` in `Rechnungen/2026`; only the work log — the invoice itself comes from sevDesk by mail. Once: one of that name there already stays as it is, as the one attached to the draft in sevDesk does. Without the invoice's number found, it is not kept.
 
 Set the remote up once on the machine, as the user the service runs as, and check it:
 

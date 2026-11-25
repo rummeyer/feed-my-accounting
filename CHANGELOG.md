@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Work logs kept by invoice**: *Ordner für Rechnungen* on *Einstellungen › Ablage (rclone)* — the Kundenrechnung run copies the work log there, named after its invoice, `11_2026_Rechnung_0203_WorkLog.pdf`, `{YYYY}` its year. Once: one there already stays.
+
 ## [1.26.0] - 2026-11-25
 
 ### Added

@@ -32,3 +32,23 @@ func TestFreeName(t *testing.T) {
 		}
 	}
 }
+
+func TestArchiveWorkLogOnlyNumbered(t *testing.T) {
+	ac := ArchiveConfig{Enabled: true, Remote: "", InvoiceFolder: "Rechnungen/{YYYY}"}
+	// Not named after an invoice, or no folder: nothing done, nothing asked of rclone.
+	for _, name := range []string{"11_2026_Rechnung_WorkLog.pdf", "11_2026_Rechnung_Amazon_17112026.pdf"} {
+		if err := archiveWorkLog(ac, name, []byte("%PDF")); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if err := archiveWorkLog(ArchiveConfig{Enabled: true}, "11_2026_Rechnung_0203_WorkLog.pdf", nil); err != nil {
+		t.Errorf("no folder: %v", err)
+	}
+	// Named after one, the folder set, no remote: said so.
+	if err := archiveWorkLog(ac, "11_2026_Rechnung_0203_WorkLog.pdf", nil); err == nil {
+		t.Error("no remote, no error")
+	}
+	if got := archiveFolder(ac.InvoiceFolder, "11_2026_Rechnung_0203_WorkLog.pdf", time.Now()); got != "Rechnungen/2026" {
+		t.Errorf("folder %q", got)
+	}
+}

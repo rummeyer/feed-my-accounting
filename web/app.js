@@ -1169,7 +1169,8 @@ const PARTS = {
   archive: [[T('Ablage (rclone)', 'Storage (rclone)'), [
     ['Archive.Enabled', T('Belege ablegen', 'Store receipts'), 'bool', false],
     ['Archive.Remote', T('rclone-Remote', 'rclone remote')],
-    ['Archive.Folder', T('Ordner', 'Folder'), 'text', 'Belege/{YYYY}/{MM}'],
+    ['Archive.Folder', T('Ordner für Belege', 'Folder for receipts'), 'text', 'Belege/{YYYY}/{MM}'],
+    ['Archive.InvoiceFolder', T('Ordner für Rechnungen', 'Folder for invoices'), 'text', T('keiner', 'none')],
   ]]],
   // Receipts mailed, uploaded to Paperless-ngx too — waiting on the Pi while it is off.
   paperless: [['Paperless', [
@@ -1381,8 +1382,8 @@ function renderSettings() {
       if (part === 'company') children.push(renderLogo());
     }
     if (part === 'archive') {
-      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“.',
-        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”.')));
+      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“. Im Ordner für Rechnungen landet der Zeitnachweis der Kundenrechnung unter ihrer Nummer, 11_2026_Rechnung_0203_WorkLog.pdf, {YYYY} ihr Jahr – einmal; liegt er dort schon, bleibt er.',
+        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”. The folder for invoices gets the invoice\'s work log under its number, 11_2026_Rechnung_0203_WorkLog.pdf, {YYYY} its year – once; one there already stays.')));
     }
     if (part === 'paperless') {
       children.push(el('p', 'muted', T('Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags – etwa Firma, nach dem ein Workflow in Paperless ablegt. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',

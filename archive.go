@@ -75,6 +75,46 @@ func belegeMail(cfg *Config) email.MailConfig {
 	return mail
 }
 
+// numberedWorkLog is a work log named after its invoice: 11_2026_Rechnung_0203_WorkLog.pdf.
+var numberedWorkLog = regexp.MustCompile(`^\d{2}_\d{4}_Rechnung_\d+_WorkLog\.pdf$`)
+
+// archiveWorkLog copies the work log named after its invoice to the storage's folder for the
+// invoices, once: one of its name there already — the one put there by hand, or of a run before
+// — is left as it is, as the one attached to the draft in sevDesk is. Without a number, or
+// without that folder set, nothing.
+func archiveWorkLog(ac ArchiveConfig, name string, data []byte) error {
+	if !ac.Enabled || strings.TrimSpace(ac.InvoiceFolder) == "" || !numberedWorkLog.MatchString(name) {
+		return nil
+	}
+	if ac.Remote == "" {
+		return errors.New("no rclone remote set")
+	}
+	folder := archiveFolder(ac.InvoiceFolder, name, time.Now())
+	taken, err := remoteNames(ac.Remote + ":" + folder)
+	if err != nil {
+		return err
+	}
+	if taken[name] {
+		archiveLog.Printf("%s is in \"%s\" already: left as it is", name, folder)
+		return nil
+	}
+	dir, err := os.MkdirTemp("", "feed-my-accounting-archive-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "rclone", "copy", dir, ac.Remote+":"+folder).CombinedOutput(); err != nil {
+		return fmt.Errorf("rclone copy to %s:%s: %v: %s (if it wants a new login: rclone config reconnect %s:)", ac.Remote, folder, err, lastLine(string(out)), ac.Remote)
+	}
+	archiveLog.Printf("%s copied to \"%s://%s\"", name, remoteType(ac.Remote), folder)
+	return nil
+}
+
 // copyToArchive copies files to the storage, each into its month's folder, never over one there:
 // a name taken gets " (1)", " (2)" before its extension, as the Finder does. Written to a
 // folder of their own first, under the names they get, then one rclone copy per folder there.

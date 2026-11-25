@@ -112,6 +112,9 @@ type ArchiveConfig struct {
 	Enabled bool   `yaml:"enabled"`
 	Remote  string `yaml:"remote,omitempty"`
 	Folder  string `yaml:"folder,omitempty"` // default "Belege/{YYYY}/{MM}"
+	// InvoiceFolder is where the work log of each invoice goes, named after it —
+	// 11_2026_Rechnung_0203_WorkLog.pdf — {YYYY} the invoice's year; empty: it is not kept.
+	InvoiceFolder string `yaml:"invoiceFolder,omitempty"`
 }
 
 // PaperlessConfig uploads the receipts mailed to Paperless-ngx too: URL its address,

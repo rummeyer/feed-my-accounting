@@ -497,6 +497,13 @@ func runHarvestInvoice(cfg *Config, year int, month time.Month, logOnly bool) (*
 			name = doc.Filename
 		}
 		recordDraft(cfg, hc.Month, name)
+		// The work log kept beside the invoices, named after its own.
+		if doc != nil {
+			if aerr := archiveWorkLog(cfg.Archive, doc.Filename, doc.Data); aerr != nil {
+				archiveLog.Printf("Copy failed: %v", aerr)
+				err = errors.Join(err, fmt.Errorf("the draft is there; rclone: %w", aerr))
+			}
+		}
 	}
 	return doc, err
 }

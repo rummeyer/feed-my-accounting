@@ -20,6 +20,7 @@ archive:                         # optional: receipts mailed are copied to a sto
   enabled: false
   remote: icloud                 # the rclone remote: iCloud Drive, Google Drive, OneDrive, WebDAV, …
   folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
+  invoiceFolder: "Rechnungen/{YYYY}"  # optional: the invoice's work log, 11_2026_Rechnung_0203_WorkLog.pdf
 
 paperless:                       # optional: receipts mailed are uploaded to Paperless-ngx too
   enabled: false
