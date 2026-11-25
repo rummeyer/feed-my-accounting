@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-11-25
+
 ### Added
 
 - **Work log attached in sevDesk**: the Kundenrechnung run attaches the month's work log to the draft under *Dokumente hinzufügen*, as `0203_WorkLog.pdf` beside the invoice's `0203.pdf` — sevDesk binds it into the E-Rechnung and sends it with the invoice's mail. A draft there already gets it too, once; an invoice no longer a draft is left as it is.
-
 - **Paperless**: the receipts mailed are uploaded to Paperless-ngx too, beside rclone or instead of it — the sender as correspondent, the day from the name as created, a title from the name and the tags set (`Firma`, say). While Paperless cannot be reached, the NAS off, they wait beside the configuration and go up once it answers: after each sending and every ten minutes. On *Einstellungen › Paperless*.
 
 ### Fixed
