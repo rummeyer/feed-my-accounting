@@ -668,10 +668,13 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
    - **Product** selected via typeahead search (search term + article number)
    - **Menge** set to the total hours
 5. Saves the invoice as draft — it is never sent to the client
+6. Attaches the work log to the draft under *Dokumente hinzufügen*, as `0203_WorkLog.pdf` beside sevDesk's own `0203.pdf`, and saves it again: sevDesk binds it into the E-Rechnung, and it goes with the invoice's mail
 
 The Harvest API needs a personal access token from [id.getharvest.com/developers](https://id.getharvest.com/developers) — on every plan, the free one too. sevDesk is used through its web interface with headless Chrome — no sevDesk API token needed.
 
 The work log is made before the sevDesk check, so it comes even when the draft exists already. It is named after the invoice it goes with, `10_2026_Rechnung_0202_WorkLog.pdf`, its number read off sevDesk's Rechnungen list — the existing invoice's, or the new draft's once saved; without one found, and with *Nur Zeitnachweis*, `10_2026_Rechnung_WorkLog.pdf`. Uploaded again, it is read like Harvest's own report.
+
+**Attached to the draft**: the draft there already gets the work log too, if it does not have one of that name — run again, it is left as it is; an invoice no longer a draft (*Offen*, *Bezahlt*) is not changed. Attaching failing — sevDesk's page changed, say — the draft stays and is noted, the run says *the draft is there, the work log not attached*: attach it by hand, or run again.
 
 On the web interface, *Manuelle Eingabe* creates the draft without the API: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in, or filled from a work log PDF dropped in — Harvest's report or one from here: the hours (`157,00 Hours`, `157,00 Stunden`) and the period (the first two dates as `dd.mm.yyyy`) — and correctable either way. The client, article and reference are `sevdesk.*` as for the run; the duplicate check the same.
 

@@ -490,7 +490,8 @@ func runHarvestInvoice(cfg *Config, year int, month time.Month, logOnly bool) (*
 		return harvest.WorkLogOnly(hc)
 	}
 	doc, err := harvest.Run(hc)
-	if err == nil {
+	// The draft made, its work log not attached: the draft noted all the same.
+	if err == nil || errors.Is(err, harvest.ErrNotAttached) {
 		name := ""
 		if doc != nil {
 			name = doc.Filename

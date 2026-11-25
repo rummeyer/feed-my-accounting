@@ -134,3 +134,17 @@ func TestNextNumber(t *testing.T) {
 		}
 	}
 }
+
+func TestAttachmentName(t *testing.T) {
+	if got := AttachmentName("0203"); got != "0203_WorkLog.pdf" {
+		t.Errorf("AttachmentName = %q", got)
+	}
+}
+
+func TestDraft(t *testing.T) {
+	for status, want := range map[string]bool{"Entwurf": true, " entwurf ": true, "Offen": false, "Bezahlt": false, "": false} {
+		if got := (invoiceRow{Status: status}).draft(); got != want {
+			t.Errorf("draft(%q) = %v, want %v", status, got, want)
+		}
+	}
+}

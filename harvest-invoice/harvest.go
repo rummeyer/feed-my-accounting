@@ -58,7 +58,9 @@ type HarvestAPI struct {
 
 // Run reads the month's time entries of the client from the Harvest API, makes their work log,
 // and creates a sevDesk draft invoice for their hours via browser automation — unless sevDesk has
-// one for the month already. The work log comes back either way, once made.
+// one for the month already. The work log is attached to the draft, the new one or the one there,
+// as "0203_WorkLog.pdf"; an invoice no longer a draft is left as it is. The work log comes back
+// either way, once made.
 func Run(cfg Config) (*pdfdoc.Document, error) {
 	report, log, err := monthReport(cfg)
 	if err != nil {
@@ -74,14 +76,35 @@ func Run(cfg Config) (*pdfdoc.Document, error) {
 		return log, err
 	}
 	if existing != nil {
-		return withNumber(log, report.PeriodFrom, existing), nil
+		return withNumber(log, report.PeriodFrom, existing), attachTo(ctx, existing, log)
 	}
 
 	logger.Println("Creating sevDesk invoice...")
 	if err := createInvoice(ctx, cfg.SevDesk, report, sevdeskLoggedIn); err != nil {
 		return log, fmt.Errorf("creating sevDesk invoice: %w", err)
 	}
-	return withNumber(log, report.PeriodFrom, newDraft(ctx, report)), nil
+	draft := newDraft(ctx, report)
+	return withNumber(log, report.PeriodFrom, draft), attachTo(ctx, draft, log)
+}
+
+// ErrNotAttached is the draft there, but the work log not attached to it: to do by hand, or by
+// running again.
+var ErrNotAttached = errors.New("the draft is there, the work log not attached")
+
+// attachTo attaches the work log to the invoice, the Rechnungen list showing it, if it is a
+// draft with a number: one sent is not changed.
+func attachTo(ctx context.Context, invoice *invoiceRow, log *pdfdoc.Document) error {
+	switch {
+	case invoice == nil:
+		return fmt.Errorf("%w: the new draft not found in the list", ErrNotAttached)
+	case !invoice.draft():
+		logger.Printf("Invoice %s is %s, not a draft: the work log not attached", invoice.number(), invoice.Status)
+		return nil
+	}
+	if err := attachWorkLog(ctx, invoice, log.Data); err != nil {
+		return fmt.Errorf("%w: %w", ErrNotAttached, err)
+	}
+	return nil
 }
 
 // newDraft is the draft just saved, as the Rechnungen list shows it with its number. The list

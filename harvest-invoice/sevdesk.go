@@ -14,12 +14,19 @@ package harvest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/dom"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 )
 
@@ -70,8 +77,19 @@ func sevdeskLogin(ctx context.Context, user, pass string) error {
 		time.Sleep(5 * time.Second)
 	}
 
-	dismissCookieBanner(ctx)
+	// The banner comes again on the dashboard, seconds after it — over the menu, which then
+	// takes no click (25.11.2026: the Rechnungen list never opened).
+	awaitCookieBanner(ctx, 12*time.Second)
 	return nil
+}
+
+// awaitCookieBanner closes the cookie banner once it shows, watching for it up to wait.
+func awaitCookieBanner(ctx context.Context, wait time.Duration) {
+	for deadline := time.Now().Add(wait); time.Now().Before(deadline); time.Sleep(500 * time.Millisecond) {
+		if dismissCookieBanner(ctx) {
+			return
+		}
+	}
 }
 
 // dismissCookieBanner clicks the cookie consent button if present.
@@ -114,13 +132,21 @@ func waitForLoginForm(ctx context.Context) error {
 	return fmt.Errorf("the login form never took input (cookie banner?)")
 }
 
-func dismissCookieBanner(ctx context.Context) {
+// dismissCookieBanner closes the cookie banner, if it shows, with the necessary cookies only;
+// whether it did.
+func dismissCookieBanner(ctx context.Context) bool {
+	var clicked bool
 	chromedp.Run(ctx, chromedp.Evaluate(`(() => {
-		const b = [...document.querySelectorAll('button')].find(b =>
-			b.innerText.includes('Alle akzeptieren') || b.innerText.includes('Nur Notwendige'));
+		const buttons = [...document.querySelectorAll('button')].filter((b) => b.offsetParent !== null);
+		const b = buttons.find((b) => b.innerText.includes('Nur Notwendige')) ||
+			buttons.find((b) => b.innerText.includes('Alle akzeptieren'));
 		if (b) b.click();
-	})()`, nil))
-	time.Sleep(time.Second)
+		return !!b;
+	})()`, &clicked))
+	if clicked {
+		time.Sleep(time.Second)
+	}
+	return clicked
 }
 
 // clickButton clicks a button by CSS selector, falling back to text search.
@@ -132,25 +158,28 @@ func clickButton(ctx context.Context, selector, text string) {
 	})()`, selector, text), nil))
 }
 
-// navigateToInvoiceList opens the Rechnungen list via the hamburger menu.
-// Direct URL navigation to /fi/index/type/RE redirects to the dashboard,
-// so we must click through the SPA menu.
+// navigateToInvoiceList opens the Rechnungen list via the menu. Direct URL navigation to
+// /fi/index/type/RE redirects to the dashboard, so it is clicked through. Done once the list
+// shows rows: a click while sevDesk is still loading after the login is lost as it lands on the
+// dashboard, and the cookie banner may come up over the menu meanwhile (25.11.2026). Tried
+// three times.
 func navigateToInvoiceList(ctx context.Context) error {
-	// Open the hamburger menu (top-left) and click "Rechnungen".
-	// Retry up to 3 times — on slower machines the menu may need more time to open.
-	var result string
-	for attempt := 0; attempt < 3; attempt++ {
+	// The menu there first: sevDesk shows a skeleton for a while after the login.
+	for deadline := time.Now().Add(30 * time.Second); time.Now().Before(deadline); time.Sleep(time.Second) {
+		var ready bool
+		chromedp.Run(ctx, chromedp.Evaluate(`[...document.querySelectorAll('a')].some((a) => a.textContent.trim() === 'Rechnungen')`, &ready))
+		if ready {
+			break
+		}
+	}
+	for attempt := 1; attempt <= 3; attempt++ {
+		dismissCookieBanner(ctx)
+		var result string
 		chromedp.Run(ctx, chromedp.Evaluate(`(() => {
 			const btn = document.querySelector('[class*="hamburger"], [class*="menu-toggle"]');
-			if (btn) { btn.click(); return; }
-			const icons = document.querySelectorAll('svg, [class*="icon"]');
-			for (const el of icons) {
-				const r = el.getBoundingClientRect();
-				if (r.left < 100 && r.top < 80 && r.width > 0) { el.click(); return; }
-			}
+			if (btn && btn.offsetParent !== null) btn.click();
 		})()`, nil))
-		time.Sleep(3 * time.Second)
-
+		time.Sleep(2 * time.Second)
 		chromedp.Run(ctx, chromedp.Evaluate(`(() => {
 			for (const el of document.querySelectorAll('a, [role="menuitem"], [class*="nav"] span, [class*="sidebar"] a')) {
 				if (el.textContent.trim() === 'Rechnungen' || el.textContent.trim() === 'Ausgangsrechnungen') {
@@ -166,15 +195,12 @@ func navigateToInvoiceList(ctx context.Context) error {
 			}
 			return 'not found';
 		})()`, &result))
-		if result == "ok" {
-			break
+		if result == "ok" && waitForSelector(ctx, `[role="row"] [role="gridcell"]`, 20*time.Second) == nil {
+			return nil
 		}
-		logger.Printf("Rechnungen menu not found (attempt %d/3), retrying...", attempt+1)
+		logger.Printf("Rechnungen list not open (attempt %d/3, menu %s), trying again...", attempt, result)
 	}
-	if result != "ok" {
-		logger.Printf("WARNING: Rechnungen menu item not found after 3 attempts")
-	}
-	time.Sleep(8 * time.Second)
+	logger.Printf("WARNING: the Rechnungen list did not open after 3 attempts")
 	return nil
 }
 
@@ -244,6 +270,7 @@ type invoiceRow struct {
 	Datum  string   // e.g. "10.04.26" or "27.02.26"
 	Text   string   // full row text for client name matching
 	Cells  []string // each cell's text, the invoice number among them
+	Index  int      // its place among the rows the list shows, to open it by
 	// For a draft, which may have no number yet: the one after the highest of the invoices that
 	// are not drafts, as many digits long — "0203" after "0202".
 	next string
@@ -352,7 +379,7 @@ func readInvoiceRows(ctx context.Context) ([]invoiceRow, error) {
 
 	rows := make([]invoiceRow, len(raw))
 	for i, r := range raw {
-		rows[i] = invoiceRow{Status: r.Status, Datum: r.Datum, Text: r.Text, Cells: r.Cells}
+		rows[i] = invoiceRow{Status: r.Status, Datum: r.Datum, Text: r.Text, Cells: r.Cells, Index: i}
 	}
 	return rows, nil
 }
@@ -668,6 +695,117 @@ func saveInvoice(ctx context.Context) error {
 	logger.Printf("Save: %s", result)
 	time.Sleep(10 * time.Second)
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// The work log attached
+// ---------------------------------------------------------------------------
+
+// draft says whether the row is a draft: one that can still be changed.
+func (r invoiceRow) draft() bool { return strings.EqualFold(strings.TrimSpace(r.Status), "Entwurf") }
+
+// AttachmentName is the work log's name attached to the invoice, beside sevDesk's own "0203.pdf":
+// "0203_WorkLog.pdf".
+func AttachmentName(number string) string { return number + "_WorkLog.pdf" }
+
+// attachWorkLog opens the draft from the Rechnungen list shown and attaches the work log under
+// Dokumente hinzufügen, as "0203_WorkLog.pdf" — sevDesk binds it into the E-Rechnung, and it
+// goes with the invoice's mail. One there under that name already is left as it is.
+func attachWorkLog(ctx context.Context, row *invoiceRow, data []byte) error {
+	number := row.number()
+	if number == "" {
+		return errors.New("the draft has no number to name the work log by")
+	}
+	name := AttachmentName(number)
+	logger.Printf("Opening draft %s to attach the work log...", number)
+	var clicked string
+	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintf(`(() => {
+		const rows = [...document.querySelectorAll('[role="row"]')].filter(r => r.querySelector('[role="gridcell"]'));
+		const row = rows[%d];
+		if (!row) return '';
+		const cells = row.querySelectorAll('[role="gridcell"]');
+		(cells[2] || cells[0]).click();
+		return row.innerText.replace(/\s+/g, ' ');
+	})()`, row.Index), &clicked)); err != nil {
+		return err
+	}
+	if !strings.Contains(clicked, number) {
+		return fmt.Errorf("draft %s not found in the list to open (row %d: %q)", number, row.Index, clicked)
+	}
+	if err := waitForSelector(ctx, `.fi-invoice-attachments`, 30*time.Second); err != nil {
+		return fmt.Errorf("the draft's Dokumente hinzufügen did not show: %w", err)
+	}
+	time.Sleep(3 * time.Second)
+	dismissCookieBanner(ctx)
+
+	// What the draft has: its own PDF, "0203.pdf", and the documents attached.
+	badges := func() []string {
+		var names []string
+		// sevDesk's own as a badge, those attached as tags: a button with the name.
+		chromedp.Run(ctx, chromedp.Evaluate(`[...new Set([...document.querySelectorAll('.fi-invoice-attachments span, .fi-invoice-attachments button')].filter(e => e.children.length === 0).map(e => e.innerText.trim()).filter(t => /\.(pdf|jpe?g|png)$/i.test(t)))]`, &names))
+		return names
+	}
+	have := badges()
+	if !slices.Contains(have, number+".pdf") {
+		return fmt.Errorf("opened an invoice that is not %s: %q", number, have)
+	}
+	if slices.Contains(have, name) {
+		logger.Printf("%s is attached to draft %s already", name, number)
+		return nil
+	}
+
+	if err := uploadFile(ctx, name, data); err != nil {
+		return fmt.Errorf("attaching the work log: %w", err)
+	}
+	for deadline := time.Now().Add(30 * time.Second); !slices.Contains(have, name); time.Sleep(time.Second) {
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s not shown on the draft after uploading: %q", name, have)
+		}
+		have = badges()
+	}
+	logger.Printf("%s attached to draft %s; saving...", name, number)
+	return saveInvoice(ctx)
+}
+
+// uploadFile picks a file for Dokumente hinzufügen as one would: "Dateien hochladen" clicked, the
+// file chosen in the dialog — which the browser hands here instead of showing it. A file dropped
+// on the box by script does not do: sevDesk's upload reads the files dropped as entries, which
+// such a drop has none of (25.11.2026).
+func uploadFile(ctx context.Context, name string, data []byte) error {
+	dir, err := os.MkdirTemp("", "feed-my-accounting-sevdesk-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return err
+	}
+	if err := chromedp.Run(ctx, page.SetInterceptFileChooserDialog(true)); err != nil {
+		return err
+	}
+	defer chromedp.Run(ctx, page.SetInterceptFileChooserDialog(false))
+	opened := make(chan cdp.BackendNodeID, 1)
+	listen, stop := context.WithCancel(ctx)
+	defer stop()
+	chromedp.ListenTarget(listen, func(ev any) {
+		if e, ok := ev.(*page.EventFileChooserOpened); ok {
+			select {
+			case opened <- e.BackendNodeID:
+			default:
+			}
+		}
+	})
+	const link = `.fi-invoice-attachments .file-upload-box a`
+	if err := chromedp.Run(ctx, chromedp.ScrollIntoView(link, chromedp.ByQuery), chromedp.Click(link, chromedp.ByQuery)); err != nil {
+		return fmt.Errorf("clicking Dateien hochladen: %w", err)
+	}
+	select {
+	case node := <-opened:
+		return chromedp.Run(ctx, dom.SetFileInputFiles([]string{path}).WithBackendNodeID(node))
+	case <-time.After(15 * time.Second):
+		return errors.New("Dateien hochladen opened no file dialog")
+	}
 }
 
 // ---------------------------------------------------------------------------
