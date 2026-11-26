@@ -1153,7 +1153,7 @@ const BREAK = ['', '', 'break'];
 // Section titles the code looks for, and labels used twice.
 const CLIENTS = T('Kunden', 'Clients');
 const INLAND = T('Pauschalen Inland', 'Inland rates');
-const SCAN = T('Höchstens so viele Mails des Monats (je Ordner)', 'At most this many of the month\'s mails (per folder)');
+const SCAN = T('Maximale Mail-Anzahl (je Ordner)', 'Maximum number of mails (per folder)');
 const FOLDERS = T('Ordner, der Reihe nach', 'Folders, in order');
 const DEFAULT = T('Standard', 'default');
 
