@@ -136,7 +136,7 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 
 // Mail is one email to someone: the tax adviser told the month is booked, say.
 type Mail struct {
-	To, Bcc     string
+	To, Cc, Bcc string // Cc and Bcc: several with commas
 	Subject     string
 	Text        string // plain text
 	Attachments []Attachment
@@ -147,8 +147,11 @@ func SendMail(cfg MailConfig, m Mail) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", cfg.From)
 	msg.SetHeader("To", m.To)
-	if m.Bcc != "" {
-		msg.SetHeader("Bcc", m.Bcc)
+	if cc := addresses(m.Cc); len(cc) > 0 {
+		msg.SetHeader("Cc", cc...)
+	}
+	if bcc := addresses(m.Bcc); len(bcc) > 0 {
+		msg.SetHeader("Bcc", bcc...)
 	}
 	msg.SetHeader("Subject", m.Subject)
 	msg.SetBody("text/plain", m.Text)
@@ -165,6 +168,17 @@ func SendMail(cfg MailConfig, m Mail) error {
 	}
 	logger.Println("Email sent")
 	return nil
+}
+
+// addresses are the addresses of a list, comma-separated: none empty.
+func addresses(list string) []string {
+	var out []string
+	for _, a := range strings.Split(list, ",") {
+		if a = strings.TrimSpace(a); a != "" {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // unsent are the attachments the ledger has not seen mailed; those it has, said so.

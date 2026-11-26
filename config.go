@@ -148,6 +148,7 @@ type AdvisorConfig struct {
 	// From is whom the mail is from; empty: mail.from.
 	From    string `yaml:"from,omitempty"`
 	To      string `yaml:"to,omitempty"`
+	Cc      string `yaml:"cc,omitempty"`      // a copy, several with commas; empty: none
 	Bcc     string `yaml:"bcc,omitempty"`     // a blind copy, to oneself say; empty: none
 	Subject string `yaml:"subject,omitempty"` // default "Belege {MM}/{YYYY}"
 	Text    string `yaml:"text,omitempty"`    // default: all receipts of {MM}/{YYYY} booked in sevDesk
