@@ -495,6 +495,8 @@ func readParts(r io.Reader) (Message, error) {
 		if err != nil {
 			return m, fmt.Errorf("reading mail part: %w", err)
 		}
+		// The file's name, for a part that is one; empty for the text.
+		var name string
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
 			ct, params, _ := h.ContentType()
@@ -510,26 +512,23 @@ func readParts(r io.Reader) (Message, error) {
 			if strings.HasPrefix(ct, "text/") || strings.HasPrefix(ct, "multipart/") {
 				continue
 			}
-			name := params["name"]
+			name = params["name"]
 			if _, dp, err := h.ContentDisposition(); err == nil && dp["filename"] != "" {
 				name = dp["filename"]
 			}
 			if name == "" {
 				continue
 			}
-			data, err := io.ReadAll(p.Body)
-			if err != nil {
-				return m, fmt.Errorf("reading attachment %q: %w", name, err)
-			}
-			m.Attachments = append(m.Attachments, Attachment{Filename: name, Data: data})
 		case *mail.AttachmentHeader:
-			name, _ := h.Filename()
-			data, err := io.ReadAll(p.Body)
-			if err != nil {
-				return m, fmt.Errorf("reading attachment %q: %w", name, err)
-			}
-			m.Attachments = append(m.Attachments, Attachment{Filename: name, Data: data})
+			name, _ = h.Filename()
+		default:
+			continue
 		}
+		data, err := io.ReadAll(p.Body)
+		if err != nil {
+			return m, fmt.Errorf("reading attachment %q: %w", name, err)
+		}
+		m.Attachments = append(m.Attachments, Attachment{Filename: name, Data: data})
 	}
 }
 

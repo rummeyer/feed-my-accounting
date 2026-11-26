@@ -6,14 +6,6 @@
 const $ = (id) => document.getElementById(id);
 const LANG = document.documentElement.dataset.lang === 'en' ? 'en' : 'de';
 
-// The language switch, as on the page: loads the login anew in the other one.
-for (const link of document.querySelectorAll('[data-lang-link]')) {
-  link.setAttribute('aria-current', String(link.dataset.langLink === LANG));
-  link.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (link.dataset.langLink !== LANG) location.href = `?lang=${link.dataset.langLink}`;
-  });
-}
 if (LANG === 'en') document.title = 'Login · feed-my-accounting';
 
 (async () => {

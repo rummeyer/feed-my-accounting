@@ -203,12 +203,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	last := map[string]Job{}
-	for _, job := range s.jobs.List() {
-		if _, seen := last[job.Kind]; !seen {
-			last[job.Kind] = job
-		}
-	}
+	last := s.lastJobs(true)
 	clients := make([]map[string]any, 0, len(cfg.TravelExpense.Clients))
 	for _, c := range cfg.TravelExpense.Clients {
 		clients = append(clients, map[string]any{"id": c.ID, "name": c.Name})
@@ -250,12 +245,7 @@ func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	last := map[string]Job{}
-	for _, job := range s.jobs.List() {
-		if _, seen := last[job.Kind]; !seen {
-			last[job.Kind] = job
-		}
-	}
+	last := s.lastJobs(true)
 	type entry struct {
 		ScheduleEntry
 		Title string   `json:"title"`
@@ -1211,11 +1201,12 @@ func fail(w http.ResponseWriter, status int, err error) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
-// lastJobs are the latest run of each job.
-func (s *server) lastJobs() map[string]Job {
+// lastJobs are the latest run of each job — one still running too, with running; else the last
+// one done.
+func (s *server) lastJobs(running bool) map[string]Job {
 	last := map[string]Job{}
 	for _, job := range s.jobs.List() {
-		if _, seen := last[job.Kind]; !seen && job.Status != "running" {
+		if _, seen := last[job.Kind]; !seen && (running || job.Status != "running") {
 			last[job.Kind] = job
 		}
 	}
@@ -1230,7 +1221,7 @@ func (s *server) remind(cfg *Config, now time.Time) {
 		log.Printf("closing: %v", err)
 		return
 	}
-	remindClosing(cfg, closing(cfg, d, month, s.lastJobs(), now), month)
+	remindClosing(cfg, closing(cfg, d, month, s.lastJobs(false), now), month)
 }
 
 // getClosing is a month's books, source by source: ?month=2026-11, the current one without.
@@ -1253,7 +1244,7 @@ func (s *server) getClosing(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, err)
 		return
 	}
-	rows := closing(cfg, d, month, s.lastJobs(), now)
+	rows := closing(cfg, d, month, s.lastJobs(false), now)
 	mail := advisorMail(cfg, month)
 	reply(w, map[string]any{
 		"month":      month.Format("2006-01"),

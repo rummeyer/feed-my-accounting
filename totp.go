@@ -34,6 +34,9 @@ const (
 	totpSetupFor  = 10 * time.Minute // how long a QR code shown may be confirmed
 )
 
+// totpBase32 is base32 as the apps take it: without padding.
+var totpBase32 = base32.StdEncoding.WithPadding(base32.NoPadding)
+
 // totpState are the authenticators being set up — the secret shown, not yet confirmed with a
 // code — and the last code used of each employee, so that none counts twice.
 type totpState struct {
@@ -50,7 +53,7 @@ type pendingTOTP struct {
 
 // totpCode is the six-digit code of a base32 secret for a time step.
 func totpCode(secret string, step int64) (string, error) {
-	key, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(strings.ToUpper(strings.TrimRight(secret, "=")))
+	key, err := totpBase32.DecodeString(strings.ToUpper(strings.TrimRight(secret, "=")))
 	if err != nil {
 		return "", err
 	}
@@ -107,7 +110,7 @@ func newTOTPSecret() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(b), nil
+	return totpBase32.EncodeToString(b), nil
 }
 
 // totpURI is the otpauth address the QR code holds: the app shows the issuer and the employee.
@@ -237,9 +240,6 @@ func (s *server) trust(w http.ResponseWriter, r *http.Request, name string) erro
 	if err != nil {
 		return err
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: trustedCookie, Value: token, Path: "/api/login", MaxAge: int(trustedFor.Seconds()),
-		HttpOnly: true, Secure: overHTTPS(r), SameSite: http.SameSiteStrictMode,
-	})
+	http.SetCookie(w, cookie(r, trustedCookie, token, "/api/login", trustedFor))
 	return nil
 }

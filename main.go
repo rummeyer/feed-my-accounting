@@ -42,7 +42,7 @@ import (
 	vodafone "feed-my-accounting/vodafone-invoice"
 )
 
-const version = "1.28.0"
+const version = "1.29.0"
 
 var monthArgRegex = regexp.MustCompile(`^(0?[1-9]|1[0-2])/(20[0-9]{2})$`)
 
@@ -143,87 +143,53 @@ func main() {
 	switch subcommand {
 	case "all":
 		year, month := parseMonthArg(remaining)
-		if err := runTravelExpense(cfg, year, month); err != nil {
-			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := runAppleInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := runMailReceipts(cfg); err != nil {
-			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := runVodafoneInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
-			os.Exit(1)
-		}
-		if err := harvestFromCommandLine(cfg, year, month); err != nil {
-			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
-			os.Exit(1)
-		}
+		must("travel-expense", runTravelExpense(cfg, year, month))
+		must("apple-invoice", runAppleInvoice(cfg))
+		must("mail-receipts", runMailReceipts(cfg))
+		must("vodafone-invoice", runVodafoneInvoice(cfg))
+		must("harvest-invoice", harvestFromCommandLine(cfg, year, month))
 
 	case "travel-expense":
 		year, month := parseMonthArg(remaining)
-		if err := runTravelExpense(cfg, year, month); err != nil {
-			fmt.Fprintf(logOut, "travel-expense error: %v\n", err)
-			os.Exit(1)
-		}
+		must("travel-expense", runTravelExpense(cfg, year, month))
 
 	case "amazon-invoice":
-		if err := runAmazonInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "amazon-invoice error: %v\n", err)
-			os.Exit(1)
-		}
+		must("amazon-invoice", runAmazonInvoice(cfg))
 
 	case "anthropic-invoice": // a rule of mail-receipts since 1.25
 		fmt.Fprintln(logOut, "anthropic-invoice is a rule of mail-receipts now: running mail-receipts")
-		if err := runMailReceipts(cfg); err != nil {
-			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
-			os.Exit(1)
-		}
+		must("mail-receipts", runMailReceipts(cfg))
 
 	case "apple-invoice":
-		if err := runAppleInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "apple-invoice error: %v\n", err)
-			os.Exit(1)
-		}
+		must("apple-invoice", runAppleInvoice(cfg))
 
 	case "mail-receipts":
-		if err := runMailReceipts(cfg); err != nil {
-			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
-			os.Exit(1)
-		}
+		must("mail-receipts", runMailReceipts(cfg))
 
 	case "invoice-mails":
-		if err := runInvoiceMails(cfg); err != nil {
-			fmt.Fprintf(logOut, "invoice-mails error: %v\n", err)
-			os.Exit(1)
-		}
+		must("invoice-mails", runInvoiceMails(cfg))
 
 	case "vodafone-invoice":
-		if err := runVodafoneInvoice(cfg); err != nil {
-			fmt.Fprintf(logOut, "vodafone-invoice error: %v\n", err)
-			os.Exit(1)
-		}
+		must("vodafone-invoice", runVodafoneInvoice(cfg))
 
 	case "harvest-invoice":
 		year, month := parseMonthArg(remaining)
-		if err := harvestFromCommandLine(cfg, year, month); err != nil {
-			fmt.Fprintf(logOut, "harvest-invoice error: %v\n", err)
-			os.Exit(1)
-		}
+		must("harvest-invoice", harvestFromCommandLine(cfg, year, month))
 
 	case "serve":
-		if err := runServe(configPath); err != nil {
-			fmt.Fprintf(logOut, "serve error: %v\n", err)
-			os.Exit(1)
-		}
+		must("serve", runServe(configPath))
 
 	default:
 		fmt.Fprintf(logOut, "Unknown command: %q\n\n", subcommand)
 		printUsage()
+		os.Exit(1)
+	}
+}
+
+// must ends the program when a command failed, saying which.
+func must(command string, err error) {
+	if err != nil {
+		fmt.Fprintf(logOut, "%s error: %v\n", command, err)
 		os.Exit(1)
 	}
 }

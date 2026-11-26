@@ -349,8 +349,18 @@ func (s *server) active(w http.ResponseWriter, r *http.Request) string {
 // sessionCookieFor is the session's cookie — not for the page's scripts, over HTTPS only when
 // the browser talks HTTPS, only sent from this site's pages — lasting as the session does.
 func sessionCookieFor(r *http.Request, token string) *http.Cookie {
+	return cookie(r, sessionCookie, token, "/", sessionIdle)
+}
+
+// cookie is one of ours: not for the page's scripts, over HTTPS only when the browser talks
+// HTTPS, only sent from this site's pages, for path, lasting life — removed with a negative one.
+func cookie(r *http.Request, name, value, path string, life time.Duration) *http.Cookie {
+	maxAge := int(life.Seconds())
+	if life < 0 {
+		maxAge = -1
+	}
 	return &http.Cookie{
-		Name: sessionCookie, Value: token, Path: "/", MaxAge: int(sessionIdle.Seconds()),
+		Name: name, Value: value, Path: path, MaxAge: maxAge,
 		HttpOnly: true, Secure: overHTTPS(r), SameSite: http.SameSiteStrictMode,
 	}
 }
@@ -417,17 +427,19 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	// With an authenticator, its code — unless this browser gave one within trustedFor. Asked
 	// for, without one: the password was right, the page shows the field.
 	if secret := cfg.Staff.TOTP[in.Name]; secret != "" && !s.trustedBrowser(r, in.Name) {
-		if strings.TrimSpace(in.Code) == "" {
+		// askCode answers that the code is wanted: the page shows its screen.
+		askCode := func(msg string) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": say(r, "Code aus der Authenticator-App eingeben", "enter the code from the authenticator app"), "code": true})
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": msg, "code": true})
+		}
+		if strings.TrimSpace(in.Code) == "" {
+			askCode(say(r, "Code aus der Authenticator-App eingeben", "enter the code from the authenticator app"))
 			return
 		}
 		if !s.totp.check(in.Name, secret, in.Code) {
 			s.failures.failed(ip)
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": say(r, "Code falsch", "wrong code"), "code": true})
+			askCode(say(r, "Code falsch", "wrong code"))
 			return
 		}
 		if err := s.trust(w, r, in.Name); err != nil {
@@ -455,8 +467,7 @@ func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		s.sessions.end(cookie.Value)
 	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, Secure: overHTTPS(r), SameSite: http.SameSiteStrictMode})
+	http.SetCookie(w, cookie(r, sessionCookie, "", "/", -1))
 	reply(w, map[string]bool{"ok": true})
 }
 

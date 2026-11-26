@@ -34,6 +34,14 @@ function button(text, className, onClick) {
   return b;
 }
 
+/** (×): a row's removal, the same on every page — what it removes said on hovering. */
+function removeX(label, onClick, className = '') {
+  const b = button('×', `link row-x ${className}`.trim(), onClick);
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  return b;
+}
+
 /** Calls the API: JSON in and out, a form as it is; its error as the thrown message. */
 async function api(method, path, body) {
   const isForm = body instanceof FormData;
@@ -157,16 +165,7 @@ $('theme').addEventListener('click', () => {
 });
 labelTheme();
 
-// The language: the page loads anew in it — what it made itself is in the language it was made
-// in. Changes not saved yet: the browser asks first, as on leaving.
-for (const link of document.querySelectorAll('[data-lang-link]')) {
-  link.setAttribute('aria-current', String(link.dataset.langLink === LANG));
-  link.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (link.dataset.langLink === LANG) return;
-    location.href = `?lang=${link.dataset.langLink}${location.hash}`;
-  });
-}
+// The language switch is lang.js's, the login's as well.
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 
@@ -337,7 +336,7 @@ function renderSchedule() {
     return el('div', `entry ${e.enabled ? '' : 'off'}`,
       el('div', 'entry-head',
         el('label', 'check', on, T('an', 'on')), job, cron,
-        button(T('entfernen', 'remove'), 'link', () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
+        removeX(T('Zeitplan entfernen', 'Remove schedule'), () => { schedule.entries.splice(i, 1); renderSchedule(); refreshSave(); })),
       el('div', 'entry-line small', last, ' – ', next));
   });
   const output = el('div', 'console');
@@ -928,7 +927,7 @@ function renderLists() {
       el('span', 'when', span(entry)),
       el('span', 'grow', ...what[name](entry)),
       button(T('bearbeiten', 'edit'), 'link', () => editEntry(name, i)),
-      button(T('entfernen', 'remove'), 'link', () => {
+      removeX(T('Eintrag entfernen', 'Remove entry'), () => {
         list.draft.splice(i, 1);
         if (list.editing === i) stopEditing(name);
         else if (list.editing > i) list.editing--;
@@ -1722,7 +1721,7 @@ function renderMailboxes(cfg) {
     host.placeholder = `IMAP: ${cfg.Mail.IMAPHost || T('wie oben', 'as above')}`;
     host.setAttribute('aria-label', T('IMAP-Server', 'IMAP server'));
     host.addEventListener('input', () => { box.IMAPHost = host.value.trim(); refreshSave(); });
-    return el('li', '', user, password, host, button(T('entfernen', 'remove'), 'link', () => {
+    return el('li', '', user, password, host, removeX(T('Postfach entfernen', 'Remove mailbox'), () => {
       boxes.splice(i, 1);
       settings.mailboxes?.splice(i, 1);
       changed();
@@ -1785,7 +1784,7 @@ function ruleList(rules, namePlaceholder, fromPlaceholder, help) {
       input(rule, 'From', 'grow', fromPlaceholder, T('Absender-Domains', 'Sender domains')),
       input(rule, 'Subject', 'grow', T('Betreff enthält', 'Subject contains'), T('Betreff enthält', 'Subject contains')),
       input(rule, 'Attachment', 'grow', T('PDF-Name enthält', 'PDF name contains'), T('PDF-Name enthält', 'PDF name contains')),
-      button(T('entfernen', 'remove'), 'link', () => { rules.splice(i, 1); changed(); }));
+      removeX(T('Regel entfernen', 'Remove rule'), () => { rules.splice(i, 1); changed(); }));
   }));
   return el('div', '',
     el('p', 'muted', help),
@@ -1922,14 +1921,11 @@ function renderStaff(cfg) {
       staff.NoLogin = [...(staff.NoLogin ?? []), name];
       changed();
     }) : el('span');
-    // (×): the employee out of the list, as the receipts' on the closing page.
-    const remove = button('×', 'link row-x', () => {
+    const remove = removeX(T(`${name || 'Mitarbeiter'} entfernen`, `Remove ${name || 'employee'}`), () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
       changed();
     });
-    remove.title = T(`${name || 'Mitarbeiter'} entfernen`, `Remove ${name || 'employee'}`);
-    remove.setAttribute('aria-label', remove.title);
     return el('li', '', pick, input, password, noLogin, totpCell(name, has), remove);
   }));
   const add = button(T('Mitarbeiter hinzufügen', 'Add employee'), '', () => {
@@ -1960,7 +1956,7 @@ function renderClients(cfg) {
     bmfLink(), T(' (ganzer Tag = 24 Stunden, An-/Abreisetag = An- und Abreisetag).', ' (full day = 24 hours, arrival/departure day = the day of arrival and of departure).')));
   cfg.TravelExpense.Clients.forEach((c, i) => {
     box.append(el('div', 'client',
-      button(T('entfernen', 'remove'), 'link remove', () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); refreshSave(); }),
+      removeX(T('Kunde entfernen', 'Remove client'), () => { cfg.TravelExpense.Clients.splice(i, 1); renderSettings(); refreshSave(); }, 'remove'),
       el('div', 'grid', ...CLIENT_FIELDS
         .filter(([key]) => key !== 'Province' || (c.Country || 'DE').toUpperCase() === 'DE')
         .map((f) => field(c, f)))));

@@ -7,12 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-11-26
+
 ### Added
 
 - **Two-factor login with Google Authenticator**: *2FA einrichten* under *Einstellungen › Mitarbeiter* opens a dialog with a QR code (and the setup key) for any TOTP app, confirmed with its code. From outside the login asks for name and password, then for the code on a screen of its own, once per browser every 30 days; at home never. Codes count once, wrong ones as failed logins; one button, *2FA einrichten* or *2FA entfernen*; removing forgets every trusted browser.
 
 ### Changed
 
+- **Remove buttons are a ×** everywhere — employees, further mailboxes, mail rules, clients, Zuordnungen and Gesperrte Tage, schedule entries — as the receipts' on the closing page; what it removes is said on hovering. The employees' columns are shared by all rows, *Passwort entfernen* on one line.
+- Code: duplicates merged — the jobs' last runs, the command line's errors, a mail's attachments, the cookies, the language switch (now `lang.js`'s, for the page and the login).
 - **Login lockout doubles**: an address locked out again waits twice as long as before — 15 minutes, 30, an hour … up to 24 hours — instead of 15 minutes each time, so a password can no longer be tried some 480 times a day from one address. Quiet for a day, or logged in, it starts over at 15 minutes.
 
 ## [1.28.0] - 2026-11-26
