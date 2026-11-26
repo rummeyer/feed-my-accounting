@@ -38,8 +38,8 @@ type MailConfig struct {
 	From     string `yaml:"from"`
 	To       string `yaml:"to"`
 	CC       string `yaml:"cc"`
-	// Mailboxes are further accounts the receipts may come to, searched after this one's: by
-	// IMAP only, the mail goes out from this one.
+	// Mailboxes are further accounts searched after this one's, for whatever mails are looked
+	// for — receipts, the customers' invoices: by IMAP only, the mail goes out from this one.
 	Mailboxes []Mailbox `yaml:"mailboxes,omitempty"`
 	// Archive, if set, keeps the PDFs SendPDFs mailed somewhere else too — a cloud storage, say.
 	// Not configuration: set by the caller.
