@@ -39,15 +39,15 @@ const paperlessQueue = "feed-my-accounting-paperless"
 // paperlessMu keeps one upload of the waiting receipts at a time: a run's and the schedule's.
 var paperlessMu sync.Mutex
 
-// paperlessWaiting is a receipt waiting, beside its PDF: what Paperless is told of it. Title,
-// Created and Tags, where set, are taken as they are — a customer's invoice's — else made from
-// the name and the tags set for Paperless.
+// paperlessWaiting is a receipt waiting, beside its PDF: what Paperless is told of it. Title and
+// Created, where set, are taken as they are — a customer's invoice's — else made from the name.
+// An invoice gets the tags set for invoices, a receipt those for receipts.
 type paperlessWaiting struct {
-	Name    string   `json:"name"`
-	Source  string   `json:"source"`
-	Title   string   `json:"title,omitempty"`
-	Created string   `json:"created,omitempty"` // 2026-11-30
-	Tags    []string `json:"tags,omitempty"`
+	Name    string `json:"name"`
+	Source  string `json:"source"`
+	Title   string `json:"title,omitempty"`
+	Created string `json:"created,omitempty"` // 2026-11-30
+	Invoice bool   `json:"invoice,omitempty"`
 }
 
 // paperlessUploaded is the record of the files Paperless took, beside the queue: each one's
@@ -209,15 +209,15 @@ func noteUploaded(queue, id string) {
 
 // upload hands one receipt to Paperless; it takes it in in the background.
 func (p *paperless) upload(w paperlessWaiting, data []byte) error {
-	title, created, tags := w.Title, w.Created, w.Tags
+	title, created, tags := w.Title, w.Created, p.cfg.Tags
+	if w.Invoice {
+		tags = p.cfg.InvoiceTags
+	}
 	if title == "" {
 		title = paperlessTitle(w.Name)
 	}
 	if created == "" {
 		created = receiptDate(w.Name)
-	}
-	if tags == nil {
-		tags = p.cfg.Tags
 	}
 	fields := map[string][]string{"title": {title}}
 	if created != "" {

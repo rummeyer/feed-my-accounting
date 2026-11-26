@@ -361,7 +361,7 @@ schedule:                          # optional, run by feed-my-accounting serve
 
 ### Storage (rclone)
 
-The receipts mailed — Amazon, Apple, Vodafone, the rules' — can be copied to a storage too, by [rclone](https://rclone.org): iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud by WebDAV, a NAS by SFTP — any remote set up for it. Each goes into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), or into one folder for all without `{YYYY}`/`{MM}`. A name taken there is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. On *Einstellungen › Ablage (rclone)* or in `config.yaml`:
+The receipts mailed — Amazon, Apple, Vodafone, the rules' — can be copied to a storage too, by [rclone](https://rclone.org): iCloud Drive, Google Drive, OneDrive, Dropbox, Nextcloud by WebDAV, a NAS by SFTP — any remote set up for it. Each goes into its month's folder (`Belege/2026/11`, by the `11_2026_…` its name begins with), or into one folder for all without `{YYYY}`/`{MM}`. A name taken there is kept: the new one gets *(1)*, *(2)* before its extension, as the Finder does. On *Einstellungen › Ablage (rclone)* or in `config.yaml` — *rclone benutzen* (`enabled`) switches it for the receipts and the customers' invoices alike:
 
 ```yaml
 archive:
@@ -384,19 +384,20 @@ rclone lsd icloud:   # its folders: it works
 
 ### Paperless
 
-Beside the storage, or instead of it, the receipts mailed can go to [Paperless-ngx](https://docs.paperless-ngx.com) by its API: the sender as the correspondent (Amazon, Apple, a rule's name; none for the travel expenses), the day from the name as created (`…_17112026.pdf`, else Paperless reads it from the PDF), the title from the name (*Rechnung Amazon 17.11.2026*) and the tags set — `Firma`, say, for a workflow there to give it its storage path. A tag or correspondent Paperless does not have yet is made. On *Einstellungen › Paperless* or in `config.yaml`:
+Beside the storage, or instead of it, the receipts mailed can go to [Paperless-ngx](https://docs.paperless-ngx.com) by its API: the sender as the correspondent (Amazon, Apple, a rule's name; none for the travel expenses), the day from the name as created (`…_17112026.pdf`, else Paperless reads it from the PDF), the title from the name (*Rechnung Amazon 17.11.2026*) and the tags for receipts — `Firma`, say, for a workflow there to give it its storage path. A tag or correspondent Paperless does not have yet is made. On *Einstellungen › Paperless* or in `config.yaml` — *Paperless benutzen* (`enabled`) switches it for the receipts and the customers' invoices alike:
 
 ```yaml
 paperless:
   enabled: true
   url: "http://nas:8000"
   token: "..."                   # Paperless › My Profile › API Auth Token
-  tags: [Firma]
+  tags: [Firma]                  # the receipts'
+  invoiceTags: [Firma, Rechnungen]   # the customers' invoices'
 ```
 
 Paperless on a NAS that is off most of the time is fine: each receipt waits in `feed-my-accounting-paperless/` beside the configuration until Paperless takes it — tried right after sending and every ten minutes while the web interface runs. Not reaching Paperless never fails a run; the log says how many wait. What Paperless took is noted in `feed-my-accounting-paperless/uploaded`, by its SHA-256, and not queued again — and Paperless refuses a file it has already, so a receipt uploaded twice is still one document. The customers' invoices go there too: see [Invoices from the mailbox](#invoices-from-the-mailbox).
 
-<p align="center"><img src="docs/storage.png" alt="Einstellungen: Ablage (rclone) with Belege ablegen ticked, the remote icloud and the folder Belege/{YYYY}/{MM}; beneath, Paperless with Belege hochladen ticked, the address http://nas:8000, the API token saved and the tag Firma" width="760"></p>
+<p align="center"><img src="docs/storage.png" alt="Einstellungen: Ablage (rclone) with rclone benutzen ticked, the remote icloud and the folder Belege/{YYYY}/{MM}; beneath, Paperless with Paperless benutzen ticked, the address http://nas:8000, the API token saved and the tag Firma" width="760"></p>
 
 ### Never twice, and the month's closing
 
@@ -709,16 +710,15 @@ harvest-invoice can run repeatedly without creating duplicate invoices: with **`
 Sent from sevDesk with a copy to yourself, each invoice comes back: *Kopie von Rechnung Nr. 0203 von … zur Bestellung Nr. …*, from sevdesk.de, with `0203.pdf` and the work log. The job **invoice-mails** — *Rechnungen aus dem Postfach ablegen* on the schedule, or *Ablegen* on the Kundenrechnung card by month — takes them by rules, as mail-receipts does the further senders' receipts, a rule per customer: the sender's domains, what the subject contains — *Kopie von Rechnung*, or the customer's *Bestellung Nr.* to tell customers apart — and what the PDF's name contains, if anything. sevDesk changing its mail, the rule is changed on the card. Each invoice:
 
 - is named after its number, `11_2026_Rechnung_0203.pdf`: the number the PDF's (`0203.pdf`, `RE-0203.pdf`), else the subject's (*Nr. 0203*); the month the work log's in the same mail, else the mail's — none found, it is left out, said so
-- goes to the storage's *Ordner für Rechnungen*, beside its work log — once: one of that name there stays as it is. The mail's work log goes there too, should it be missing
-- goes to Paperless, if on: the rule's name — the customer — as correspondent, *Rechnung 0203 Acme GmbH* as title, the day of the mail as created, and the rule's tags (`invoice-mails.tags`; none: `paperless.tags`). The work log does not
+- goes to the storage's *Ordner für Rechnungen*, if rclone is used, beside its work log — once: one of that name there stays as it is. The mail's work log goes there too, should it be missing
+- goes to Paperless, if used: the rule's name — the customer — as correspondent, *Rechnung 0203 Acme GmbH* as title, the day of the mail as created, and the tags for invoices (`paperless.invoiceTags`, *Einstellungen › Paperless*). The work log does not
 - is mailed nowhere: the books have it from sevDesk
 
-The schedule's run looks at the current month and the one before, an invoice sent on the first seen still; run daily, say `0 20 * * *`. Rules and tags are on the card, behind *Regeln*:
+The schedule's run looks at the current month and the one before, an invoice sent on the first seen still; run daily, say `0 20 * * *`. The rules are on the card, behind *Regeln*:
 
 ```yaml
 invoice-mails:
   folders: [INBOX]                 # default
-  tags: [Firma, Rechnungen]
   rules:
     - name: "Acme GmbH"            # the customer
       from: "sevdesk.de"

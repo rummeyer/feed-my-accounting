@@ -19,7 +19,7 @@ import (
 // — the invoice is stored in the storage's folder for invoices beside its work log, named as it
 // is, 11_2026_Rechnung_0203.pdf, and given to Paperless with the customer as correspondent. The
 // work log too goes to the folder, should it not be there yet. Nothing is mailed: the books have
-// them from sevDesk.
+// them from sevDesk. Into the folder with rclone used, to Paperless with Paperless used.
 
 // invoiceLog is the invoices' log, "[rechnungen] " first, as the modules' are.
 var invoiceLog = log.New(os.Stderr, "[rechnungen] ", log.LstdFlags)
@@ -148,8 +148,8 @@ func invoiceMails(cfg *Config, month time.Time, store bool, found *[]email.Attac
 	return errors.Join(errs...)
 }
 
-// storeInvoice puts an invoice in the storage's folder for invoices, and in Paperless's queue —
-// the work log only in the folder.
+// storeInvoice puts an invoice in the storage's folder for invoices, and in Paperless's queue,
+// as far as they are used — the work log only in the folder.
 func storeInvoice(cfg *Config, inv customerInvoice) error {
 	if cfg.Paperless.Enabled && cfg.dir != "" && !inv.WorkLog {
 		w := paperlessWaiting{
@@ -157,10 +157,7 @@ func storeInvoice(cfg *Config, inv customerInvoice) error {
 			Source:  inv.Customer,
 			Title:   "Rechnung " + inv.Number + " " + inv.Customer,
 			Created: inv.Date.Local().Format("2006-01-02"),
-			Tags:    cfg.InvoiceMails.Tags, // none: Paperless's own
-		}
-		if len(w.Tags) == 0 {
-			w.Tags = nil
+			Invoice: true,
 		}
 		if err := queueOneForPaperless(cfg.dir, w, inv.File.Data); err != nil {
 			paperlessLog.Printf("WARNING: not queued for Paperless: %v", err)

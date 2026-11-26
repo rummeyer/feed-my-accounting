@@ -1170,17 +1170,18 @@ const PARTS = {
   ]]],
   // Receipts mailed, copied to a storage too, by rclone set up on the Pi: iCloud Drive, Google Drive, …
   archive: [[T('Ablage (rclone)', 'Storage (rclone)'), [
-    ['Archive.Enabled', T('Belege ablegen', 'Store receipts'), 'bool', false],
+    ['Archive.Enabled', T('rclone benutzen', 'Use rclone'), 'bool', false],
     ['Archive.Remote', T('rclone-Remote', 'rclone remote')],
     ['Archive.Folder', T('Ordner für Belege', 'Folder for receipts'), 'text', 'Belege/{YYYY}/{MM}'],
     ['Archive.InvoiceFolder', T('Ordner für Rechnungen', 'Folder for invoices'), 'text', T('keiner', 'none')],
   ]]],
-  // Receipts mailed, uploaded to Paperless-ngx too — waiting on the Pi while it is off.
+  // Receipts mailed and customers' invoices, uploaded to Paperless-ngx too — waiting on the Pi while it is off.
   paperless: [['Paperless', [
-    ['Paperless.Enabled', T('Belege hochladen', 'Upload receipts'), 'bool', false],
+    ['Paperless.Enabled', T('Paperless benutzen', 'Use Paperless'), 'bool', false],
     ['Paperless.URL', T('Adresse (etwa http://nas:8000)', 'Address (http://nas:8000, say)')],
     ['Paperless.Token', T('API-Token', 'API token'), 'secret', 8],
-    ['Paperless.Tags', T('Tags (etwa Firma)', 'Tags (Firma, say)'), 'list', T('keine', 'none')],
+    ['Paperless.Tags', T('Tags für Belege', 'Tags for receipts'), 'list', T('keine', 'none')],
+    ['Paperless.InvoiceTags', T('Tags für Rechnungen', 'Tags for invoices'), 'list', T('keine', 'none')],
   ]]],
   web: [[T('Oberfläche', 'Web interface'), [
     ['Web.Listen', T('Adresse (Neustart nötig)', 'Address (needs a restart)'), 'text', T('localhost:8595, auch im Netz (:8595)', 'localhost:8595, on the network too (:8595)')],
@@ -1229,7 +1230,6 @@ const PARTS = {
   invoicerules: [['', [
     ['InvoiceMails.Count', SCAN, 'number', 1000],
     ['InvoiceMails.Folders', FOLDERS, 'list', 'INBOX'],
-    ['InvoiceMails.Tags', T('Tags in Paperless', 'Tags in Paperless'), 'list', T('die von Paperless', "Paperless's")],
   ]]],
   notify: [[T('Benachrichtigung (Pushover)', 'Notifications (Pushover)'), [
     ['Notify.Pushover.Enabled', T('Per Pushover benachrichtigen', 'Notify by Pushover'), 'bool', false],
@@ -1390,12 +1390,12 @@ function renderSettings() {
       if (part === 'company') children.push(renderLogo());
     }
     if (part === 'archive') {
-      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“. Im Ordner für Rechnungen landen der Zeitnachweis der Kundenrechnung unter ihrer Nummer, 11_2026_Rechnung_0203_WorkLog.pdf, und die versendete Rechnung aus der Kopie von sevDesk, 11_2026_Rechnung_0203.pdf (Kundenrechnung › Aus dem Postfach), {YYYY} ihr Jahr – einmal; was dort schon liegt, bleibt.',
-        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”. The folder for invoices gets the invoice\'s work log under its number, 11_2026_Rechnung_0203_WorkLog.pdf, and the invoice sent, from sevDesk\'s copy, 11_2026_Rechnung_0203.pdf (Invoice › From the mailbox), {YYYY} its year – once; what is there already stays.')));
+      children.push(el('p', 'muted', T('Für Belege und Kundenrechnungen. Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“. Im Ordner für Rechnungen landen der Zeitnachweis der Kundenrechnung unter ihrer Nummer, 11_2026_Rechnung_0203_WorkLog.pdf, und die versendete Rechnung aus der Kopie von sevDesk, 11_2026_Rechnung_0203.pdf (Kundenrechnung › Aus dem Postfach), {YYYY} ihr Jahr – einmal; was dort schon liegt, bleibt.',
+        'For receipts and invoices. Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”. The folder for invoices gets the invoice\'s work log under its number, 11_2026_Rechnung_0203_WorkLog.pdf, and the invoice sent, from sevDesk\'s copy, 11_2026_Rechnung_0203.pdf (Invoice › From the mailbox), {YYYY} its year – once; what is there already stays.')));
     }
     if (part === 'paperless') {
-      children.push(el('p', 'muted', T('Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags – etwa Firma, nach dem ein Workflow in Paperless ablegt. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
-        'Receipts sent also go to Paperless-ngx, with the sender as correspondent, the date from the file name and the tags – Firma, say, for a workflow in Paperless to file them by. While Paperless cannot be reached (NAS off), the receipts wait on the Pi and go up once it is back; it is tried every ten minutes. The API token is in Paperless under My Profile.')));
+      children.push(el('p', 'muted', T('Für Belege und Kundenrechnungen. Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags für Belege – etwa Firma, nach dem ein Workflow in Paperless ablegt. Die versendeten Kundenrechnungen (Kundenrechnung › Aus dem Postfach) bekommen den Kunden als Korrespondent und die Tags für Rechnungen. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
+        'For receipts and invoices. Receipts sent also go to Paperless-ngx, with the sender as correspondent, the date from the file name and the tags for receipts – Firma, say, for a workflow in Paperless to file them by. The invoices sent (Invoice › From the mailbox) get the customer as correspondent and the tags for invoices. While Paperless cannot be reached (NAS off), the receipts wait on the Pi and go up once it is back; it is tried every ten minutes. The API token is in Paperless under My Profile.')));
     }
     if (part === 'web') {
       children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',

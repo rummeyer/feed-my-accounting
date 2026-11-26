@@ -105,11 +105,11 @@ type MailFilterConfig struct {
 	Folders []string `yaml:"folders"` // searched in this order
 }
 
-// ArchiveConfig copies the receipts mailed to a storage too, with rclone: Remote is the rclone
-// remote set up for it (`rclone config`: iCloud Drive, Google Drive, OneDrive, WebDAV, …),
-// Folder where in it, {YYYY} and {MM} standing for the receipt's year and month.
+// ArchiveConfig is the storage the receipts and invoices are copied to, with rclone: Remote is the
+// rclone remote set up for it (`rclone config`: iCloud Drive, Google Drive, OneDrive, WebDAV, …),
+// Folder where in it the receipts go, {YYYY} and {MM} standing for the receipt's year and month.
 type ArchiveConfig struct {
-	Enabled bool   `yaml:"enabled"`
+	Enabled bool   `yaml:"enabled"` // rclone used: for the receipts mailed, the work logs, the invoices
 	Remote  string `yaml:"remote,omitempty"`
 	Folder  string `yaml:"folder,omitempty"` // default "Belege/{YYYY}/{MM}"
 	// InvoiceFolder is where the work log of each invoice goes, named after it —
@@ -117,14 +117,15 @@ type ArchiveConfig struct {
 	InvoiceFolder string `yaml:"invoiceFolder,omitempty"`
 }
 
-// PaperlessConfig uploads the receipts mailed to Paperless-ngx too: URL its address,
-// http://nas:8000, Token an API token of the user they belong to, Tags given each — Firma, for a
-// workflow there to file them by.
+// PaperlessConfig is the Paperless-ngx the receipts and invoices are uploaded to: URL its address,
+// http://nas:8000, Token an API token of the user they belong to, Tags given each receipt and
+// InvoiceTags each invoice — Firma, for a workflow there to file them by.
 type PaperlessConfig struct {
-	Enabled bool     `yaml:"enabled"`
-	URL     string   `yaml:"url,omitempty"`
-	Token   string   `yaml:"token,omitempty"`
-	Tags    []string `yaml:"tags,omitempty"`
+	Enabled     bool     `yaml:"enabled"` // Paperless used: for the receipts mailed, the invoices
+	URL         string   `yaml:"url,omitempty"`
+	Token       string   `yaml:"token,omitempty"`
+	Tags        []string `yaml:"tags,omitempty"`
+	InvoiceTags []string `yaml:"invoiceTags,omitempty"`
 }
 
 // AmazonInvoiceConfig is the Amazon Business login whose orders' invoices are fetched.
@@ -186,11 +187,11 @@ type MailReceiptsConfig struct {
 
 // InvoiceMailsConfig are the customers' invoices, as they come back from the mailboxes — the
 // copy sevDesk sends of each: stored in the storage's folder for invoices, and given to Paperless
-// with Tags. A rule each, as for the further senders; its name is the customer.
+// with its tags for invoices, as far as rclone and Paperless are used. A rule each, as for the
+// further senders; its name is the customer.
 type InvoiceMailsConfig struct {
 	Count   int                 `yaml:"count,omitempty"`   // how many of the month's mails to scan at the most, in each folder
 	Folders []string            `yaml:"folders,omitempty"` // searched in this order; default INBOX
-	Tags    []string            `yaml:"tags,omitempty"`    // Paperless's tags for them
 	Rules   []mailreceipts.Rule `yaml:"rules,omitempty"`
 }
 

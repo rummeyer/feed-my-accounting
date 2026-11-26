@@ -70,8 +70,7 @@ func TestStoreInvoiceToPaperless(t *testing.T) {
 	srv := httptest.NewServer(fake)
 	defer srv.Close()
 	dir := t.TempDir()
-	cfg := &Config{dir: dir, Paperless: PaperlessConfig{Enabled: true, URL: srv.URL, Token: "secret", Tags: []string{"Firma"}},
-		InvoiceMails: InvoiceMailsConfig{Tags: []string{"Rechnungen"}}}
+	cfg := &Config{dir: dir, Paperless: PaperlessConfig{Enabled: true, URL: srv.URL, Token: "secret", Tags: []string{"Firma"}, InvoiceTags: []string{"Rechnungen"}}}
 	day := time.Date(2026, 11, 30, 11, 25, 0, 0, time.Local)
 	invoice := customerInvoice{Customer: "Acme GmbH", Number: "0203", Date: day,
 		File: email.Attachment{Filename: "11_2026_Rechnung_0203.pdf", Data: []byte("%PDF invoice")}}

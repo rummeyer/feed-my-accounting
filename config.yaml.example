@@ -16,17 +16,18 @@ mail:
   to: "recipient@example.com"
   cc: "autobox@sevdesk.email"    # optional
 
-archive:                         # optional: receipts mailed are copied to a storage too, by rclone
+archive:                         # optional: receipts mailed and invoices are copied to a storage too, by rclone
   enabled: false
   remote: icloud                 # the rclone remote: iCloud Drive, Google Drive, OneDrive, WebDAV, …
   folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
   invoiceFolder: "Rechnungen/{YYYY}"  # optional: the invoices and their work logs, 11_2026_Rechnung_0203.pdf
 
-paperless:                       # optional: receipts mailed are uploaded to Paperless-ngx too
+paperless:                       # optional: receipts mailed and invoices are uploaded to Paperless-ngx too
   enabled: false
   url: "http://nas:8000"
   token: "..."                   # API token: Paperless › My Profile
   tags: [Firma]                  # given each receipt; made if missing
+  invoiceTags: [Firma, Rechnungen]  # given each customer's invoice (invoice-mails)
 
 
 travel-expense:
@@ -78,7 +79,6 @@ harvest-invoice:
 
 invoice-mails:                     # optional: the customers' invoices from sevDesk's copies, stored
   folders: [INBOX]                 # default
-  tags: [Firma, Rechnungen]        # Paperless's tags for them; none: paperless.tags
   rules:
     - name: "Acme GmbH"            # the customer: Paperless's correspondent
       from: "sevdesk.de"
