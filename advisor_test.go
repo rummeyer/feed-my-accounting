@@ -36,9 +36,10 @@ func TestAdvisorMail(t *testing.T) {
 	cfg := &Config{}
 	cfg.Mail.From, cfg.Mail.CC = "me@example.com", "autobox@sevdesk.email"
 	cfg.Advisor.To, cfg.Advisor.Bcc = "berater@example.com", "me@example.com"
+	cfg.Advisor.Cc, cfg.Advisor.ReplyTo = " kanzlei@example.com ", "office@example.com"
 	cfg.Advisor.Text = "Hallo,\n\nalle Belege für {MM}/{YYYY} ({MONAT}) gebucht."
 	m := advisorMail(cfg, time.Date(2026, 9, 1, 0, 0, 0, 0, time.Local))
-	if m.To != "berater@example.com" || m.Bcc != "me@example.com" || m.Subject != "Belege 09/2026" || m.Text != "Hallo,\n\nalle Belege für 09/2026 (September) gebucht." {
+	if m.To != "berater@example.com" || m.Bcc != "me@example.com" || m.Cc != "kanzlei@example.com" || m.ReplyTo != "office@example.com" || m.Subject != "Belege 09/2026" || m.Text != "Hallo,\n\nalle Belege für 09/2026 (September) gebucht." {
 		t.Errorf("mail: %+v", m)
 	}
 	if _, err := informAdvisor(&Config{}, time.Now(), false); err == nil {

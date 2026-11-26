@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Reply-To for the tax adviser**: *Antwort an (Reply-To)* on *Einstellungen › Steuerberater* — where his answer goes; empty, the sender.
+
 ## [1.27.0] - 2026-11-26
 
 ### Added

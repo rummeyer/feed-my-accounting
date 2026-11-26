@@ -36,7 +36,7 @@ func advisorMail(cfg *Config, month time.Time) email.Mail {
 	if strings.TrimSpace(text) == "" {
 		text = defaultAdvisorText
 	}
-	return email.Mail{To: strings.TrimSpace(a.To), Cc: strings.TrimSpace(a.Cc), Bcc: strings.TrimSpace(a.Bcc), Subject: fill(subject), Text: fill(text)}
+	return email.Mail{To: strings.TrimSpace(a.To), Cc: strings.TrimSpace(a.Cc), ReplyTo: strings.TrimSpace(a.ReplyTo), Bcc: strings.TrimSpace(a.Bcc), Subject: fill(subject), Text: fill(text)}
 }
 
 // monthReceipts are the receipts of a month in the storage: in the month's folder, or those

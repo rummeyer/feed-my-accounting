@@ -1228,6 +1228,7 @@ const PARTS = {
   advisor: [[T('Steuerberater', 'Tax adviser'), [
     ['Advisor.To', T('E-Mail-Adresse', 'Email address')],
     ['Advisor.From', T('Absender', 'Sender'), 'text', T('der aus E-Mail', 'the one of Email')],
+    ['Advisor.ReplyTo', T('Antwort an (Reply-To)', 'Reply to (Reply-To)'), 'text', T('der Absender', 'the sender')],
     ['Advisor.Cc', T('Kopie (CC) an', 'Copy (CC) to'), 'text', T('keine', 'none')],
     ['Advisor.Bcc', T('Blindkopie (BCC) an', 'Blind copy (BCC) to'), 'text', T('keine', 'none')],
     ['Advisor.Subject', T('Betreff', 'Subject'), 'text', 'Belege {MM}/{YYYY}'],
@@ -1415,8 +1416,8 @@ function renderSettings() {
     if (part === 'mailrules') children.unshift(renderRules(cfg));
     if (part === 'invoicerules') children.unshift(renderInvoiceRules(cfg));
     if (part === 'advisor') {
-      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
-        '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
+      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail; Antworten gehen an „Antwort an“, wenn eingetragen. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
+        '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email; answers go to “Reply to”, if set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
     }
     if (part === 'notify') {
       children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',

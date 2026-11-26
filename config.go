@@ -148,6 +148,7 @@ type AdvisorConfig struct {
 	// From is whom the mail is from; empty: mail.from.
 	From    string `yaml:"from,omitempty"`
 	To      string `yaml:"to,omitempty"`
+	ReplyTo string `yaml:"replyTo,omitempty"` // where the adviser's answer goes; empty: the sender
 	Cc      string `yaml:"cc,omitempty"`      // a copy, several with commas; empty: none
 	Bcc     string `yaml:"bcc,omitempty"`     // a blind copy, to oneself say; empty: none
 	Subject string `yaml:"subject,omitempty"` // default "Belege {MM}/{YYYY}"

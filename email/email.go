@@ -137,6 +137,7 @@ func SendPDFs(cfg MailConfig, vendor string, attachments []Attachment) error {
 // Mail is one email to someone: the tax adviser told the month is booked, say.
 type Mail struct {
 	To, Cc, Bcc string // Cc and Bcc: several with commas
+	ReplyTo     string // where answers go; empty: the sender
 	Subject     string
 	Text        string // plain text
 	Attachments []Attachment
@@ -152,6 +153,9 @@ func SendMail(cfg MailConfig, m Mail) error {
 	}
 	if bcc := addresses(m.Bcc); len(bcc) > 0 {
 		msg.SetHeader("Bcc", bcc...)
+	}
+	if rt := addresses(m.ReplyTo); len(rt) > 0 {
+		msg.SetHeader("Reply-To", rt...)
 	}
 	msg.SetHeader("Subject", m.Subject)
 	msg.SetBody("text/plain", m.Text)
