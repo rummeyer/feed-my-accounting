@@ -543,9 +543,9 @@ Without a hotel invoice, the employer may pay a flat rate per night instead, tax
 
 ## Module: mail-receipts
 
-<p align="center"><img src="docs/rules.png" alt="The rules on Belege › Weitere Absender: Anthropic, Strato, the tax adviser by datev.de, a railway rule switched off — each with its sender domains, the word in the subject and in the PDF's name" width="760"></p>
+<p align="center"><img src="docs/rules.png" alt="The rules on Belege › Aus dem Postfach: Anthropic, Strato, the tax adviser by datev.de, a railway rule switched off — each with its sender domains, the word in the subject and in the PDF's name" width="760"></p>
 
-The PDF invoices of senders without a module of their own, by rules set up on *Belege › Weitere Absender* — no code for a new one. Each rule: a name, the sender's domains, and if need be what the subject and the PDF's name contain.
+The PDF invoices of senders without a module of their own, by rules set up on *Belege › Aus dem Postfach* — no code for a new one. Each rule: a name, the sender's domains, and if need be what the subject and the PDF's name contain.
 
 1. Searches the folders in order, the inbox first and then *Rechnungen*, where receipts filed by hand are — in the main mailbox and then in each of `mail.mailboxes`; the same mail found twice counts once
 2. Takes the month's mails of each rule — the current month's on the schedule, *Weitere Absender abholen*; any month's on the web interface — and their PDF attachments
