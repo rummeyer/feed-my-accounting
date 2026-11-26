@@ -246,6 +246,9 @@ type StaffConfig struct {
 	// Logins are the employees' passwords for the web interface, by name: bcrypt hashes. One is
 	// enough for the web interface to ask for a login.
 	Logins map[string]string `yaml:"logins,omitempty"`
+	// TOTP are the employees' authenticator secrets, by name, base32: one set up, its code is
+	// asked from outside after the password. Set up and removed on their own, never sent to the page.
+	TOTP map[string]string `yaml:"totp,omitempty"`
 	// Passwords are new ones, from the settings page, by name: hashed into Logins on saving,
 	// never kept as they are. NoLogin are the names whose password goes.
 	Passwords map[string]string `yaml:"-"`
@@ -408,10 +411,15 @@ func normalizeStaff(cfg *Config) {
 		}
 	}
 	cfg.Staff.Names, cfg.Staff.Current = names, strings.TrimSpace(cfg.Staff.Current)
-	// An employee gone takes their login along.
+	// An employee gone takes their login along, and their authenticator.
 	for name := range cfg.Staff.Logins {
 		if !slices.Contains(names, name) {
 			delete(cfg.Staff.Logins, name)
+		}
+	}
+	for name := range cfg.Staff.TOTP {
+		if !slices.Contains(names, name) {
+			delete(cfg.Staff.TOTP, name)
 		}
 	}
 	if !slices.Contains(cfg.Staff.Names, cfg.Staff.Current) {

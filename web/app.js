@@ -1797,6 +1797,84 @@ function ruleList(rules, namePlaceholder, fromPlaceholder, help) {
  * The employees, the selected one ticked: the Lieferant on the travel expenses, and whose hours
  * in Harvest make the work log and the invoice. Saved with the button at the bottom.
  */
+/** The authenticator being set up: whose, its QR code and secret; null while none is. */
+let totpOpen = null;
+
+/**
+ * An employee's authenticator — Google Authenticator or another — for logging in from outside:
+ * set up by its QR code and confirmed with a code, or removed. Saved at once, not with the page.
+ */
+function totpCell(name, has) {
+  // Only for an employee saved with a password: without one there is no login to guard.
+  if (!has || !settings.logins?.[name]) return el('span');
+  const on = settings.totp?.[name];
+  const setup = button(on ? T('2FA neu einrichten', '2FA set up anew') : T('2FA einrichten', 'Set up 2FA'), 'link', async (b) => {
+    b.disabled = true;
+    try {
+      totpOpen = { name, ...(await api('POST', '/api/totp/setup', { name })) };
+      renderSettings();
+      document.getElementById('totp-code')?.focus();
+    } catch (err) {
+      await tell(err.message);
+      b.disabled = false;
+    }
+  });
+  if (!on) return setup;
+  const remove = button(T('2FA entfernen', 'Remove 2FA'), 'link', async () => {
+    if (!(await ask(T(`Authenticator von ${name} entfernen? Von außen reicht dann das Passwort.`, `Remove ${name}'s authenticator? From outside the password is then enough.`)))) return;
+    try {
+      await api('POST', '/api/totp/remove', { name });
+      delete settings.totp[name];
+      renderSettings();
+    } catch (err) {
+      await tell(err.message);
+    }
+  });
+  return el('span', 'totp-links', setup, remove);
+}
+
+/** The open setup: the QR code to scan, the secret to type instead, and the code to confirm. */
+function totpPanel() {
+  if (!totpOpen) return null;
+  const { name } = totpOpen;
+  const img = el('img', 'totp-qr');
+  img.src = totpOpen.qr;
+  img.alt = T('QR-Code für die Authenticator-App', 'QR code for the authenticator app');
+  const code = el('input');
+  code.id = 'totp-code';
+  code.inputMode = 'numeric';
+  code.autocomplete = 'one-time-code';
+  code.maxLength = 7;
+  code.placeholder = '123456';
+  code.setAttribute('aria-label', T('Code aus der App', 'Code from the app'));
+  const error = el('p', 'error');
+  error.hidden = true;
+  const confirm = async () => {
+    try {
+      await api('POST', '/api/totp/confirm', { name, code: code.value });
+      settings.totp = { ...(settings.totp ?? {}), [name]: true };
+      totpOpen = null;
+      renderSettings();
+      await tell(T(`2FA für ${name} ist eingerichtet. Von außen fragt die Anmeldung jetzt nach dem Code — je Browser alle 30 Tage.`,
+        `2FA for ${name} is set up. From outside the login now asks for the code — every 30 days per browser.`));
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+      code.select();
+    }
+  };
+  code.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } });
+  return el('div', 'totp-setup',
+    el('h4', '', T(`2FA für ${name} einrichten`, `Set up 2FA for ${name}`)),
+    el('p', 'muted', T('In Google Authenticator (oder einer anderen App) „+“ › „QR-Code scannen“, dann den angezeigten Code eingeben. Ohne Kamera: „Einrichtungsschlüssel eingeben“ mit dem Schlüssel unten. Bis zur Bestätigung gilt der alte.',
+      'In Google Authenticator (or another app) “+” › “Scan a QR code”, then enter the code shown. Without a camera: “Enter a setup key” with the key below. Until confirmed the old one stays.')),
+    img,
+    el('p', '', el('code', 'totp-secret', totpOpen.secret.replace(/(.{4})/g, '$1 ').trim())),
+    el('div', 'actions', code, button(T('Bestätigen', 'Confirm'), 'strong', confirm),
+      button(T('Abbrechen', 'Cancel'), 'link', () => { totpOpen = null; renderSettings(); })),
+    error);
+}
+
 function renderStaff(cfg) {
   cfg.Staff ??= {};
   cfg.Staff.Names ??= [];
@@ -1839,7 +1917,7 @@ function renderStaff(cfg) {
       staff.NoLogin = [...(staff.NoLogin ?? []), name];
       changed();
     }) : el('span');
-    return el('li', '', pick, input, password, noLogin, button(T('entfernen', 'remove'), 'link', () => {
+    return el('li', '', pick, input, password, noLogin, totpCell(name, has), button(T('entfernen', 'remove'), 'link', () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
       changed();
@@ -1858,7 +1936,10 @@ function renderStaff(cfg) {
       'The selected employee is the supplier on the travel expenses; their Harvest hours make the work log and the invoice — the name as in Harvest.')),
     el('p', 'muted', T('Passwort: mindestens 8 Zeichen, nur als Hash gespeichert. Hat einer eines, fragt die Seite nach der Anmeldung (im Heimnetz ohne Passwort); hat keiner eines, antwortet sie nur im Heimnetz.',
       'Password: at least 8 characters, kept only as a hash. Once anyone has one, the page asks for a login (at home without the password); while no one has, it answers the home network only.')),
+    el('p', 'muted', T('2FA: von außen nach dem Passwort zusätzlich der Code aus Google Authenticator, je Browser alle 30 Tage; im Heimnetz nie. Wird sofort gespeichert.',
+      '2FA: from outside, after the password, the code from Google Authenticator too, every 30 days per browser; never at home. Saved at once.')),
     staff.Names.length ? list : el('p', 'muted', T('Noch niemand eingetragen.', 'No one entered yet.')),
+    totpPanel(),
     el('div', 'actions', add));
 }
 

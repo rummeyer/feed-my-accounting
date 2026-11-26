@@ -1,7 +1,8 @@
 'use strict';
 
-// The login: an employee and their password. Without anyone having a password, or logged in
-// already, straight on to the page.
+// The login: an employee and their password — and, from outside with an authenticator set up,
+// its code, once the server asks for it. Without anyone having a password, or logged in already,
+// straight on to the page.
 const $ = (id) => document.getElementById(id);
 const LANG = document.documentElement.dataset.lang === 'en' ? 'en' : 'de';
 
@@ -47,7 +48,7 @@ $('login').addEventListener('submit', async (e) => {
   const res = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Lang': LANG },
-    body: JSON.stringify({ name: $('name').value, password: $('password').value }),
+    body: JSON.stringify({ name: $('name').value, password: $('password').value, code: $('code').value }),
   });
   if (res.ok) {
     location.replace('/');
@@ -56,5 +57,13 @@ $('login').addEventListener('submit', async (e) => {
   const data = await res.json().catch(() => ({}));
   $('error').textContent = data.error || (LANG === 'en' ? `Login failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
   $('error').hidden = false;
+  // The password was right; the authenticator's code is asked for.
+  if (data.code) {
+    $('code-label').hidden = false;
+    $('code').required = true;
+    $('code').value = '';
+    $('code').focus();
+    return;
+  }
   $('password').select();
 });

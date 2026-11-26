@@ -44,8 +44,10 @@ const (
 // sessions are the logged-in browsers: the token's SHA-256, never the token, with the employee
 // and when it expires. Kept beside the configuration, readable only by its owner, so that a
 // restart logs no one out.
+// The browsers trusted for the second factor are kept so too, for trustedFor.
 type sessions struct {
 	path string
+	life time.Duration // how long one lasts: sessionIdle, or trustedFor
 	mu   sync.Mutex
 	m    map[string]session
 }
@@ -56,16 +58,16 @@ type session struct {
 	Expires time.Time `json:"expires"`
 }
 
-// newSessions are the logins kept in path, read back as they were saved: a restart logs no
-// one out.
-func newSessions(path string) *sessions {
-	s := &sessions{path: path, m: map[string]session{}}
+// newSessions are the logins kept in path, each lasting life, read back as they were saved: a
+// restart logs no one out.
+func newSessions(path string, life time.Duration) *sessions {
+	s := &sessions{path: path, life: life, m: map[string]session{}}
 	if data, err := os.ReadFile(path); err == nil {
 		_ = json.Unmarshal(data, &s.m)
 	}
-	// None lasts longer than sessionIdle from now: those of the 30 days sessions had before.
+	// None lasts longer than life from now: those of the 30 days sessions had before.
 	for h, got := range s.m {
-		if limit := time.Now().Add(sessionIdle); got.Expires.After(limit) {
+		if limit := time.Now().Add(s.life); got.Expires.After(limit) {
 			got.Expires = limit
 			s.m[h] = got
 		}
@@ -88,13 +90,13 @@ func (s *sessions) start(name string) (string, error) {
 	token := base64.RawURLEncoding.EncodeToString(b)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.m[tokenHash(token)] = session{Name: name, Expires: time.Now().Add(sessionIdle)}
+	s.m[tokenHash(token)] = session{Name: name, Expires: time.Now().Add(s.life)}
 	return token, s.save()
 }
 
 // who is the employee the token's session is for; empty if there is none, or it has expired.
-// With touch, a request of the employee's: the session lasts sessionIdle from now — saved at
-// most once a minute, renewed says when.
+// With touch, a request of the employee's: the session lasts life from now — saved at most
+// once a minute, renewed says when.
 func (s *sessions) who(token string, touch bool) (name string, renewed bool) {
 	if token == "" {
 		return "", false
@@ -107,8 +109,8 @@ func (s *sessions) who(token string, touch bool) (name string, renewed bool) {
 	if !ok || now.After(got.Expires) {
 		return "", false
 	}
-	if touch && got.Expires.Sub(now) < sessionIdle-time.Minute {
-		got.Expires = now.Add(sessionIdle)
+	if touch && got.Expires.Sub(now) < s.life-time.Minute {
+		got.Expires = now.Add(s.life)
 		s.m[h] = got
 		_ = s.save()
 		return got.Name, true
@@ -378,6 +380,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name     string `json:"name"`
 		Password string `json:"password"`
+		Code     string `json:"code"` // the authenticator's, if the employee has one
 	}
 	if !read(w, r, &in) {
 		return
@@ -398,7 +401,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	ip := clientIP(r)
 	if s.failures.locked(ip) {
-		fail(w, http.StatusTooManyRequests, errors.New(say(r, "zu viele Versuche — in 15 Minuten wieder", "too many tries — again in 15 minutes")))
+		fail(w, http.StatusTooManyRequests, errors.New(say(r, "zu viele Versuche — später wieder", "too many tries — try again later")))
 		return
 	}
 	hash := cfg.Staff.Logins[in.Name]
@@ -410,6 +413,27 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		s.failures.failed(ip)
 		fail(w, http.StatusUnauthorized, errors.New(say(r, "Name oder Passwort falsch", "wrong name or password")))
 		return
+	}
+	// With an authenticator, its code — unless this browser gave one within trustedFor. Asked
+	// for, without one: the password was right, the page shows the field.
+	if secret := cfg.Staff.TOTP[in.Name]; secret != "" && !s.trustedBrowser(r, in.Name) {
+		if strings.TrimSpace(in.Code) == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": say(r, "Code aus der Authenticator-App eingeben", "enter the code from the authenticator app"), "code": true})
+			return
+		}
+		if !s.totp.check(in.Name, secret, in.Code) {
+			s.failures.failed(ip)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": say(r, "Code falsch", "wrong code"), "code": true})
+			return
+		}
+		if err := s.trust(w, r, in.Name); err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
 	}
 	s.failures.succeeded(ip)
 	s.startSession(w, r, in.Name)

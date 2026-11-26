@@ -37,7 +37,8 @@ func testServer(t *testing.T, withLogin bool, homeOnly bool) *server {
 	return &server{
 		configPath: path,
 		jobs:       NewJobs(filepath.Join(dir, "jobs.json")),
-		sessions:   newSessions(filepath.Join(dir, "sessions.json")),
+		sessions:   newSessions(filepath.Join(dir, "sessions.json"), sessionIdle),
+		trusted:    newSessions(filepath.Join(dir, "trusted.json"), trustedFor),
 	}
 }
 
@@ -280,7 +281,7 @@ func TestMailboxPasswordsKept(t *testing.T) {
 }
 
 func TestSessionEndsWhenIdle(t *testing.T) {
-	s := newSessions(filepath.Join(t.TempDir(), "sessions.json"))
+	s := newSessions(filepath.Join(t.TempDir(), "sessions.json"), sessionIdle)
 	token, err := s.start("Max Mustermann")
 	if err != nil {
 		t.Fatal(err)

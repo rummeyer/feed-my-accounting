@@ -46,7 +46,9 @@ type server struct {
 	mu sync.Mutex
 
 	sessions *sessions // the logged-in browsers
+	trusted  *sessions // the browsers that gave an authenticator code, for trustedFor
 	failures failures  // failed logins, by address
+	totp     totpState // authenticators being set up, and the codes used
 }
 
 // runServe starts the web interface and serves until it fails.
@@ -58,7 +60,8 @@ func runServe(configPath string) error {
 	s := &server{
 		configPath: configPath,
 		jobs:       NewJobs(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-jobs.json")),
-		sessions:   newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-sessions.json")),
+		sessions:   newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-sessions.json"), sessionIdle),
+		trusted:    newSessions(filepath.Join(filepath.Dir(configPath), "feed-my-accounting-trusted.json"), trustedFor),
 	}
 	// The Anthropic module of before, a mail rule now: written so, once.
 	if raw, err := os.ReadFile(configPath); err == nil && strings.Contains(string(raw), "anthropic-invoice") {
@@ -85,6 +88,9 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("GET /api/session", s.session)
 	mux.HandleFunc("POST /api/login", s.login)
 	mux.HandleFunc("POST /api/logout", s.logout)
+	mux.HandleFunc("POST /api/totp/setup", s.totpSetup)
+	mux.HandleFunc("POST /api/totp/confirm", s.totpConfirm)
+	mux.HandleFunc("POST /api/totp/remove", s.totpRemove)
 	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/schedule", s.getSchedule)
 	mux.HandleFunc("PUT /api/schedule", s.putSchedule)
@@ -1022,13 +1028,19 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 		logins[name] = true
 	}
 	cfg.Staff.Logins = nil
+	// Who has an authenticator, not the secrets.
+	totp := map[string]bool{}
+	for name := range cfg.Staff.TOTP {
+		totp[name] = true
+	}
+	cfg.Staff.TOTP = nil
 	// Which further mailbox has a password, not the passwords.
 	mailboxes := make([]bool, len(cfg.Mail.Mailboxes))
 	for i := range cfg.Mail.Mailboxes {
 		mailboxes[i] = cfg.Mail.Mailboxes[i].Password != ""
 		cfg.Mail.Mailboxes[i].Password = ""
 	}
-	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "mailboxes": mailboxes, "path": s.configPath, "countries": travelexpense.Countries})
+	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "totp": totp, "mailboxes": mailboxes, "path": s.configPath, "countries": travelexpense.Countries})
 }
 
 // putSettings saves the settings page's configuration: an empty secret keeps the one saved, new
@@ -1055,6 +1067,8 @@ func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 		// The logins kept, new passwords hashed into them, those to go gone — and with a new
 		// password or none, the employee's other sessions ended: the caller's own stays.
 		in.Staff.Logins = cfg.Staff.Logins
+		// The authenticators are set up and removed on their own.
+		in.Staff.TOTP = cfg.Staff.TOTP
 		if in.Staff.Logins == nil {
 			in.Staff.Logins = map[string]string{}
 		}

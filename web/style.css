@@ -411,9 +411,17 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* An employee's password beside the name; the logout beside the employee at the top. */
 ul.rows.staff li input.password { width: 15em; flex: none; }
-/* Employees: fixed columns — choice, name, password, its removal, the row's removal — the same in
-   every row, whether a password is set or not. */
-ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 12em 6em; gap: 12px; }
+/* Employees: fixed columns — choice, name, password, its removal, the authenticator, the row's
+   removal — the same in every row, whether a password is set or not. */
+ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 10em 11em 6em; gap: 12px; }
+.totp-links { display: grid; justify-items: end; gap: 2px; }
+/* An authenticator being set up: the QR code on white, so the camera reads it in dark mode too. */
+.totp-setup { margin: 16px 0; padding: 16px; border: 1px solid var(--rule); max-width: 520px; }
+.totp-setup h4 { margin: 0 0 8px; }
+.totp-qr { display: block; width: 200px; height: 200px; background: #fff; padding: 8px; image-rendering: pixelated; }
+.totp-secret { font-family: var(--mono); letter-spacing: 1px; user-select: all; word-break: break-all; }
+.totp-setup .actions input { width: 8em; flex: none; }
+.totp-setup .error { color: var(--bad); }
 ul.rows.staff.employees li input.password { width: 100%; }
 ul.rows.staff.employees li .link { justify-self: end; }
 #logout, #logout:hover { padding: 0; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--muted); }
@@ -485,3 +493,7 @@ textarea:focus { outline: 1px dotted var(--headline); outline-offset: 1px; }
 .grid label:has(textarea) { grid-column: 1 / -1; }
 .closing-lines .doc { row-gap: 0; }
 .closing-lines .doc .filed { flex-basis: 100%; overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  ul.rows.staff.employees li { grid-template-columns: auto minmax(0, 1fr); }
+  ul.rows.staff.employees li > :nth-child(n+3) { grid-column: 2; justify-self: start; }
+}

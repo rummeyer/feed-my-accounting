@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Two-factor login with Google Authenticator**: *2FA einrichten* under *Einstellungen › Mitarbeiter* shows a QR code (and the setup key) for any TOTP app, confirmed with its code. From outside the login then asks for the code after the password, once per browser every 30 days; at home never. Codes count once, wrong ones as failed logins; setting up anew or removing makes every browser give a code again.
+
 ### Changed
 
 - **Login lockout doubles**: an address locked out again waits twice as long as before — 15 minutes, 30, an hour … up to 24 hours — instead of 15 minutes each time, so a password can no longer be tried some 480 times a day from one address. Quiet for a day, or logged in, it starts over at 15 minutes.
