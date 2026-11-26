@@ -487,7 +487,8 @@ ul.rows.rules li { flex-wrap: wrap; }
 ul.rows.rules li input.grow { min-width: 140px; }
 .closing-lines .doc .unsend { font-size: 16px; line-height: 1; padding: 0 4px; }
 /* A row's removal, on every page: a ×, as the receipts' above. */
-.link.row-x { font-size: 16px; line-height: 1; padding: 0 4px; letter-spacing: 0; }
+button.link.row-x { font-size: 22px; line-height: 1; padding: 0 4px; letter-spacing: 0; color: var(--bad); }
+button.link.row-x:hover { opacity: .7; }
 .closing-lines .doc.unsent .grow { text-decoration: line-through; color: var(--muted); }
 
 /* The month's state: one of the three icons shown. */
