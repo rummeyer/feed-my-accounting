@@ -560,7 +560,7 @@ func (s *server) mailReceiptsRun(send bool) http.HandlerFunc {
 			verb = "senden"
 		}
 		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-		s.start(w, "mail-receipts", fmt.Sprintf("Weitere Absender %d/%d %s", month, year, verb), func() ([]File, error) {
+		s.start(w, "mail-receipts", fmt.Sprintf("Weitere Rechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
 			var pdfs []email.Attachment
 			err := mailReceipts(cfg, at, send, &pdfs)
 			var files []File

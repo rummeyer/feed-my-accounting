@@ -211,7 +211,7 @@ async function loadOverview() {
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders'), 'invoice-mails': T('Kundenrechnungen', 'Invoices') };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Rechnungen', 'Further invoices'), 'invoice-mails': T('Kundenrechnungen', 'Invoices') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -243,7 +243,10 @@ const TITLES = [
   [/^Anthropic-Belege abholen/, 'Fetch Anthropic receipts'],
   [/^Apple-Rechnungen abholen/, 'Fetch Apple invoices'],
   [/^Vodafone-Rechnungen abholen/, 'Fetch Vodafone invoices'],
-  [/^Weitere Absender abholen/, 'Fetch further senders'],
+  [/^Weitere Rechnungen abholen/, 'Fetch further invoices'],
+  [/^Weitere Rechnungen (\S+) ansehen/, 'Further invoices $1, view'],
+  [/^Weitere Rechnungen (\S+) senden/, 'Further invoices $1, send'],
+  [/^Weitere Absender abholen/, 'Fetch further senders'], // its name before 1.27
   [/^Weitere Absender (\S+) ansehen/, 'Further senders $1, view'],
   [/^Weitere Absender (\S+) senden/, 'Further senders $1, send'],
   [/^Kundenrechnung aus Harvest \(laufender Monat\)/, 'Invoice from Harvest (current month)'],
@@ -1656,8 +1659,8 @@ function renderMailboxes(cfg) {
   }));
   return el('div', '',
     el('h2', '', T('Weitere Postfächer', 'Other mailboxes')),
-    el('p', 'muted', T('Weitere Postfächer, in denen Mails gesucht werden: Belege (Apple, Aus dem Postfach) und Kundenrechnungen (Aus dem Postfach). Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.',
-      'Other mailboxes searched for mails: receipts (Apple, From the mailbox) and invoices (From the mailbox). Searched after the one above, in the same folders; mail goes out from the one above. IMAP server empty: the one above.')),
+    el('p', 'muted', T('Weitere Postfächer, in denen Mails gesucht werden: Belege (Apple, Weitere Rechnungen) und Kundenrechnungen (Aus dem Postfach). Durchsucht nach dem obigen, in denselben Ordnern; gesendet wird vom obigen. IMAP-Server leer: der obige.',
+      'Other mailboxes searched for mails: receipts (Apple, Further invoices) and invoices (From the mailbox). Searched after the one above, in the same folders; mail goes out from the one above. IMAP server empty: the one above.')),
     boxes.length ? list : el('p', 'muted', T('Keine.', 'None.')),
     el('div', 'actions', button(T('Postfach hinzufügen', 'Add mailbox'), '', () => { boxes.push({ Username: '' }); changed(); })));
 }
@@ -1670,8 +1673,8 @@ function renderRules(cfg) {
   cfg.MailReceipts ??= {};
   cfg.MailReceipts.Rules ??= [];
   return ruleList(cfg.MailReceipts.Rules, T('Name, z. B. Strato', 'Name, e.g. Strato'), T('Absender-Domain, z. B. strato.de', 'Sender domain, e.g. strato.de'),
-    T('Je Regel: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das Wort enthält, mit ihren PDF-Anhängen – benannt wie die übrigen Belege, 11_2026_Rechnung_Strato_03112026.pdf. Was schon gesendet ist, geht nicht noch einmal. Betreff und PDF-Name leer: jede Mail, jedes PDF. Für den Zeitplan: „Weitere Absender abholen“.',
-      'Per rule: mails from these sender domains (several with commas) whose subject contains the word, with their PDF attachments – named as the other receipts, 11_2026_Rechnung_Strato_03112026.pdf. What was sent already does not go again. Subject and PDF name empty: any mail, any PDF. For the schedule: “Fetch further senders”.'));
+    T('Je Regel: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das Wort enthält, mit ihren PDF-Anhängen – benannt wie die übrigen Belege, 11_2026_Rechnung_Strato_03112026.pdf. Was schon gesendet ist, geht nicht noch einmal. Betreff und PDF-Name leer: jede Mail, jedes PDF. Für den Zeitplan: „Weitere Rechnungen abholen“.',
+      'Per rule: mails from these sender domains (several with commas) whose subject contains the word, with their PDF attachments – named as the other receipts, 11_2026_Rechnung_Strato_03112026.pdf. What was sent already does not go again. Subject and PDF name empty: any mail, any PDF. For the schedule: “Fetch further invoices”.'));
 }
 
 /**

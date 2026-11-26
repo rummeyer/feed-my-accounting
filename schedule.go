@@ -318,7 +318,7 @@ var scheduledJobs = map[string]scheduledJob{
 	"amazon-invoice":   {"Amazon-Rechnungen abholen", noFiles(runAmazonInvoice)},
 	"apple-invoice":    {"Apple-Rechnungen abholen", noFiles(runAppleInvoice)},
 	"vodafone-invoice": {"Vodafone-Rechnungen abholen", noFiles(runVodafoneInvoice)},
-	"mail-receipts":    {"Weitere Absender abholen", noFiles(runMailReceipts)},
+	"mail-receipts":    {"Weitere Rechnungen abholen", noFiles(runMailReceipts)},
 	"invoice-mails":    {"Kundenrechnungen aus dem Postfach ablegen", noFiles(runInvoiceMails)},
 	"harvest-invoice": {"Kundenrechnung aus Harvest (laufender Monat)", func(cfg *Config) ([]File, error) {
 		now := time.Now()
