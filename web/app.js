@@ -1189,9 +1189,10 @@ const PARTS = {
     ['Web.HomeOnly', T('Nur im Heimnetz erreichbar', 'Home network only'), 'bool', true],
     ['Web.ProxyToken', T('Proxy-Token (Caddy in Docker)', 'Proxy token (Caddy in Docker)'), 'secret', 4],
   ]]],
-  travel: [[CLIENTS, [
+  christmas: [['', [
     ['TravelExpense.ChristmasWeekOff', T('Weihnachtswoche frei (24. und 27.–31.12.)', 'Christmas week off (Dec 24 and 27–31)'), 'bool', true],
-  ]], [INLAND, [
+  ]]],
+  travel: [[CLIENTS, []], [INLAND, [
     ['TravelExpense.MealRates.Day', `${RATE_NAMES.mealDay} (€)`, 'money', 14],
     ['TravelExpense.MealRates.FullDay', `${RATE_NAMES.mealFullDay} (€)`, 'money', 28],
     ['TravelExpense.MealRates.TravelDay', `${RATE_NAMES.mealTravelDay} (€)`, 'money', 14],
