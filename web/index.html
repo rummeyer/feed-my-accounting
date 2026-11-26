@@ -178,6 +178,17 @@
 
     <!-- Belege -->
     <section id="tab-receipts" class="tab" hidden>
+      <h2>Apple</h2>
+      <p class="muted"><span lang="de">Rechnungs-Mails des Monats aus dem Posteingang als PDF umgewandelt: ansehen oder senden an</span><span lang="en">The month's invoice mails from the inbox, converted to PDF: view, or send to</span> <span data-mail-to></span>.</p>
+      <p class="last" data-last="apple-invoice"></p>
+      <div class="actions">
+        <input class="month receipt-month" data-for="apple" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" data-view="apple"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-send="apple" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
+      </div>
+      <div class="console" data-console="apple" hidden></div>
+      <details class="part-box"><summary><span lang="de">Einstellungen Apple</span><span lang="en">Apple settings</span></summary><form class="part" data-part="apple"></form></details>
+
       <h2>Amazon</h2>
       <p class="muted"><span lang="de">Rechnungen der Bestellungen des Monats von Amazon Business – am Monatsletzten des laufenden, sonst des vorigen – senden an</span><span lang="en">Send the invoices of the month's orders from Amazon Business – on its last day the current one's, else the previous one's – to</span> <span data-mail-to></span>. <span lang="de">Jeder Lauf ist eine Anmeldung – deshalb nur Senden.</span><span lang="en">Each run is a login – so sending only.</span></p>
       <p class="last" data-last="amazon-invoice"></p>
@@ -189,17 +200,6 @@
       </div>
       <div class="console" data-console="amazon" hidden></div>
       <details class="part-box"><summary><span lang="de">Einstellungen Amazon</span><span lang="en">Amazon settings</span></summary><form class="part" data-part="amazon"></form></details>
-
-      <h2>Apple</h2>
-      <p class="muted"><span lang="de">Rechnungs-Mails des Monats aus dem Posteingang als PDF umgewandelt: ansehen oder senden an</span><span lang="en">The month's invoice mails from the inbox, converted to PDF: view, or send to</span> <span data-mail-to></span>.</p>
-      <p class="last" data-last="apple-invoice"></p>
-      <div class="actions">
-        <input class="month receipt-month" data-for="apple" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
-        <button type="button" data-view="apple"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
-        <button type="button" data-send="apple" class="strong"><span lang="de">Per Mail senden</span><span lang="en">Send by mail</span></button>
-      </div>
-      <div class="console" data-console="apple" hidden></div>
-      <details class="part-box"><summary><span lang="de">Einstellungen Apple</span><span lang="en">Apple settings</span></summary><form class="part" data-part="apple"></form></details>
 
       <h2>Vodafone</h2>
       <p class="muted"><span lang="de">Aktuelle Rechnungen für Mobilfunk und Kabel von MeinVodafone senden an</span><span lang="en">Send the current invoices for mobile and cable from MeinVodafone to</span> <span data-mail-to></span>. <span lang="de">Jeder Lauf ist eine Anmeldung – deshalb nur Senden.</span><span lang="en">Each run is a login – so sending only.</span></p>
