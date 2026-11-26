@@ -1426,10 +1426,6 @@ function renderSettings() {
         }
       })));
     }
-    if (part === 'mail') {
-      children.push(el('p', 'muted', T(`Gespeichert in ${settings.path}, die vorige Fassung daneben als config.yaml.bak. Weitere Einstellungen beim jeweiligen Bereich: Kunden bei den Reisekosten, Harvest und sevDesk bei der Kundenrechnung, Amazon, Apple, Vodafone und weitere Absender bei den Belegen, Pushover hier unten.`,
-        `Saved in ${settings.path}, the version before beside it as config.yaml.bak. Further settings are with their section: clients with Travel, Harvest and sevDesk with Invoice, Amazon, Apple, Vodafone and further senders with Receipts, Pushover below.`)));
-    }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
   }
