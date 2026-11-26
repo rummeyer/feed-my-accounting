@@ -136,7 +136,7 @@ A button that sends or transfers something — a mail, the draft to sevDesk, a P
 | **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. *Löschen* at the bottom, after *Sicher?*, empties it. |
 | **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account and further mailboxes, the storage (*rclone benutzen*) and **Paperless** (*Paperless benutzen*, tags for receipts and for invoices) — each for receipts and invoices alike — **Pushover** with *Test senden*, the tax adviser's mail, and the web interface's address and password. |
 
-Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint.
+Passwords are never sent to the page: leave a password field empty to keep it. A field left empty shows its default as a hint. A button whose settings are missing is off, saying what is missing beside it: *Aus Harvest anlegen* without the Harvest token or the sevDesk login, *Ablegen* of the invoices without rclone's folder for invoices or Paperless, *Test senden* without Pushover; *Alle Belege als ZIP anhängen* shows with rclone used only.
 
 **Saving from the web interface rewrites `config.yaml`** — values intact, comments gone — and keeps the previous file as `config.yaml.bak`.
 
@@ -223,6 +223,10 @@ The config file is searched in the following order:
 1. Path provided via `--config`
 2. Current working directory
 3. Directory of the executable
+
+The mail account is on *Einstellungen › E-Mail*: SMTP and IMAP, the sender, the recipient and the copy — sevDesk's Autobox — and beneath it the further mailboxes searched for receipts and invoices. The Autobox takes mails from the sevDesk account's own address only: the sender must be it.
+
+<p align="center"><img src="docs/mail.png" alt="Einstellungen › E-Mail with made-up data: SMTP and IMAP server and port, the user, the sender and recipient max.mustermann@example.com, the copy to autobox@sevdesk.email; beneath, Weitere Postfächer with one more mailbox, its password saved, the IMAP server the one above" width="760"></p>
 
 ## Logging
 
@@ -410,7 +414,9 @@ What goes to sevDesk's Autobox is booked — twice if it comes twice. So every r
 
 The ledger also notes, for each source and month, when a run last looked — finding nothing is an answer too. *Abschluss* shows a month from it, and on the closing day — the 5th by default, at 9:00 — the month before is looked over: with Pushover set up, the phone is told what is still *offen*, a source the schedule runs that has neither sent nor looked: *Monatsabschluss November 2026 — Noch offen: Vodafone*. Nothing when it is complete. A scheduled run that fails is told at once, with its error; runs by hand are seen on the page.
 
-**The tax adviser**: once a month is booked, *Steuerberater informieren* on *Abschluss* mails him, as set on *Einstellungen › Steuerberater* — to him only, not to the Autobox; a blind copy to the address set for it, if any. *Alle Belege als ZIP anhängen* fetches the month's receipts from the storage first — in a folder for all, those whose name begins with the month, `11_2026_…`, the ones put there by hand too — and attaches them as `Belege_11_2026.zip`, offered for download with the run.
+**The tax adviser**: once a month is booked, *Steuerberater informieren* on *Abschluss* mails him, as set on *Einstellungen › Steuerberater* — to him, not to the Autobox; from the sender set there, else the one of *E-Mail*; answers to *Antwort an* if set; a copy (CC) and a blind copy (BCC) to the addresses set for them, if any. *Alle Belege als ZIP anhängen*, shown with rclone used only, fetches the month's receipts from the storage first — in a folder for all, those whose name begins with the month, `11_2026_…`, the ones put there by hand too — and attaches them as `Belege_11_2026.zip`, offered for download with the run.
+
+<p align="center"><img src="docs/advisor.png" alt="Einstellungen › Steuerberater: Absender empty for the one of E-Mail, An steuerberater@example.com, Betreff empty for Belege {MM}/{YYYY}, Antwort an, Kopie (CC) to kanzlei@example.com, Blindkopie (BCC) to oneself, and the text with {MM}/{YYYY}" width="760"></p>
 
 **Pushover**: an application at [pushover.net/apps](https://pushover.net/apps) for its token, and the user key from pushover.net once logged in, on *Einstellungen › Benachrichtigung*; *Test senden* checks them.
 
@@ -443,6 +449,8 @@ PDFs include a structured `Beleg-Nr.` (format: `RK-YYYY-MM-XXXX`) and are format
 
 Each client represents a destination:
 
+<p align="center"><img src="docs/settings.png" alt="The clients on the Reisekosten card: Acme GmbH in Munich and Initech GmbH in Karlsruhe, day trips from Stuttgart with the inland rates, and Globex Inc. in Miami with the US rates for a full day, the travel days and the night" width="760"></p>
+
 | Field | Description |
 |-------|-------------|
 | `id` | Identifier shown in the document |
@@ -457,6 +465,8 @@ Each client represents a destination:
 When multiple clients are configured, the workdays are split into consecutive blocks, one per client: with 20 workdays and 2 clients, the first 10 go to one, the other 10 to the next. Mileage is calculated per client based on their distance.
 
 ### Assignments and overnight trips
+
+<p align="center"><img src="docs/assignments.png" alt="Zuordnungen and Gesperrte Tage on the Reisekosten card: Globex Inc. from 3 to 9 December 2026 overnight in Miami, the form to add one beneath; three days of vacation blocked, and Weihnachtswoche frei ticked" width="760"></p>
 
 Both ways of splitting the days work together:
 
@@ -575,6 +585,8 @@ PDFs only: a sender whose invoice is the mail itself, as Apple's, needs a module
 
 Fetches Apple invoice emails from an IMAP inbox, converts their HTML body to PDF using headless Chrome, and sends all PDFs as attachments in a single email.
 
+<p align="center"><img src="docs/receipts.png" alt="The Belege card with made-up data: Apple with the month, PDFs ansehen and Per Mail senden; Amazon and Vodafone with Per Mail senden only, held until the schedule runs them on 30 November and 21 December, each run a login" width="760"></p>
+
 ### How it works
 
 1. Connects to the IMAP server and scans the last N recent emails of each folder, the inbox first and then *Rechnungen*, where invoices filed by hand are
@@ -667,6 +679,8 @@ Reads a month's hours of a client from the Harvest API and creates a draft invoi
   <img src="docs/worklog.png" alt="A Zeitnachweis for November 2026 with made-up entries: the company's logo at the top right, the period and its hours, and a table by day — Kunde Acme GmbH, Projekt with the times and notes beneath, Tätigkeit, Mitarbeiter Max Mustermann, Stunden" width="560">
 </p>
 
+<p align="center"><img src="docs/harvest.png" alt="Aus Harvest on the Kundenrechnung card: the month, Aus Harvest anlegen and Nur Zeitnachweis; beneath, Manuelle Eingabe opened — a work log PDF to drop in, Leistung von, Leistung bis, Stunden gesamt and Entwurf in sevDesk anlegen" width="760"></p>
+
 ### How it works
 
 1. Reads the time entries of the client (`harvest.client`, else `sevdesk.clientName`) by the selected employee (`staff.current`, named as in Harvest; without one, everyone's) in the month from the Harvest API v2 and sums them — rounded hours, as Harvest's reports count them. Fewer hours than the days booked × 8, or a project of the month over its budget in Harvest, log a warning with the link to Harvest — a warning only, the run goes on
@@ -716,6 +730,8 @@ Sent from sevDesk with a copy to yourself, each invoice comes back: *Kopie von R
 - goes to the storage's *Ordner für Rechnungen*, if rclone is used, beside its work log — once: one of that name there stays as it is. The mail's work log goes there too, should it be missing
 - goes to Paperless, if used: the rule's name — the customer — as correspondent, *Rechnung 0203 Acme GmbH* as title, the day of the mail as created, and the tags for invoices (`paperless.invoiceTags`, *Einstellungen › Paperless*). The work log does not
 - is mailed nowhere: the books have it from sevDesk
+
+<p align="center"><img src="docs/invoicemails.png" alt="Aus dem Postfach on the Kundenrechnung card: the month, PDFs ansehen and Ablegen; beneath, the rules opened — Acme GmbH, sevdesk.de, Kopie von Rechnung — and the folders searched, INBOX" width="760"></p>
 
 The schedule's run looks at the current month and the one before, an invoice sent on the first seen still; run daily, say `0 20 * * *`. The rules are on the card, behind *Regeln*:
 

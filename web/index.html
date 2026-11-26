@@ -143,6 +143,7 @@
         <input id="harvest-month" class="month" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
         <button type="button" id="harvest-run" class="strong"><span lang="de">Aus Harvest anlegen</span><span lang="en">Create from Harvest</span></button>
         <button type="button" id="harvest-worklog"><span lang="de">Nur Zeitnachweis</span><span lang="en">Work log only</span></button>
+        <span class="muted gate-note" data-need="harvest"></span>
       </div>
       <div class="console" data-console="harvest" hidden></div>
 
@@ -158,6 +159,7 @@
           <label><span lang="de">Stunden gesamt</span><span lang="en">Total hours</span><input type="number" id="d-hours" step="0.01" min="0.01" required></label>
           <div class="actions span">
             <button type="submit" class="strong"><span lang="de">Entwurf in sevDesk anlegen</span><span lang="en">Create draft in sevDesk</span></button>
+            <span class="muted gate-note" data-need="draft"></span>
           </div>
         </form>
         <div class="console" data-console="invoice" hidden></div>
@@ -170,6 +172,7 @@
         <input class="month receipt-month" data-for="rechnungen" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
         <button type="button" data-view="rechnungen"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
         <button type="button" data-store="rechnungen" class="strong"><span lang="de">Ablegen</span><span lang="en">Store</span></button>
+        <span class="muted gate-note" data-need="rechnungen"></span>
       </div>
       <div class="console" data-console="rechnungen" hidden></div>
       <details class="part-box"><summary><span lang="de">Regeln</span><span lang="en">Rules</span></summary><form class="part" data-part="invoicerules"></form></details>

@@ -1416,13 +1416,13 @@ function renderSettings() {
     if (part === 'mailrules') children.unshift(renderRules(cfg));
     if (part === 'invoicerules') children.unshift(renderInvoiceRules(cfg));
     if (part === 'advisor') {
-      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail; Antworten gehen an „Antwort an“, wenn eingetragen. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
-        '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email; answers go to “Reply to”, if set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
+      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail; Antworten gehen an „Antwort an“, wenn eingetragen. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage an – nur mit rclone.',
+        '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email; answers go to “Reply to”, if set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage comes with it – with rclone only.')));
     }
     if (part === 'notify') {
       children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
         'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.')));
-      children.push(el('div', 'actions', button(T('Test senden', 'Send test'), 'strong', async (b) => {
+      const test = button(T('Test senden', 'Send test'), 'strong', async (b) => {
         b.disabled = true;
         try {
           await api('POST', '/api/notify/test');
@@ -1430,12 +1430,48 @@ function renderSettings() {
         } catch (err) {
           tell(err.message);
         } finally {
-          b.disabled = false;
+          renderNeeds();
         }
-      })));
+      });
+      test.id = 'notify-test';
+      children.push(el('div', 'actions', test, el('span', 'muted gate-note', '')));
     }
     form.replaceChildren(...children);
     form.onsubmit = (e) => e.preventDefault(); // saved with the button at the bottom
+  }
+  renderNeeds();
+}
+
+/**
+ * Buttons that need settings not made yet: off, saying what is missing — as the settings are
+ * saved, the secrets as they were loaded.
+ */
+function renderNeeds() {
+  if (!settings) return;
+  const cfg = settings.config;
+  const set = settings.secretsSet || [];
+  const has = (s) => !!String(s ?? '').trim();
+  const need = (name, buttons, missing) => {
+    for (const b of buttons) if (b) b.disabled = !!missing(b);
+    const note = document.querySelector(`[data-need="${name}"]`);
+    if (note) note.textContent = buttons.map(missing).find(Boolean) || '';
+  };
+  const token = set[3];
+  const sevdesk = has(cfg.HarvestInvoice?.SevDesk?.Username) && set[2];
+  const noToken = T('Harvest-API-Token fehlt (Einstellungen Kundenrechnung)', 'No Harvest API token (Invoice settings)');
+  const noSevdesk = T('sevDesk-Login fehlt (Einstellungen Kundenrechnung)', 'No sevDesk login (Invoice settings)');
+  need('harvest', [$('harvest-run'), $('harvest-worklog')], (b) => !token ? noToken : b.id === 'harvest-run' && !sevdesk ? noSevdesk : '');
+  need('draft', [document.querySelector('#draft-form button[type=submit]')], () => !sevdesk ? noSevdesk : '');
+  const archive = cfg.Archive?.Enabled && has(cfg.Archive.Remote) && has(cfg.Archive.InvoiceFolder);
+  const paperless = cfg.Paperless?.Enabled && has(cfg.Paperless.URL) && set[8];
+  need('rechnungen', [document.querySelector('[data-store="rechnungen"]')], () => archive || paperless ? ''
+    : T('Weder rclone mit Ordner für Rechnungen noch Paperless eingerichtet (Einstellungen)', 'Neither rclone with a folder for invoices nor Paperless set up (Settings)'));
+  const test = $('notify-test');
+  if (test) {
+    const p = cfg.Notify?.Pushover ?? {};
+    const missing = !p.Enabled ? T('Pushover ist aus', 'Pushover is off') : !set[6] || !set[7] ? T('Token oder User-Key fehlt', 'Token or user key missing') : '';
+    test.disabled = !!missing;
+    test.nextElementSibling.textContent = missing;
   }
 }
 
@@ -1460,6 +1496,7 @@ const partNames = (parts) => parts.map((p) => PART_NAMES[p]).join(', ');
 let armed = null; // the timer while the button asks "sicher?"
 
 function refreshSave() {
+  renderNeeds();
   const parts = unsaved();
   const save = $('save-all');
   save.disabled = parts.length === 0;
