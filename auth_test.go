@@ -397,3 +397,41 @@ func TestDraftNeedsPeriodAndHours(t *testing.T) {
 		}
 	}
 }
+
+// TestLockoutDoubles: each lockout of an address is twice the one before, a day at most; one
+// quiet for a day starts over.
+func TestLockoutDoubles(t *testing.T) {
+	want := []time.Duration{15 * time.Minute, 30 * time.Minute, time.Hour, 2 * time.Hour, 4 * time.Hour, 8 * time.Hour, 16 * time.Hour, 24 * time.Hour, 24 * time.Hour}
+	for i, w := range want {
+		if got := lockout(i); got != w {
+			t.Errorf("lockout(%d) = %v, want %v", i, got, w)
+		}
+	}
+
+	var f failures
+	const ip = "203.0.113.7"
+	for round, w := range want[:3] {
+		for i := 0; i < maxFailures; i++ {
+			f.failed(ip)
+		}
+		if !f.locked(ip) {
+			t.Fatalf("round %d: not locked", round)
+		}
+		got := f.m[ip]
+		if d := time.Until(got.until); d < w-time.Minute || d > w {
+			t.Errorf("round %d: locked for %v, want %v", round, d, w)
+		}
+		// The lockout over: back-date it, as if waited.
+		got.until, got.last = time.Now().Add(-time.Second), time.Now().Add(-lockedFor-time.Second)
+		f.m[ip] = got
+		f.all = nil
+	}
+	// Quiet for a day: forgotten when another address fails.
+	got := f.m[ip]
+	got.until, got.last = time.Now().Add(-maxLockedFor-time.Second), time.Now().Add(-maxLockedFor-time.Second)
+	f.m[ip] = got
+	f.failed("198.51.100.1")
+	if _, ok := f.m[ip]; ok {
+		t.Error("an address quiet for a day is still remembered")
+	}
+}

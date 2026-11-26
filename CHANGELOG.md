@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Login lockout doubles**: an address locked out again waits twice as long as before — 15 minutes, 30, an hour … up to 24 hours — instead of 15 minutes each time, so a password can no longer be tried some 480 times a day from one address. Quiet for a day, or logged in, it starts over at 15 minutes.
+
 ## [1.28.0] - 2026-11-26
 
 ### Added

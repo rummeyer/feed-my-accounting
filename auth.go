@@ -30,7 +30,11 @@ const (
 	sessionCookie = "fma_session"
 	sessionIdle   = 24 * time.Hour   // a session ends after this long without a request
 	maxFailures   = 5                // failed logins from one address before it waits
-	lockedFor     = 15 * time.Minute // how long it waits
+	lockedFor     = 15 * time.Minute // how long it waits, the first time
+	// maxLockedFor is the longest an address waits: each lockout doubles the one before —
+	// 15 minutes, 30, an hour … — up to a day. An address quiet for as long is forgotten,
+	// and starts over at lockedFor.
+	maxLockedFor = 24 * time.Hour
 	// maxAllFailures are the failed logins from all addresses together, within lockedFor, before
 	// logins from outside wait: many addresses trying, as a botnet would. At home no password
 	// is asked, so it still lets in.
@@ -157,11 +161,25 @@ type failures struct {
 	allUntil time.Time
 }
 
-// failure is an address's failed logins: how many, the last, and until when it is locked out.
+// failure is an address's failed logins: how many since its last lockout, the last, until when
+// it is locked out, and how often it was.
 type failure struct {
-	n     int
-	last  time.Time
-	until time.Time
+	n        int
+	last     time.Time
+	until    time.Time
+	lockouts int
+}
+
+// lockout is how long an address waits that was locked out so often before: lockedFor doubled
+// each time, maxLockedFor at most.
+func lockout(before int) time.Duration {
+	d := lockedFor
+	for range before {
+		if d *= 2; d >= maxLockedFor {
+			return maxLockedFor
+		}
+	}
+	return d
 }
 
 // locked says whether an address is locked out for its failed logins now.
@@ -180,17 +198,23 @@ func (f *failures) failed(ip string) {
 	if f.m == nil {
 		f.m = map[string]failure{}
 	}
-	// Addresses quiet for lockedFor are forgotten: the map does not grow with every one tried.
+	// Addresses quiet for maxLockedFor, their lockout over, are forgotten: the map does not
+	// grow with every one tried — and maxAllFailures keeps it to a few thousand a day.
 	for a, got := range f.m {
-		if now.Sub(got.last) > lockedFor && now.After(got.until) {
+		if now.Sub(got.last) > maxLockedFor && now.Sub(got.until) > maxLockedFor {
 			delete(f.m, a)
 		}
 	}
 	got := f.m[ip]
+	// Failures further apart than lockedFor are no series: counted anew, the lockouts kept.
+	if now.Sub(got.last) > lockedFor {
+		got.n = 0
+	}
 	got.n++
 	got.last = now
 	if got.n >= maxFailures {
-		got.n, got.until = 0, now.Add(lockedFor)
+		got.n, got.until = 0, now.Add(lockout(got.lockouts))
+		got.lockouts++
 	}
 	f.m[ip] = got
 
