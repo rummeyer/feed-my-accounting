@@ -597,7 +597,7 @@ func (s *server) invoiceMailsRun(store bool) http.HandlerFunc {
 			verb = "ablegen"
 		}
 		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-		s.start(w, "invoice-mails", fmt.Sprintf("Rechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
+		s.start(w, "invoice-mails", fmt.Sprintf("Kundenrechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
 			var pdfs []email.Attachment
 			err := invoiceMails(cfg, at, store, &pdfs)
 			var files []File

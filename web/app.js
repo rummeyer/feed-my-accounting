@@ -211,7 +211,7 @@ async function loadOverview() {
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders'), 'invoice-mails': T('Rechnungen', 'Invoices') };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders'), 'invoice-mails': T('Kundenrechnungen', 'Invoices') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -247,6 +247,9 @@ const TITLES = [
   [/^Weitere Absender (\S+) ansehen/, 'Further senders $1, view'],
   [/^Weitere Absender (\S+) senden/, 'Further senders $1, send'],
   [/^Kundenrechnung aus Harvest \(laufender Monat\)/, 'Invoice from Harvest (current month)'],
+  [/^Kundenrechnungen aus dem Postfach ablegen/, 'Store invoices from the mailbox'],
+  [/^Kundenrechnungen (\S+) ansehen/, 'Invoices $1, view'],
+  [/^Kundenrechnungen (\S+) ablegen/, 'Invoices $1, store'],
   [/^Reisekosten (\S+) erzeugen/, 'Travel expenses $1, view'],
   [/^Reisekosten (\S+) senden/, 'Travel expenses $1, send'],
   [/^Anthropic-Belege (\S+) ansehen/, 'Anthropic receipts $1, view'],
@@ -1679,7 +1682,7 @@ function renderInvoiceRules(cfg) {
   cfg.InvoiceMails ??= {};
   cfg.InvoiceMails.Rules ??= [];
   return ruleList(cfg.InvoiceMails.Rules, T('Kunde, Korrespondent in Paperless', 'Customer, correspondent in Paperless'), T('Absender-Domain, z. B. sevdesk.de', 'Sender domain, e.g. sevdesk.de'),
-    T('Je Regel ein Kunde: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das enthält – „Kopie von Rechnung“, oder „Bestellung Nr. 4500012345“ für einen Kunden. Die Nummer kommt aus dem PDF-Namen (0203.pdf), sonst aus dem Betreff („Nr. 0203“); der Monat aus dem Zeitnachweis der Mail, sonst aus ihrem Datum. Der Zeitnachweis selbst ist keine Rechnung: er geht nur in den Ordner, wenn er dort fehlt. Für den Zeitplan: „Rechnungen aus dem Postfach ablegen“ – sieht den laufenden Monat und den davor an.',
+    T('Je Regel ein Kunde: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das enthält – „Kopie von Rechnung“, oder „Bestellung Nr. 4500012345“ für einen Kunden. Die Nummer kommt aus dem PDF-Namen (0203.pdf), sonst aus dem Betreff („Nr. 0203“); der Monat aus dem Zeitnachweis der Mail, sonst aus ihrem Datum. Der Zeitnachweis selbst ist keine Rechnung: er geht nur in den Ordner, wenn er dort fehlt. Für den Zeitplan: „Kundenrechnungen aus dem Postfach ablegen“ – sieht den laufenden Monat und den davor an.',
       'A customer per rule: mails from these sender domains (several with commas) whose subject contains this – “Kopie von Rechnung”, or “Bestellung Nr. 4500012345” for one customer. The number comes from the PDF\'s name (0203.pdf), else from the subject (“Nr. 0203”); the month from the mail\'s work log, else from its date. The work log is no invoice: it only goes to the folder if missing there. For the schedule: “Store invoices from the mailbox” – it looks at the current month and the one before.'));
 }
 
