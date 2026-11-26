@@ -1180,6 +1180,7 @@ const PARTS = {
     ['Paperless.Enabled', T('Paperless benutzen', 'Use Paperless'), 'bool', false],
     ['Paperless.URL', T('Adresse (etwa http://nas:8000)', 'Address (http://nas:8000, say)')],
     ['Paperless.Token', T('API-Token', 'API token'), 'secret', 8],
+    BREAK,
     ['Paperless.Tags', T('Tags für Belege', 'Tags for receipts'), 'list', T('keine', 'none')],
     ['Paperless.InvoiceTags', T('Tags für Rechnungen', 'Tags for invoices'), 'list', T('keine', 'none')],
   ]]],
