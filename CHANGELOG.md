@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-11-26
+
 ### Added
 
 - **Reply-To for the tax adviser**: *Antwort an (Reply-To)* on *Einstellungen › Steuerberater* — where his answer goes; empty, the sender.
@@ -15,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Buttons that cannot work are off**, saying what is missing: *Aus Harvest anlegen* and *Nur Zeitnachweis* without the Harvest token, *Aus Harvest anlegen* and *Entwurf in sevDesk anlegen* without the sevDesk login, *Ablegen* of the invoices without rclone's folder for invoices or Paperless, *Test senden* without Pushover.
 - **Steuerberater**: the fields in a mail's order — Absender, An, Betreff, Antwort an, Kopie, Blindkopie, Text.
+- **Code review**: duplicates merged — one rclone copy, one mail delivery, one handler for the mail rules' runs, the rules' fetching shared with the invoices from the mailbox — and every function and type commented.
 
 ### Fixed
 
