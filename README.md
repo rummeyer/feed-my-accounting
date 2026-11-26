@@ -314,7 +314,7 @@ mail-receipts:                     # optional: further senders' PDF invoices, a 
 
 advisor:                           # optional: the tax adviser, told on Abschluss
   to: "steuerberater@example.com"
-  from: "me@example.com"           # optional: the sender, mail.from being the tool's own, say
+  from: "me@example.com"           # optional: the sender; empty: mail.from
   bcc: "me@example.com"            # optional: a blind copy, to yourself say
   subject: "Belege {MM}/{YYYY}"    # default; {MONAT} is the month's name
   text: "Hallo,\n\nalle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht.\n\nViele Grüße"   # default
