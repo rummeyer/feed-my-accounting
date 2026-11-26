@@ -414,7 +414,6 @@ ul.rows.staff li input.password { width: 15em; flex: none; }
 /* Employees: fixed columns — choice, name, password, its removal, the authenticator, the row's
    removal — the same in every row, whether a password is set or not. */
 ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 10em 11em 6em; gap: 12px; }
-.totp-links { display: grid; justify-items: end; gap: 2px; }
 /* The 2FA setup dialog: the QR code on white, so the camera reads it in dark mode too. */
 .totp-dialog h3 { margin: 0 0 10px; }
 .totp-qr { display: block; width: 200px; height: 200px; margin: 12px auto; background: #fff; padding: 8px; image-rendering: pixelated; }

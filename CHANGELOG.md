@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Two-factor login with Google Authenticator**: *2FA einrichten* under *Einstellungen › Mitarbeiter* opens a dialog with a QR code (and the setup key) for any TOTP app, confirmed with its code. From outside the login asks for name and password, then for the code on a screen of its own, once per browser every 30 days; at home never. Codes count once, wrong ones as failed logins; setting up anew or removing makes every browser give a code again.
+- **Two-factor login with Google Authenticator**: *2FA einrichten* under *Einstellungen › Mitarbeiter* opens a dialog with a QR code (and the setup key) for any TOTP app, confirmed with its code. From outside the login asks for name and password, then for the code on a screen of its own, once per browser every 30 days; at home never. Codes count once, wrong ones as failed logins; one button, *2FA einrichten* or *2FA entfernen*; removing forgets every trusted browser.
 
 ### Changed
 

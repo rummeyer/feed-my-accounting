@@ -1805,8 +1805,21 @@ function ruleList(rules, namePlaceholder, fromPlaceholder, help) {
 function totpCell(name, has) {
   // Only for an employee saved with a password: without one there is no login to guard.
   if (!has || !settings.logins?.[name]) return el('span');
-  const on = settings.totp?.[name];
-  const setup = button(on ? T('2FA neu einrichten', '2FA set up anew') : T('2FA einrichten', 'Set up 2FA'), 'link', async (b) => {
+  // One button: set up while there is none, removed while there is — a new phone is both.
+  if (settings.totp?.[name]) {
+    return button(T('2FA entfernen', 'Remove 2FA'), 'link', async () => {
+      if (!(await ask(T(`Authenticator von ${name} entfernen? Von außen reicht dann das Passwort.`, `Remove ${name}'s authenticator? From outside the password is then enough.`),
+        { yes: T('Entfernen', 'Remove') }))) return;
+      try {
+        await api('POST', '/api/totp/remove', { name });
+        delete settings.totp[name];
+        renderSettings();
+      } catch (err) {
+        await tell(err.message);
+      }
+    });
+  }
+  return button(T('2FA einrichten', 'Set up 2FA'), 'link', async (b) => {
     b.disabled = true;
     try {
       totpDialog(name, await api('POST', '/api/totp/setup', { name }));
@@ -1815,19 +1828,6 @@ function totpCell(name, has) {
     }
     b.disabled = false;
   });
-  if (!on) return setup;
-  const remove = button(T('2FA entfernen', 'Remove 2FA'), 'link', async () => {
-    if (!(await ask(T(`Authenticator von ${name} entfernen? Von außen reicht dann das Passwort.`, `Remove ${name}'s authenticator? From outside the password is then enough.`),
-      { yes: T('Entfernen', 'Remove') }))) return;
-    try {
-      await api('POST', '/api/totp/remove', { name });
-      delete settings.totp[name];
-      renderSettings();
-    } catch (err) {
-      await tell(err.message);
-    }
-  });
-  return el('span', 'totp-links', setup, remove);
 }
 
 /**
