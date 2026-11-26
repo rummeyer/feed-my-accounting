@@ -145,9 +145,6 @@ type AppleInvoiceConfig struct {
 // AdvisorConfig is the tax adviser, told by mail once a month is booked: the address, and the
 // mail's subject and text, {MM}, {YYYY} and {MONAT} standing for the month.
 type AdvisorConfig struct {
-	// From is whom the mail is from — oneself, the receipts going out from the tool's address,
-	// say; empty: mail.from.
-	From    string `yaml:"from,omitempty"`
 	To      string `yaml:"to,omitempty"`
 	Bcc     string `yaml:"bcc,omitempty"`     // a blind copy, to oneself say; empty: none
 	Subject string `yaml:"subject,omitempty"` // default "Belege {MM}/{YYYY}"

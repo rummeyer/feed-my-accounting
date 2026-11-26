@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Invoices from the mailbox**: *Aus dem Postfach* on the Kundenrechnung card, and the job *invoice-mails* for the schedule — the copy sevDesk mails of each invoice sent is taken by rules, a rule per customer (sender, subject, PDF name: changeable should sevDesk change its mail). The invoice goes to the *Ordner für Rechnungen* as `11_2026_Rechnung_0203.pdf` beside its work log, and to Paperless with the customer as correspondent and its own tags — *Tags für Rechnungen* on *Einstellungen › Paperless*, beside *Tags für Belege*. *PDFs ansehen* to look first.
-- **The tax adviser's sender**: *Absender* on *Einstellungen › Steuerberater* — the mail to the adviser from yourself while the receipts come from the tool's own address, `feed-my-accounting@…`; empty, *mail.from* as before.
 
 ### Changed
 
