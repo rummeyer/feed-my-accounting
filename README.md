@@ -31,6 +31,7 @@ It connects its sources — mailboxes, Amazon Business, MeinVodafone, the Harves
 | **vodafone-invoice** | MeinVodafone portal | Logs in via headless Chrome, downloads Mobilfunk + Kabel invoices | Email → sevDesk Autobox |
 | **mail-receipts** | IMAP inbox and *Rechnungen* | Takes the PDF invoices of senders by a rule each — Anthropic's receipts, Strato, the tax adviser, set up on the web interface | Email → sevDesk Autobox |
 | **harvest-invoice** | Harvest API | Reads the month's hours of a client from the Harvest API, makes the work log PDF, creates the draft invoice in sevDesk | Direct browser automation |
+| **invoice-mails** | IMAP inbox | Takes the copy sevDesk mails of each invoice sent, by a rule per customer | Storage (rclone) and Paperless |
 
 ### How it all fits together
 
@@ -87,6 +88,9 @@ feed-my-accounting mail-receipts
 feed-my-accounting harvest-invoice
 feed-my-accounting harvest-invoice 10/2026
 
+# The invoices sent, from sevDesk's copies → storage and Paperless (this month and the one before)
+feed-my-accounting invoice-mails
+
 # Web interface with schedule (web.listen, default :8595)
 feed-my-accounting serve
 
@@ -128,7 +132,7 @@ A button that sends or transfers something — a mail, the draft to sevDesk, a P
 | **Zeitplan** | The schedule: each job with its cron expression (`minute hour day month weekday`, as in crontab, with Quartz's forms for days — see below), and beneath it in one line when it last ran — *manuell* or *zeitgesteuert*, the same day as *vor 2 h* — and its next runs, as many as fit; and a switch to turn it off. Runs by hand start on their own cards. Replaces the crontab entries — keep only one of the two, or jobs run twice. |
 | **Reisekosten** | A month calendar: which client gets which day, day trips and overnight trips, holidays, blocked days, and each day's meal allowance and mileage, with the month's totals. *Zuordnungen* gives date ranges to a client explicitly; *Gesperrte Tage* blocks vacation and the like. Both are edited as drafts — add, *bearbeiten*, *entfernen* — and saved with the *Speichern* at the bottom; until then nothing changes. *PDFs ansehen* generates the two PDFs to look at; *Per Mail senden* sends them to the address under Einstellungen › E-Mail. Below: the clients — country, state, distance, meal rates — the name on the PDFs and the Christmas week. |
 | **Belege** | Amazon, Apple and Vodafone invoices on demand, each with its settings: the Amazon and Vodafone logins, the Apple mail filter. Apple with *PDFs ansehen*, fetching them for download, and *Per Mail senden*, sending them too, after asking; Amazon and Vodafone with *Per Mail senden* only, as each run is a login, Vodafone's held to one in 28 days: Amazon and Apple by month — `11/2026`, the current one at first — Vodafone the current month's. The schedule sends the current month's. Last, *Weitere Absender*: the rules for further senders, by month to look at or to send — see [mail-receipts](#module-mail-receipts). |
-| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the days booked × 8 log a warning with the link to the time entries in Harvest: each day with an entry a workday of 8 hours at least, however many days a week are worked for the client. A project of the work log over its budget in Harvest — hours or money, as Harvest's project budget report has it — logs a warning too, with the link to the project; a monthly budget only for the current month, Harvest reporting only its spending. As a fallback, behind its own flap at the foot of the card, *Manuelle Eingabe*: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in — the current month at first — or filled from a work log PDF dropped in, Harvest's or one from here, and correctable either way; then *Entwurf in sevDesk anlegen* creates the draft invoice for the client, article and reference of the settings beneath — with the same duplicate check. Folded away last on the card, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
+| **Kundenrechnung** | *Aus Harvest anlegen* runs harvest-invoice for the month given next to it as on the command line (`11/2026`): the hours come from the Harvest API, and the month's work log PDF comes with the run for download — on iCloud Drive, say. *Nur Zeitnachweis* makes only the work log. Fewer hours than the days booked × 8 log a warning with the link to the time entries in Harvest: each day with an entry a workday of 8 hours at least, however many days a week are worked for the client. A project of the work log over its budget in Harvest — hours or money, as Harvest's project budget report has it — logs a warning too, with the link to the project; a monthly budget only for the current month, Harvest reporting only its spending. As a fallback, behind its own flap at the foot of the card, *Manuelle Eingabe*: *Leistung von*, *Leistung bis* and *Stunden gesamt* typed in — the current month at first — or filled from a work log PDF dropped in, Harvest's or one from here, and correctable either way; then *Entwurf in sevDesk anlegen* creates the draft invoice for the client, article and reference of the settings beneath — with the same duplicate check. Then *Aus dem Postfach*: the invoices sent, from the copies sevDesk mails, by month to look at (*PDFs ansehen*) or to store (*Ablegen*), with their rules folded away — see [Invoices from the mailbox](#invoices-from-the-mailbox). Folded away last on the card, *Einstellungen Kundenrechnung*: the sevDesk client, article and reference, the sevDesk login, the Harvest API token and the client's name in Harvest. |
 | **Protokoll** | The last 50 runs; a click opens a run's output under it, with the PDFs it made to download. The history is kept in `feed-my-accounting-jobs.json` next to the config; the PDFs until the server restarts, then listed by name only. Web addresses in the output are links. *Löschen* at the bottom, after *Sicher?*, empties it. |
 | **Einstellungen** | What all of them share: the **company** — its name, and its logo (PNG or JPEG, kept beside the configuration as `feed-my-accounting-logo.png`), which the work log shows instead of the name — the **employees** — the one ticked is the Lieferant on the travel expenses and whose hours in Harvest make the work log and the invoice, named as in Harvest; shown at the top right as *Mitarbeiter* — the mail account, the storage, **Paperless**, **Pushover** with *Test senden*, and the web interface's address and password. |
 
@@ -347,7 +351,7 @@ web:                               # optional, for feed-my-accounting serve
   password: ""                     # optional: asked for by the browser
 
 schedule:                          # optional, run by feed-my-accounting serve
-  - job: travel-expense            # travel-expense, amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts, harvest-invoice
+  - job: travel-expense            # travel-expense, amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts, harvest-invoice, invoice-mails
     cron: "0 6 5 * *"              # minute hour day month weekday
     enabled: true
   - job: harvest-invoice
@@ -364,10 +368,10 @@ archive:
   enabled: true
   remote: icloud                 # the rclone remote
   folder: "Belege/{YYYY}/{MM}"   # default
-  invoiceFolder: "Rechnungen/{YYYY}"   # optional: the work logs, by invoice
+  invoiceFolder: "Rechnungen/{YYYY}"   # optional: the invoices and work logs, by number
 ```
 
-With *Ordner für Rechnungen* set, the Kundenrechnung run puts the work log there too, named after its invoice — `11_2026_Rechnung_0203_WorkLog.pdf` in `Rechnungen/2026`; only the work log — the invoice itself comes from sevDesk by mail. Once: one of that name there already stays as it is, as the one attached to the draft in sevDesk does. Without the invoice's number found, it is not kept.
+With *Ordner für Rechnungen* set, the Kundenrechnung run puts the work log there too, named after its invoice — `11_2026_Rechnung_0203_WorkLog.pdf` in `Rechnungen/2026` — and once sent, the invoice follows from sevDesk's copy by mail, `11_2026_Rechnung_0203.pdf`: see [Invoices from the mailbox](#invoices-from-the-mailbox). Once: one of that name there already stays as it is, as the one attached to the draft in sevDesk does. Without the invoice's number found, it is not kept.
 
 Set the remote up once on the machine, as the user the service runs as, and check it:
 
@@ -390,7 +394,7 @@ paperless:
   tags: [Firma]
 ```
 
-Paperless on a NAS that is off most of the time is fine: each receipt waits in `feed-my-accounting-paperless/` beside the configuration until Paperless takes it — tried right after sending and every ten minutes while the web interface runs. Not reaching Paperless never fails a run; the log says how many wait. Paperless refuses a file it has already, so a receipt uploaded twice is still one document.
+Paperless on a NAS that is off most of the time is fine: each receipt waits in `feed-my-accounting-paperless/` beside the configuration until Paperless takes it — tried right after sending and every ten minutes while the web interface runs. Not reaching Paperless never fails a run; the log says how many wait. What Paperless took is noted in `feed-my-accounting-paperless/uploaded`, by its SHA-256, and not queued again — and Paperless refuses a file it has already, so a receipt uploaded twice is still one document. The customers' invoices go there too: see [Invoices from the mailbox](#invoices-from-the-mailbox).
 
 <p align="center"><img src="docs/storage.png" alt="Einstellungen: Ablage (rclone) with Belege ablegen ticked, the remote icloud and the folder Belege/{YYYY}/{MM}; beneath, Paperless with Belege hochladen ticked, the address http://nas:8000, the API token saved and the tag Firma" width="760"></p>
 
@@ -700,10 +704,30 @@ On the web interface, *Manuelle Eingabe* creates the draft without the API: *Lei
 
 harvest-invoice can run repeatedly without creating duplicate invoices: with **`skipExisting`** (default: `true`), before opening the invoice form, the module logs into sevDesk via headless Chrome, navigates to the Rechnungen list, and checks if any invoice for the same client has a Rechnungsdatum within the month. This covers all statuses (Entwurf, Offen, Bezahlt). If a match is found, the run is skipped: the first successful run creates the invoice, all later ones are no-ops. Note that a draft made mid-month keeps the hours of that day — delete it, or correct the Menge, at the end of the month.
 
+### Invoices from the mailbox
+
+Sent from sevDesk with a copy to yourself, each invoice comes back: *Kopie von Rechnung Nr. 0203 von … zur Bestellung Nr. …*, from sevdesk.de, with `0203.pdf` and the work log. The job **invoice-mails** — *Rechnungen aus dem Postfach ablegen* on the schedule, or *Ablegen* on the Kundenrechnung card by month — takes them by rules, as mail-receipts does the further senders' receipts, a rule per customer: the sender's domains, what the subject contains — *Kopie von Rechnung*, or the customer's *Bestellung Nr.* to tell customers apart — and what the PDF's name contains, if anything. sevDesk changing its mail, the rule is changed on the card. Each invoice:
+
+- is named after its number, `11_2026_Rechnung_0203.pdf`: the number the PDF's (`0203.pdf`, `RE-0203.pdf`), else the subject's (*Nr. 0203*); the month the work log's in the same mail, else the mail's — none found, it is left out, said so
+- goes to the storage's *Ordner für Rechnungen*, beside its work log — once: one of that name there stays as it is. The mail's work log goes there too, should it be missing
+- goes to Paperless, if on: the rule's name — the customer — as correspondent, *Rechnung 0203 Acme GmbH* as title, the day of the mail as created, and the rule's tags (`invoice-mails.tags`; none: `paperless.tags`). The work log does not
+- is mailed nowhere: the books have it from sevDesk
+
+The schedule's run looks at the current month and the one before, an invoice sent on the first seen still; run daily, say `0 20 * * *`. Rules and tags are on the card, behind *Regeln*:
+
+```yaml
+invoice-mails:
+  folders: [INBOX]                 # default
+  tags: [Firma, Rechnungen]
+  rules:
+    - name: "Acme GmbH"            # the customer
+      from: "sevdesk.de"
+      subject: "Kopie von Rechnung"
+```
+
 ### Notes
 
 - Harvest's web sign in has an hCaptcha that turns an automated browser away — hence the API
-- No Harvest PDF is attached to the sevDesk invoice — attach it manually if needed
 - Chrome runs in headless mode with German locale (`de-DE`)
 - Date fields are set via the native date picker components (uib-datepicker and daterangepicker) to ensure Angular model consistency
 
@@ -754,6 +778,7 @@ feed-my-accounting/
 ├── advisor.go                     # the tax adviser's mail, the month's receipts zipped
 ├── archive.go                     # receipts copied to the storage with rclone
 ├── paperless.go                   # receipts uploaded to Paperless-ngx, waiting while it is off
+├── invoicemails.go                # the customers' invoices from sevDesk's copies, stored
 ├── feed-my-accounting.service     # systemd unit for the web interface
 ├── config.yaml.example
 └── go.mod

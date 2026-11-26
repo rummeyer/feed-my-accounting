@@ -82,6 +82,7 @@ func setModuleLogs(w io.Writer) {
 	mailreceipts.SetLogOutput(w)
 	archiveLog.SetOutput(w)
 	paperlessLog.SetOutput(w)
+	invoiceLog.SetOutput(w)
 	log.SetOutput(w)
 }
 
@@ -190,6 +191,12 @@ func main() {
 	case "mail-receipts":
 		if err := runMailReceipts(cfg); err != nil {
 			fmt.Fprintf(logOut, "mail-receipts error: %v\n", err)
+			os.Exit(1)
+		}
+
+	case "invoice-mails":
+		if err := runInvoiceMails(cfg); err != nil {
+			fmt.Fprintf(logOut, "invoice-mails error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -499,7 +506,7 @@ func runHarvestInvoice(cfg *Config, year int, month time.Month, logOnly bool) (*
 		recordDraft(cfg, hc.Month, name)
 		// The work log kept beside the invoices, named after its own.
 		if doc != nil {
-			if aerr := archiveWorkLog(cfg.Archive, doc.Filename, doc.Data); aerr != nil {
+			if aerr := archiveInvoice(cfg.Archive, doc.Filename, doc.Data); aerr != nil {
 				archiveLog.Printf("Copy failed: %v", aerr)
 				err = errors.Join(err, fmt.Errorf("the draft is there; rclone: %w", aerr))
 			}
@@ -563,6 +570,7 @@ Commands:
   vodafone-invoice          Download Vodafone invoices and send via email
   mail-receipts             Fetch the further senders' PDFs, by the rules set, and send them
   harvest-invoice [M/YYYY]  Create sevDesk draft invoice from the month's Harvest hours
+  invoice-mails             Store the customers' invoices from the mailboxes (sevDesk's copies), by the rules set
   serve                     Web interface on web.listen (default :8595)
 
 Flags:

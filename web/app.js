@@ -211,7 +211,7 @@ async function loadOverview() {
   for (const span of document.querySelectorAll('[data-mail-to]')) span.textContent = mailTo();
 }
 
-const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders') };
+const SHORT = { 'travel-expense': T('Reisekosten', 'Travel'), 'amazon-invoice': 'Amazon', 'anthropic-invoice': 'Anthropic', 'apple-invoice': 'Apple', 'vodafone-invoice': 'Vodafone', 'harvest-invoice': T('Kundenrechnung', 'Invoice'), 'mail-receipts': T('Weitere Absender', 'Further senders'), 'invoice-mails': T('Rechnungen', 'Invoices') };
 
 /** "nächster Lauf: Vodafone · Sa., 21.11. 07:30", from the schedule. */
 function nextText(next) {
@@ -588,6 +588,9 @@ const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kin
 }
 for (const b of document.querySelectorAll('[data-view]')) {
   b.addEventListener('click', () => start(b.dataset.view, 'POST', `/api/${b.dataset.view}/view`, { month: monthOf(b.dataset.view) }));
+}
+for (const b of document.querySelectorAll('[data-store]')) {
+  b.addEventListener('click', () => start(b.dataset.store, 'POST', `/api/${b.dataset.store}/store`, { month: monthOf(b.dataset.store) }));
 }
 for (const b of document.querySelectorAll('[data-send]')) {
   b.addEventListener('click', async () => {
@@ -1223,6 +1226,11 @@ const PARTS = {
     ['MailReceipts.Count', SCAN, 'number', 1000],
     ['MailReceipts.Folders', FOLDERS, 'list', 'INBOX, Rechnungen'],
   ]]],
+  invoicerules: [['', [
+    ['InvoiceMails.Count', SCAN, 'number', 1000],
+    ['InvoiceMails.Folders', FOLDERS, 'list', 'INBOX'],
+    ['InvoiceMails.Tags', T('Tags in Paperless', 'Tags in Paperless'), 'list', T('die von Paperless', "Paperless's")],
+  ]]],
   notify: [[T('Benachrichtigung (Pushover)', 'Notifications (Pushover)'), [
     ['Notify.Pushover.Enabled', T('Per Pushover benachrichtigen', 'Notify by Pushover'), 'bool', false],
     ['Notify.Pushover.Token', T('API-Token der Anwendung', "The application's API token"), 'secret', 6],
@@ -1382,8 +1390,8 @@ function renderSettings() {
       if (part === 'company') children.push(renderLogo());
     }
     if (part === 'archive') {
-      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“. Im Ordner für Rechnungen landet der Zeitnachweis der Kundenrechnung unter ihrer Nummer, 11_2026_Rechnung_0203_WorkLog.pdf, {YYYY} ihr Jahr – einmal; liegt er dort schon, bleibt er.',
-        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”. The folder for invoices gets the invoice\'s work log under its number, 11_2026_Rechnung_0203_WorkLog.pdf, {YYYY} its year – once; one there already stays.')));
+      children.push(el('p', 'muted', T('Gesendete Belege (Amazon, Apple, Vodafone, weitere Absender) werden zusätzlich per rclone abgelegt – iCloud Drive, Google Drive, OneDrive, Nextcloud oder jeder andere Speicher, für den auf dem Pi ein rclone-Remote eingerichtet ist (rclone config). Im Ordner stehen {YYYY} und {MM} für Jahr und Monat des Belegs. Vorhandene Dateien bleiben, die neue heißt dann „… (1).pdf“. Im Ordner für Rechnungen landen der Zeitnachweis der Kundenrechnung unter ihrer Nummer, 11_2026_Rechnung_0203_WorkLog.pdf, und die versendete Rechnung aus der Kopie von sevDesk, 11_2026_Rechnung_0203.pdf (Kundenrechnung › Aus dem Postfach), {YYYY} ihr Jahr – einmal; was dort schon liegt, bleibt.',
+        'Receipts sent (Amazon, Apple, Vodafone, further senders) are also stored with rclone – iCloud Drive, Google Drive, OneDrive, Nextcloud or any other storage with an rclone remote set up on the Pi (rclone config). In the folder, {YYYY} and {MM} stand for the receipt\'s year and month. Files there are kept; the new one is then called “… (1).pdf”. The folder for invoices gets the invoice\'s work log under its number, 11_2026_Rechnung_0203_WorkLog.pdf, and the invoice sent, from sevDesk\'s copy, 11_2026_Rechnung_0203.pdf (Invoice › From the mailbox), {YYYY} its year – once; what is there already stays.')));
     }
     if (part === 'paperless') {
       children.push(el('p', 'muted', T('Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags – etwa Firma, nach dem ein Workflow in Paperless ablegt. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
@@ -1395,6 +1403,7 @@ function renderSettings() {
     }
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mailrules') children.unshift(renderRules(cfg));
+    if (part === 'invoicerules') children.unshift(renderInvoiceRules(cfg));
     if (part === 'advisor') {
       children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – nur an ihn, nicht an die Autobox; als Blindkopie an die Adresse darunter, wenn eine eingetragen ist. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage (rclone) an.',
         '“Inform tax adviser” on Closing sends this mail – to him only, not to the Autobox; a blind copy to the address beneath, if one is set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage (rclone) comes with it.')));
@@ -1657,7 +1666,25 @@ function renderMailboxes(cfg) {
 function renderRules(cfg) {
   cfg.MailReceipts ??= {};
   cfg.MailReceipts.Rules ??= [];
-  const rules = cfg.MailReceipts.Rules;
+  return ruleList(cfg.MailReceipts.Rules, T('Name, z. B. Strato', 'Name, e.g. Strato'), T('Absender-Domain, z. B. strato.de', 'Sender domain, e.g. strato.de'),
+    T('Je Regel: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das Wort enthält, mit ihren PDF-Anhängen – benannt wie die übrigen Belege, 11_2026_Rechnung_Strato_03112026.pdf. Was schon gesendet ist, geht nicht noch einmal. Betreff und PDF-Name leer: jede Mail, jedes PDF. Für den Zeitplan: „Weitere Absender abholen“.',
+      'Per rule: mails from these sender domains (several with commas) whose subject contains the word, with their PDF attachments – named as the other receipts, 11_2026_Rechnung_Strato_03112026.pdf. What was sent already does not go again. Subject and PDF name empty: any mail, any PDF. For the schedule: “Fetch further senders”.'));
+}
+
+/**
+ * The customers' invoices' rules: the customer, the sender's domains — sevDesk's — and what the
+ * subject and the PDF's name contain. Saved with the button at the bottom.
+ */
+function renderInvoiceRules(cfg) {
+  cfg.InvoiceMails ??= {};
+  cfg.InvoiceMails.Rules ??= [];
+  return ruleList(cfg.InvoiceMails.Rules, T('Kunde, Korrespondent in Paperless', 'Customer, correspondent in Paperless'), T('Absender-Domain, z. B. sevdesk.de', 'Sender domain, e.g. sevdesk.de'),
+    T('Je Regel ein Kunde: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das enthält – „Kopie von Rechnung“, oder „Bestellung Nr. 4500012345“ für einen Kunden. Die Nummer kommt aus dem PDF-Namen (0203.pdf), sonst aus dem Betreff („Nr. 0203“); der Monat aus dem Zeitnachweis der Mail, sonst aus ihrem Datum. Der Zeitnachweis selbst ist keine Rechnung: er geht nur in den Ordner, wenn er dort fehlt. Für den Zeitplan: „Rechnungen aus dem Postfach ablegen“ – sieht den laufenden Monat und den davor an.',
+      'A customer per rule: mails from these sender domains (several with commas) whose subject contains this – “Kopie von Rechnung”, or “Bestellung Nr. 4500012345” for one customer. The number comes from the PDF\'s name (0203.pdf), else from the subject (“Nr. 0203”); the month from the mail\'s work log, else from its date. The work log is no invoice: it only goes to the folder if missing there. For the schedule: “Store invoices from the mailbox” – it looks at the current month and the one before.'));
+}
+
+/** A list of mail rules, each: on, a name, the sender's domains, subject and PDF name contain. */
+function ruleList(rules, namePlaceholder, fromPlaceholder, help) {
   const changed = () => { renderSettings(); refreshSave(); };
   const input = (rule, key, cls, placeholder, label) => {
     const i = el('input', cls);
@@ -1677,15 +1704,14 @@ function renderRules(cfg) {
     on.setAttribute('aria-label', T('Regel an', 'Rule on'));
     on.addEventListener('change', () => { rule.Off = !on.checked; refreshSave(); });
     return el('li', '', on,
-      input(rule, 'Name', 'grow', T('Name, z. B. Strato', 'Name, e.g. Strato'), 'Name'),
-      input(rule, 'From', 'grow', T('Absender-Domain, z. B. strato.de', 'Sender domain, e.g. strato.de'), T('Absender-Domains', 'Sender domains')),
+      input(rule, 'Name', 'grow', namePlaceholder, 'Name'),
+      input(rule, 'From', 'grow', fromPlaceholder, T('Absender-Domains', 'Sender domains')),
       input(rule, 'Subject', 'grow', T('Betreff enthält', 'Subject contains'), T('Betreff enthält', 'Subject contains')),
       input(rule, 'Attachment', 'grow', T('PDF-Name enthält', 'PDF name contains'), T('PDF-Name enthält', 'PDF name contains')),
       button(T('entfernen', 'remove'), 'link', () => { rules.splice(i, 1); changed(); }));
   }));
   return el('div', '',
-    el('p', 'muted', T('Je Regel: Mails von diesen Absender-Domains (mehrere mit Komma), deren Betreff das Wort enthält, mit ihren PDF-Anhängen – benannt wie die übrigen Belege, 11_2026_Rechnung_Strato_03112026.pdf. Was schon gesendet ist, geht nicht noch einmal. Betreff und PDF-Name leer: jede Mail, jedes PDF. Für den Zeitplan: „Weitere Absender abholen“.',
-      'Per rule: mails from these sender domains (several with commas) whose subject contains the word, with their PDF attachments – named as the other receipts, 11_2026_Rechnung_Strato_03112026.pdf. What was sent already does not go again. Subject and PDF name empty: any mail, any PDF. For the schedule: “Fetch further senders”.')),
+    el('p', 'muted', help),
     rules.length ? list : el('p', 'muted', T('Noch keine Regel.', 'No rule yet.')),
     el('div', 'actions', button(T('Regel hinzufügen', 'Add rule'), '', () => { rules.push({ Name: '', From: '' }); changed(); })));
 }

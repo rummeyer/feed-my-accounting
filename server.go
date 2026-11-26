@@ -116,6 +116,8 @@ func (s *server) handler() http.Handler {
 	mux.HandleFunc("POST /api/vodafone/send", s.receiptsRun(vodafoneReceipts, true))
 	mux.HandleFunc("POST /api/mail/view", s.mailReceiptsRun(false))
 	mux.HandleFunc("POST /api/mail/send", s.mailReceiptsRun(true))
+	mux.HandleFunc("POST /api/rechnungen/view", s.invoiceMailsRun(false))
+	mux.HandleFunc("POST /api/rechnungen/store", s.invoiceMailsRun(true))
 	mux.HandleFunc("POST /api/harvest/run", s.harvestRun(false))
 	mux.HandleFunc("POST /api/harvest/worklog", s.harvestRun(true))
 	mux.HandleFunc("GET /api/bmf-table", s.bmfTable)
@@ -561,6 +563,43 @@ func (s *server) mailReceiptsRun(send bool) http.HandlerFunc {
 		s.start(w, "mail-receipts", fmt.Sprintf("Weitere Absender %d/%d %s", month, year, verb), func() ([]File, error) {
 			var pdfs []email.Attachment
 			err := mailReceipts(cfg, at, send, &pdfs)
+			var files []File
+			for _, p := range pdfs {
+				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
+			}
+			return files, err
+		})
+	}
+}
+
+// invoiceMailsRun takes the customers' invoices of a month from the mailboxes, by their rules:
+// to look at, or stored — offered for download both.
+func (s *server) invoiceMailsRun(store bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var in struct {
+			Month string `json:"month"`
+		}
+		if !read(w, req, &in) {
+			return
+		}
+		year, month, err := slashMonth(in.Month)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
+			return
+		}
+		cfg, err := s.config()
+		if err != nil {
+			fail(w, http.StatusInternalServerError, err)
+			return
+		}
+		verb := "ansehen"
+		if store {
+			verb = "ablegen"
+		}
+		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
+		s.start(w, "invoice-mails", fmt.Sprintf("Rechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
+			var pdfs []email.Attachment
+			err := invoiceMails(cfg, at, store, &pdfs)
 			var files []File
 			for _, p := range pdfs {
 				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})

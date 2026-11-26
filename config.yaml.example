@@ -20,7 +20,7 @@ archive:                         # optional: receipts mailed are copied to a sto
   enabled: false
   remote: icloud                 # the rclone remote: iCloud Drive, Google Drive, OneDrive, WebDAV, …
   folder: "Belege/{YYYY}/{MM}"   # {YYYY} and {MM}: the receipt's year and month
-  invoiceFolder: "Rechnungen/{YYYY}"  # optional: the invoice's work log, 11_2026_Rechnung_0203_WorkLog.pdf
+  invoiceFolder: "Rechnungen/{YYYY}"  # optional: the invoices and their work logs, 11_2026_Rechnung_0203.pdf
 
 paperless:                       # optional: receipts mailed are uploaded to Paperless-ngx too
   enabled: false
@@ -75,3 +75,11 @@ harvest-invoice:
     productName: "Acme Produkt"          # search term typed into product field
     productNum: "0102"                   # article number to select from dropdown
     referenceNum: "REF-123"              # Kundenreferenz für E-Rechnung
+
+invoice-mails:                     # optional: the customers' invoices from sevDesk's copies, stored
+  folders: [INBOX]                 # default
+  tags: [Firma, Rechnungen]        # Paperless's tags for them; none: paperless.tags
+  rules:
+    - name: "Acme GmbH"            # the customer: Paperless's correspondent
+      from: "sevdesk.de"
+      subject: "Kopie von Rechnung"

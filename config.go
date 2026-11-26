@@ -73,7 +73,7 @@ type TravelExpenseConfig struct {
 }
 
 // ScheduleEntry runs a job on a cron schedule while the web interface runs: travel-expense,
-// amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts or harvest-invoice.
+// amazon-invoice, apple-invoice, vodafone-invoice, mail-receipts, harvest-invoice or invoice-mails.
 type ScheduleEntry struct {
 	Job     string `yaml:"job" json:"job"`
 	Cron    string `yaml:"cron" json:"cron"` // minute hour day month weekday, as in crontab
@@ -184,6 +184,16 @@ type MailReceiptsConfig struct {
 	Rules   []mailreceipts.Rule `yaml:"rules,omitempty"`
 }
 
+// InvoiceMailsConfig are the customers' invoices, as they come back from the mailboxes — the
+// copy sevDesk sends of each: stored in the storage's folder for invoices, and given to Paperless
+// with Tags. A rule each, as for the further senders; its name is the customer.
+type InvoiceMailsConfig struct {
+	Count   int                 `yaml:"count,omitempty"`   // how many of the month's mails to scan at the most, in each folder
+	Folders []string            `yaml:"folders,omitempty"` // searched in this order; default INBOX
+	Tags    []string            `yaml:"tags,omitempty"`    // Paperless's tags for them
+	Rules   []mailreceipts.Rule `yaml:"rules,omitempty"`
+}
+
 type VodafoneInvoiceConfig struct {
 	Username            string `yaml:"username"`
 	Password            string `yaml:"password"`
@@ -244,6 +254,7 @@ type Config struct {
 	AppleInvoice     AppleInvoiceConfig      `yaml:"apple-invoice"`
 	VodafoneInvoice  VodafoneInvoiceConfig   `yaml:"vodafone-invoice"`
 	MailReceipts     MailReceiptsConfig      `yaml:"mail-receipts,omitempty"`
+	InvoiceMails     InvoiceMailsConfig      `yaml:"invoice-mails,omitempty"`
 	Notify           NotifyConfig            `yaml:"notify,omitempty"`
 	Advisor          AdvisorConfig           `yaml:"advisor,omitempty"`
 	HarvestInvoice   HarvestInvoiceConfig    `yaml:"harvest-invoice"`
@@ -417,6 +428,12 @@ func applyDefaults(cfg *Config) {
 	}
 	if len(cfg.MailReceipts.Folders) == 0 {
 		cfg.MailReceipts.Folders = []string{"INBOX", "Rechnungen"}
+	}
+	if cfg.InvoiceMails.Count == 0 {
+		cfg.InvoiceMails.Count = 1000
+	}
+	if len(cfg.InvoiceMails.Folders) == 0 {
+		cfg.InvoiceMails.Folders = []string{"INBOX"}
 	}
 	if cfg.Archive.Folder == "" {
 		cfg.Archive.Folder = "Belege/{YYYY}/{MM}"

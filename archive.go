@@ -75,15 +75,16 @@ func belegeMail(cfg *Config) email.MailConfig {
 	return mail
 }
 
-// numberedWorkLog is a work log named after its invoice: 11_2026_Rechnung_0203_WorkLog.pdf.
-var numberedWorkLog = regexp.MustCompile(`^\d{2}_\d{4}_Rechnung_\d+_WorkLog\.pdf$`)
+// numberedInvoice is an invoice or its work log named after its number:
+// 11_2026_Rechnung_0203.pdf, 11_2026_Rechnung_0203_WorkLog.pdf.
+var numberedInvoice = regexp.MustCompile(`^\d{2}_\d{4}_Rechnung_[A-Za-z-]*\d[A-Za-z0-9-]*(_WorkLog)?\.pdf$`)
 
-// archiveWorkLog copies the work log named after its invoice to the storage's folder for the
-// invoices, once: one of its name there already — the one put there by hand, or of a run before
-// — is left as it is, as the one attached to the draft in sevDesk is. Without a number, or
-// without that folder set, nothing.
-func archiveWorkLog(ac ArchiveConfig, name string, data []byte) error {
-	if !ac.Enabled || strings.TrimSpace(ac.InvoiceFolder) == "" || !numberedWorkLog.MatchString(name) {
+// archiveInvoice copies an invoice, or its work log, named after its number to the storage's
+// folder for the invoices, once: one of its name there already — the one put there by hand, or
+// of a run before — is left as it is, as the one attached to the draft in sevDesk is. Without a
+// number, or without that folder set, nothing.
+func archiveInvoice(ac ArchiveConfig, name string, data []byte) error {
+	if !ac.Enabled || strings.TrimSpace(ac.InvoiceFolder) == "" || !numberedInvoice.MatchString(name) {
 		return nil
 	}
 	if ac.Remote == "" {

@@ -162,6 +162,17 @@
         <div class="console" data-console="invoice" hidden></div>
       </details>
 
+      <h2><span lang="de">Aus dem Postfach</span><span lang="en">From the mailbox</span></h2>
+      <p class="muted"><span lang="de">Die Kopie jeder versendeten Rechnung, die sevDesk schickt („Kopie von Rechnung Nr. 0203 …“): die Rechnung als 11_2026_Rechnung_0203.pdf in den Ordner für Rechnungen (Einstellungen, Ablage), neben den Zeitnachweis, und an Paperless mit dem Kunden als Korrespondent. Was schon dort liegt, bleibt. Nichts wird gemailt.</span><span lang="en">The copy of each invoice sent that sevDesk mails (“Kopie von Rechnung Nr. 0203 …”): the invoice as 11_2026_Rechnung_0203.pdf to the folder for invoices (Settings, Storage), beside the work log, and to Paperless with the customer as correspondent. What is there already stays. Nothing is mailed.</span></p>
+      <p class="last" data-last="invoice-mails"></p>
+      <div class="actions">
+        <input class="month receipt-month" data-for="rechnungen" inputmode="numeric" autocomplete="off" aria-label="Monat (M/JJJJ)" data-en-aria-label="Month (M/YYYY)">
+        <button type="button" data-view="rechnungen"><span lang="de">PDFs ansehen</span><span lang="en">View PDFs</span></button>
+        <button type="button" data-store="rechnungen" class="strong"><span lang="de">Ablegen</span><span lang="en">Store</span></button>
+      </div>
+      <div class="console" data-console="rechnungen" hidden></div>
+      <details class="part-box"><summary><span lang="de">Regeln</span><span lang="en">Rules</span></summary><form class="part" data-part="invoicerules"></form></details>
+
       <details class="part-box"><summary><span lang="de">Einstellungen Kundenrechnung</span><span lang="en">Invoice settings</span></summary><form class="part" data-part="invoice"></form></details>
     </section>
 

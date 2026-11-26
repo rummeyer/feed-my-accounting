@@ -39,38 +39,55 @@ const paperlessQueue = "feed-my-accounting-paperless"
 // paperlessMu keeps one upload of the waiting receipts at a time: a run's and the schedule's.
 var paperlessMu sync.Mutex
 
-// paperlessWaiting is a receipt waiting, beside its PDF: what Paperless is told of it.
+// paperlessWaiting is a receipt waiting, beside its PDF: what Paperless is told of it. Title,
+// Created and Tags, where set, are taken as they are — a customer's invoice's — else made from
+// the name and the tags set for Paperless.
 type paperlessWaiting struct {
-	Name   string `json:"name"`
-	Source string `json:"source"`
+	Name    string   `json:"name"`
+	Source  string   `json:"source"`
+	Title   string   `json:"title,omitempty"`
+	Created string   `json:"created,omitempty"` // 2026-11-30
+	Tags    []string `json:"tags,omitempty"`
 }
+
+// paperlessUploaded is the record of the files Paperless took, beside the queue: each one's
+// SHA-256 a line. One in it is not queued again — Paperless would refuse it, a failed task there.
+const paperlessUploaded = "uploaded"
 
 // queueForPaperless puts receipts in the queue, each under its file's SHA-256: the same twice is
 // one.
 func queueForPaperless(dir, source string, files []email.Attachment) error {
-	queue := filepath.Join(dir, paperlessQueue)
-	if err := os.MkdirAll(queue, 0o700); err != nil {
-		return err
-	}
 	for _, f := range files {
-		if len(f.Data) == 0 {
-			continue
-		}
-		sum := sha256.Sum256(f.Data)
-		id := hex.EncodeToString(sum[:])
-		meta, err := json.Marshal(paperlessWaiting{Name: filepath.Base(f.Filename), Source: source})
-		if err != nil {
-			return err
-		}
-		// The PDF first: a meta file is only ever beside a whole one.
-		if err := os.WriteFile(filepath.Join(queue, id+".pdf"), f.Data, 0o600); err != nil {
-			return err
-		}
-		if err := os.WriteFile(filepath.Join(queue, id+".json"), meta, 0o600); err != nil {
+		if err := queueOneForPaperless(dir, paperlessWaiting{Name: filepath.Base(f.Filename), Source: source}, f.Data); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// queueOneForPaperless puts one file in the queue, as w says; not one Paperless took before.
+func queueOneForPaperless(dir string, w paperlessWaiting, data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	queue := filepath.Join(dir, paperlessQueue)
+	if err := os.MkdirAll(queue, 0o700); err != nil {
+		return err
+	}
+	sum := sha256.Sum256(data)
+	id := hex.EncodeToString(sum[:])
+	if uploadedBefore(queue, id) {
+		return nil
+	}
+	meta, err := json.Marshal(w)
+	if err != nil {
+		return err
+	}
+	// The PDF first: a meta file is only ever beside a whole one.
+	if err := os.WriteFile(filepath.Join(queue, id+".pdf"), data, 0o600); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(queue, id+".json"), meta, 0o600)
 }
 
 // paperlessUnreachable is Paperless not answering: the NAS off, as a rule. The receipts wait.
@@ -160,17 +177,53 @@ func (p *paperless) uploadWaiting(meta string) error {
 	}
 	os.Remove(meta)
 	os.Remove(pdf)
+	noteUploaded(filepath.Dir(meta), strings.TrimSuffix(filepath.Base(meta), ".json"))
 	paperlessLog.Printf("%s uploaded (%s)", w.Name, w.Source)
 	return nil
 }
 
+// uploadedBefore tells whether Paperless took the file of this SHA-256 before.
+func uploadedBefore(queue, id string) bool {
+	raw, err := os.ReadFile(filepath.Join(queue, paperlessUploaded))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.TrimSpace(line) == id {
+			return true
+		}
+	}
+	return false
+}
+
+// noteUploaded adds a file's SHA-256 to the record of those Paperless took.
+func noteUploaded(queue, id string) {
+	f, err := os.OpenFile(filepath.Join(queue, paperlessUploaded), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		paperlessLog.Printf("WARNING: %v", err)
+		return
+	}
+	defer f.Close()
+	fmt.Fprintln(f, id)
+}
+
 // upload hands one receipt to Paperless; it takes it in in the background.
 func (p *paperless) upload(w paperlessWaiting, data []byte) error {
-	fields := map[string][]string{"title": {paperlessTitle(w.Name)}}
-	if created := receiptDate(w.Name); created != "" {
+	title, created, tags := w.Title, w.Created, w.Tags
+	if title == "" {
+		title = paperlessTitle(w.Name)
+	}
+	if created == "" {
+		created = receiptDate(w.Name)
+	}
+	if tags == nil {
+		tags = p.cfg.Tags
+	}
+	fields := map[string][]string{"title": {title}}
+	if created != "" {
 		fields["created"] = []string{created}
 	}
-	for _, tag := range p.cfg.Tags {
+	for _, tag := range tags {
 		if tag = strings.TrimSpace(tag); tag == "" {
 			continue
 		}

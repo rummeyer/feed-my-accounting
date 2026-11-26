@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Invoices from the mailbox**: *Aus dem Postfach* on the Kundenrechnung card, and the job *invoice-mails* for the schedule — the copy sevDesk mails of each invoice sent is taken by rules, a rule per customer (sender, subject, PDF name: changeable should sevDesk change its mail). The invoice goes to the *Ordner für Rechnungen* as `11_2026_Rechnung_0203.pdf` beside its work log, and to Paperless with the customer as correspondent and its own tags — *Rechnungen*, say. *PDFs ansehen* to look first.
+
+### Changed
+
+- **Paperless once**: what Paperless took is noted by its SHA-256 and not queued again.
+
+### Fixed
+
+- README: the work log is attached to the draft since 1.26.0, no longer "attach it manually".
+
 ## [1.26.1] - 2026-11-25
 
 ### Added
