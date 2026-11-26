@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-11-26
+
 ### Added
 
 - **Invoices from the mailbox**: *Aus dem Postfach* on the Kundenrechnung card, and the job *invoice-mails* for the schedule — the copy sevDesk mails of each invoice sent is taken by rules, a rule per customer (sender, subject, PDF name: changeable should sevDesk change its mail). The invoice goes to the *Ordner für Rechnungen* as `11_2026_Rechnung_0203.pdf` beside its work log, and to Paperless with the customer as correspondent and its own tags — *Tags für Rechnungen* on *Einstellungen › Paperless*, beside *Tags für Belege*. *PDFs ansehen* to look first.
@@ -15,12 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **rclone benutzen, Paperless benutzen**: the switches on *Einstellungen*, before *Belege ablegen* and *Belege hochladen*, so named as they hold for the receipts and the invoices alike.
-- **The page**: on Belege, Apple first and the further senders' section called *Aus dem Postfach*, as on Kundenrechnung; *Weihnachtswoche frei* beneath *Gesperrte Tage*; *Maximale Mail-Anzahl (je Ordner)*; on Kundenrechnung, *Aus dem Postfach* without *Nichts wird gemailt*; *Weitere Postfächer* said to be searched for invoices too; shorter notes on Einstellungen.
+- **The page**: on Belege, Apple first and the further senders' section called *Weitere Rechnungen*; *Weihnachtswoche frei* beneath *Gesperrte Tage*; *Maximale Mail-Anzahl (je Ordner)*; on Kundenrechnung, *Aus dem Postfach* without *Nichts wird gemailt*; the jobs *Weitere Rechnungen abholen*, before *Weitere Absender abholen*, and *Kundenrechnungen aus dem Postfach ablegen*; *Weitere Postfächer* said to be searched for invoices too; shorter notes on Einstellungen.
 - **Paperless once**: what Paperless took is noted by its SHA-256 and not queued again.
 
 ### Fixed
 
-- README: screenshots anew — Reisekosten, Kunden, Kundenrechnung, the rules, the storage.
+- README: screenshots anew — Abschluss, Zeitplan, Reisekosten, Kunden, Kundenrechnung, the rules, Firma, the storage, the log.
 - README: the work log is attached to the draft since 1.26.0, no longer "attach it manually".
 
 ## [1.26.1] - 2026-11-25
