@@ -1220,6 +1220,7 @@ const PARTS = {
   ]]],
   advisor: [[T('Steuerberater', 'Tax adviser'), [
     ['Advisor.To', T('E-Mail-Adresse', 'Email address')],
+    ['Advisor.From', T('Absender', 'Sender'), 'text', T('der aus E-Mail', 'the one of Email')],
     ['Advisor.Bcc', T('Blindkopie (BCC) an', 'Blind copy (BCC) to'), 'text', T('keine', 'none')],
     ['Advisor.Subject', T('Betreff', 'Subject'), 'text', 'Belege {MM}/{YYYY}'],
     ['Advisor.Text', T('Text', 'Text'), 'textarea', T('Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße', 'Hallo, alle Rechnungen & Belege sind für {MM}/{YYYY} in sevDesk gebucht. Viele Grüße')],
