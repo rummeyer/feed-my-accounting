@@ -411,9 +411,12 @@ ul.rows.staff li input[type=radio] { width: auto; margin: 0; }
 
 /* An employee's password beside the name; the logout beside the employee at the top. */
 ul.rows.staff li input.password { width: 15em; flex: none; }
-/* Employees: fixed columns — choice, name, password, its removal, the authenticator, the row's
-   removal — the same in every row, whether a password is set or not. */
-ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 10em 11em 6em; gap: 12px; }
+/* Employees: columns shared by every row — choice, name, password, its removal, 2FA, the row's
+   removal — the buttons' as wide as they are, the gaps between them all the same; a row
+   without a password keeps the places empty. */
+ul.rows.staff.employees { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em max-content max-content max-content; column-gap: 24px; }
+ul.rows.staff.employees li { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; column-gap: 24px; }
+ul.rows.staff.employees li .link { white-space: nowrap; }
 /* The 2FA setup dialog: the QR code on white, so the camera reads it in dark mode too. */
 .totp-dialog h3 { margin: 0 0 10px; }
 .totp-qr { display: block; width: 200px; height: 200px; margin: 12px auto; background: #fff; padding: 8px; image-rendering: pixelated; }
@@ -498,6 +501,7 @@ textarea:focus { outline: 1px dotted var(--headline); outline-offset: 1px; }
 .closing-lines .doc { row-gap: 0; }
 .closing-lines .doc .filed { flex-basis: 100%; overflow-wrap: anywhere; }
 @media (max-width: 720px) {
-  ul.rows.staff.employees li { grid-template-columns: auto minmax(0, 1fr); }
+  ul.rows.staff.employees { grid-template-columns: auto minmax(0, 1fr); }
   ul.rows.staff.employees li > :nth-child(n+3) { grid-column: 2; justify-self: start; }
+  ul.rows.staff.employees li > span:empty { display: none; }
 }
