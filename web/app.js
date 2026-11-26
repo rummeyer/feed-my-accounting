@@ -1922,11 +1922,15 @@ function renderStaff(cfg) {
       staff.NoLogin = [...(staff.NoLogin ?? []), name];
       changed();
     }) : el('span');
-    return el('li', '', pick, input, password, noLogin, totpCell(name, has), button(T('entfernen', 'remove'), 'link', () => {
+    // (×): the employee out of the list, as the receipts' on the closing page.
+    const remove = button('×', 'link row-x', () => {
       staff.Names.splice(i, 1);
       if (staff.Current === name) staff.Current = staff.Names[0] ?? '';
       changed();
-    }));
+    });
+    remove.title = T(`${name || 'Mitarbeiter'} entfernen`, `Remove ${name || 'employee'}`);
+    remove.setAttribute('aria-label', remove.title);
+    return el('li', '', pick, input, password, noLogin, totpCell(name, has), remove);
   }));
   const add = button(T('Mitarbeiter hinzufügen', 'Add employee'), '', () => {
     staff.Names.push('');
