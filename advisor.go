@@ -126,7 +126,11 @@ func informAdvisor(cfg *Config, month time.Time, withZip bool) ([]File, error) {
 		m.Attachments = []email.Attachment{z}
 		files = append(files, File{Name: z.Filename, Size: len(z.Data), data: z.Data})
 	}
-	if err := email.SendMail(cfg.Mail, m); err != nil {
+	mc := cfg.Mail
+	if from := strings.TrimSpace(cfg.Advisor.From); from != "" {
+		mc.From = from
+	}
+	if err := email.SendMail(mc, m); err != nil {
 		return files, err
 	}
 	if cfg.dir != "" {
