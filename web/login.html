@@ -20,9 +20,17 @@
     </header>
     <form id="login" class="login-form">
       <h2><span lang="de">Anmelden</span><span lang="en">Login</span></h2>
-      <label><span lang="de">Mitarbeiter</span><span lang="en">Employee</span><select id="name" autocomplete="username" required></select><input id="name-typed" autocomplete="username" hidden></label>
-      <label id="password-label"><span lang="de">Passwort</span><span lang="en">Password</span><input type="password" id="password" autocomplete="current-password" required></label>
-      <label id="code-label" hidden><span lang="de">Code aus der Authenticator-App</span><span lang="en">Code from the authenticator app</span><input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7"></label>
+      <!-- First the employee and the password; then, from outside with 2FA and no browser trusted,
+           the authenticator's code on a screen of its own. -->
+      <div id="step-password" class="login-step">
+        <label><span lang="de">Mitarbeiter</span><span lang="en">Employee</span><select id="name" autocomplete="username" required></select><input id="name-typed" autocomplete="username" hidden></label>
+        <label id="password-label"><span lang="de">Passwort</span><span lang="en">Password</span><input type="password" id="password" autocomplete="current-password" required></label>
+      </div>
+      <div id="step-code" class="login-step" hidden>
+        <p class="login-hint"><span lang="de">Bitte den 6-stelligen Code aus Google Authenticator eingeben. Dieser Browser fragt danach 30 Tage nicht mehr.</span><span lang="en">Please enter the 6-digit code from Google Authenticator. This browser won't ask again for 30 days.</span></p>
+        <label><span lang="de">Code</span><span lang="en">Code</span><input id="code" class="login-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7"></label>
+        <a href="#" id="back" class="login-back"><span lang="de">← Zurück</span><span lang="en">← Back</span></a>
+      </div>
       <p id="error" class="error" hidden></p>
       <div class="actions"><button type="submit" class="strong"><span lang="de">Anmelden</span><span lang="en">Login</span></button></div>
     </form>

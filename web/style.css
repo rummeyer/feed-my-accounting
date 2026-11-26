@@ -415,13 +415,13 @@ ul.rows.staff li input.password { width: 15em; flex: none; }
    removal — the same in every row, whether a password is set or not. */
 ul.rows.staff.employees li { display: grid; grid-template-columns: auto minmax(0, 1fr) 15em 10em 11em 6em; gap: 12px; }
 .totp-links { display: grid; justify-items: end; gap: 2px; }
-/* An authenticator being set up: the QR code on white, so the camera reads it in dark mode too. */
-.totp-setup { margin: 16px 0; padding: 16px; border: 1px solid var(--rule); max-width: 520px; }
-.totp-setup h4 { margin: 0 0 8px; }
-.totp-qr { display: block; width: 200px; height: 200px; background: #fff; padding: 8px; image-rendering: pixelated; }
-.totp-secret { font-family: var(--mono); letter-spacing: 1px; user-select: all; word-break: break-all; }
-.totp-setup .actions input { width: 8em; flex: none; }
-.totp-setup .error { color: var(--bad); }
+/* The 2FA setup dialog: the QR code on white, so the camera reads it in dark mode too. */
+.totp-dialog h3 { margin: 0 0 10px; }
+.totp-qr { display: block; width: 200px; height: 200px; margin: 12px auto; background: #fff; padding: 8px; image-rendering: pixelated; }
+.totp-key { font-size: .85em; text-align: center; }
+.totp-secret { font-family: var(--mono); letter-spacing: 1px; user-select: all; white-space: nowrap; }
+.totp-dialog .totp-code { display: block; width: 9em; margin: 12px auto; text-align: center; font-family: var(--mono); font-size: 1.3em; letter-spacing: 3px; }
+.totp-dialog .error { color: var(--bad); text-align: center; }
 ul.rows.staff.employees li input.password { width: 100%; }
 ul.rows.staff.employees li .link { justify-self: end; }
 #logout, #logout:hover { padding: 0; font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--muted); }
@@ -431,6 +431,11 @@ main.login { max-width: 560px; }
 .login-form { display: grid; gap: 14px; max-width: 360px; margin: 10px auto 30px; }
 .login-form label { display: grid; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
 .login-form .error { color: var(--bad); margin: 0; }
+.login-step { display: grid; gap: 14px; }
+.login-step[hidden] { display: none; }
+.login-hint { margin: 0; line-height: 1.5; }
+.login-code { font-family: var(--mono); font-size: 1.4em; letter-spacing: 4px; text-align: center; }
+.login-back { font-size: .85em; color: var(--muted); }
 
 /* A month field that only shows, Vodafone's. */
 input.month:disabled { opacity: .55; cursor: default; }

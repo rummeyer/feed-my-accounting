@@ -1797,12 +1797,10 @@ function ruleList(rules, namePlaceholder, fromPlaceholder, help) {
  * The employees, the selected one ticked: the Lieferant on the travel expenses, and whose hours
  * in Harvest make the work log and the invoice. Saved with the button at the bottom.
  */
-/** The authenticator being set up: whose, its QR code and secret; null while none is. */
-let totpOpen = null;
-
 /**
  * An employee's authenticator — Google Authenticator or another — for logging in from outside:
- * set up by its QR code and confirmed with a code, or removed. Saved at once, not with the page.
+ * set up in a dialog by its QR code and confirmed with a code, or removed. Saved at once, not
+ * with the page.
  */
 function totpCell(name, has) {
   // Only for an employee saved with a password: without one there is no login to guard.
@@ -1811,17 +1809,16 @@ function totpCell(name, has) {
   const setup = button(on ? T('2FA neu einrichten', '2FA set up anew') : T('2FA einrichten', 'Set up 2FA'), 'link', async (b) => {
     b.disabled = true;
     try {
-      totpOpen = { name, ...(await api('POST', '/api/totp/setup', { name })) };
-      renderSettings();
-      document.getElementById('totp-code')?.focus();
+      totpDialog(name, await api('POST', '/api/totp/setup', { name }));
     } catch (err) {
       await tell(err.message);
-      b.disabled = false;
     }
+    b.disabled = false;
   });
   if (!on) return setup;
   const remove = button(T('2FA entfernen', 'Remove 2FA'), 'link', async () => {
-    if (!(await ask(T(`Authenticator von ${name} entfernen? Von außen reicht dann das Passwort.`, `Remove ${name}'s authenticator? From outside the password is then enough.`)))) return;
+    if (!(await ask(T(`Authenticator von ${name} entfernen? Von außen reicht dann das Passwort.`, `Remove ${name}'s authenticator? From outside the password is then enough.`),
+      { yes: T('Entfernen', 'Remove') }))) return;
     try {
       await api('POST', '/api/totp/remove', { name });
       delete settings.totp[name];
@@ -1833,15 +1830,15 @@ function totpCell(name, has) {
   return el('span', 'totp-links', setup, remove);
 }
 
-/** The open setup: the QR code to scan, the secret to type instead, and the code to confirm. */
-function totpPanel() {
-  if (!totpOpen) return null;
-  const { name } = totpOpen;
+/**
+ * The setup, a dialog over the page as ask()'s: the QR code to scan, the key to type instead,
+ * the app's code to confirm. Cancel or Escape leaves the authenticator of before.
+ */
+function totpDialog(name, { qr, secret }) {
   const img = el('img', 'totp-qr');
-  img.src = totpOpen.qr;
+  img.src = qr;
   img.alt = T('QR-Code für die Authenticator-App', 'QR code for the authenticator app');
-  const code = el('input');
-  code.id = 'totp-code';
+  const code = el('input', 'totp-code');
   code.inputMode = 'numeric';
   code.autocomplete = 'one-time-code';
   code.maxLength = 7;
@@ -1849,30 +1846,38 @@ function totpPanel() {
   code.setAttribute('aria-label', T('Code aus der App', 'Code from the app'));
   const error = el('p', 'error');
   error.hidden = true;
-  const confirm = async () => {
+  const cancel = button(T('Abbrechen', 'Cancel'), '', () => dialog.close());
+  const confirm = button(T('Bestätigen', 'Confirm'), 'strong', async () => {
+    confirm.disabled = true;
     try {
       await api('POST', '/api/totp/confirm', { name, code: code.value });
       settings.totp = { ...(settings.totp ?? {}), [name]: true };
-      totpOpen = null;
+      dialog.close();
       renderSettings();
       await tell(T(`2FA für ${name} ist eingerichtet. Von außen fragt die Anmeldung jetzt nach dem Code — je Browser alle 30 Tage.`,
         `2FA for ${name} is set up. From outside the login now asks for the code — every 30 days per browser.`));
     } catch (err) {
       error.textContent = err.message;
       error.hidden = false;
+      confirm.disabled = false;
       code.select();
     }
-  };
-  code.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } });
-  return el('div', 'totp-setup',
-    el('h4', '', T(`2FA für ${name} einrichten`, `Set up 2FA for ${name}`)),
-    el('p', 'muted', T('In Google Authenticator (oder einer anderen App) „+“ › „QR-Code scannen“, dann den angezeigten Code eingeben. Ohne Kamera: „Einrichtungsschlüssel eingeben“ mit dem Schlüssel unten. Bis zur Bestätigung gilt der alte.',
-      'In Google Authenticator (or another app) “+” › “Scan a QR code”, then enter the code shown. Without a camera: “Enter a setup key” with the key below. Until confirmed the old one stays.')),
+  });
+  code.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); confirm.click(); } });
+  const dialog = el('dialog', 'ask totp-dialog',
+    el('h3', '', T(`2FA für ${name} einrichten`, `Set up 2FA for ${name}`)),
+    el('p', 'ask-text', T('1. In Google Authenticator „+“ › „QR-Code scannen“.\n2. Den Code aus der App eingeben und bestätigen.',
+      '1. In Google Authenticator “+” › “Scan a QR code”.\n2. Enter the code from the app and confirm.')),
     img,
-    el('p', '', el('code', 'totp-secret', totpOpen.secret.replace(/(.{4})/g, '$1 ').trim())),
-    el('div', 'actions', code, button(T('Bestätigen', 'Confirm'), 'strong', confirm),
-      button(T('Abbrechen', 'Cancel'), 'link', () => { totpOpen = null; renderSettings(); })),
-    error);
+    el('p', 'muted totp-key', T('Ohne Kamera: „Einrichtungsschlüssel eingeben“ mit ', 'Without a camera: “Enter a setup key” with '),
+      el('code', 'totp-secret', secret.replace(/(.{4})/g, '$1 ').trim())),
+    code,
+    error,
+    el('div', 'live-row end', cancel, confirm));
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+  code.focus();
 }
 
 function renderStaff(cfg) {
@@ -1939,7 +1944,6 @@ function renderStaff(cfg) {
     el('p', 'muted', T('2FA: von außen nach dem Passwort zusätzlich der Code aus Google Authenticator, je Browser alle 30 Tage; im Heimnetz nie. Wird sofort gespeichert.',
       '2FA: from outside, after the password, the code from Google Authenticator too, every 30 days per browser; never at home. Saved at once.')),
     staff.Names.length ? list : el('p', 'muted', T('Noch niemand eingetragen.', 'No one entered yet.')),
-    totpPanel(),
     el('div', 'actions', add));
 }
 

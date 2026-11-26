@@ -42,6 +42,18 @@ if (LANG === 'en') document.title = 'Login · feed-my-accounting';
   (password ? $('password') : $('name')).focus();
 })();
 
+// codeStep shows the screen for the code, or back the one for name and password. The name and
+// password stay as typed: sent again with the code.
+function codeStep(on) {
+  $('step-password').hidden = on;
+  $('step-code').hidden = !on;
+  $('code').required = on;
+  $('code').value = '';
+  $('error').hidden = true;
+  (on ? $('code') : $('password')).focus();
+}
+$('back').addEventListener('click', (e) => { e.preventDefault(); codeStep(false); });
+
 $('login').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('error').hidden = true;
@@ -55,15 +67,12 @@ $('login').addEventListener('submit', async (e) => {
     return;
   }
   const data = await res.json().catch(() => ({}));
-  $('error').textContent = data.error || (LANG === 'en' ? `Login failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
-  $('error').hidden = false;
-  // The password was right; the authenticator's code is asked for.
-  if (data.code) {
-    $('code-label').hidden = false;
-    $('code').required = true;
-    $('code').value = '';
-    $('code').focus();
+  // The password was right; the authenticator's code is asked for, on the next screen.
+  if (data.code && $('step-code').hidden) {
+    codeStep(true);
     return;
   }
-  $('password').select();
+  $('error').textContent = data.error || (LANG === 'en' ? `Login failed: HTTP ${res.status}` : `Anmelden ging nicht: HTTP ${res.status}`);
+  $('error').hidden = false;
+  (data.code ? $('code') : $('password')).select();
 });
