@@ -48,7 +48,6 @@ type customerInvoice struct {
 func invoicesIn(rule mailreceipts.Rule, messages []email.Message) []customerInvoice {
 	var out []customerInvoice
 	seen := map[string]bool{}
-	want := strings.ToLower(strings.TrimSpace(rule.Attachment))
 	for _, msg := range messages {
 		months := map[string]string{} // work logs' months by number
 		for _, a := range msg.Attachments {
@@ -58,8 +57,7 @@ func invoicesIn(rule mailreceipts.Rule, messages []email.Message) []customerInvo
 		}
 		found := false
 		for _, a := range msg.Attachments {
-			name := strings.ToLower(a.Filename)
-			if !strings.HasSuffix(name, ".pdf") {
+			if !strings.HasSuffix(strings.ToLower(a.Filename), ".pdf") {
 				continue
 			}
 			inv := customerInvoice{Customer: rule.Name, Date: msg.Date}
@@ -67,7 +65,8 @@ func invoicesIn(rule mailreceipts.Rule, messages []email.Message) []customerInvo
 				inv.Number, inv.WorkLog = m[2], true
 				inv.File = email.Attachment{Filename: fmt.Sprintf("%s_Rechnung_%s_WorkLog.pdf", m[1], m[2]), Data: a.Data}
 			} else {
-				if strings.Contains(name, "worklog") || (want != "" && !strings.Contains(name, want)) {
+				// A work log not named after its invoice is none.
+				if strings.Contains(strings.ToLower(a.Filename), "worklog") || !rule.Takes(a.Filename) {
 					continue
 				}
 				inv.Number = invoiceNumber(a.Filename, msg.Subject)
@@ -116,16 +115,10 @@ func invoiceMails(cfg *Config, month time.Time, store bool, found *[]email.Attac
 	mail := ledgerMail(cfg)
 	var errs []error
 	for _, rule := range im.Rules {
-		if rule.Off || strings.TrimSpace(rule.Name) == "" || strings.TrimSpace(rule.From) == "" {
+		if !rule.On() {
 			continue
 		}
-		messages, err := email.FetchEmails(mail, email.IMAPFilter{
-			Count:           im.Count,
-			FromDomain:      rule.From,
-			SubjectContains: strings.TrimSpace(rule.Subject),
-			Folders:         im.Folders,
-			Month:           month,
-		})
+		messages, err := mailreceipts.Mails(mail, rule, im.Count, im.Folders, month)
 		if err != nil {
 			return fmt.Errorf("%s: fetching mails: %w", rule.Name, err)
 		}

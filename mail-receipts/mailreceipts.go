@@ -30,6 +30,31 @@ type Rule struct {
 	Off        bool   `yaml:"off,omitempty"`        // switched off: left out
 }
 
+// On says whether a rule is used: switched on, with a name and a sender.
+func (r Rule) On() bool {
+	return !r.Off && strings.TrimSpace(r.Name) != "" && strings.TrimSpace(r.From) != ""
+}
+
+// Takes says whether a file of the rule's mails is one of its PDFs: a PDF, its name containing
+// the rule's attachment text, if it has one.
+func (r Rule) Takes(filename string) bool {
+	name := strings.ToLower(filename)
+	want := strings.ToLower(strings.TrimSpace(r.Attachment))
+	return strings.HasSuffix(name, ".pdf") && (want == "" || strings.Contains(name, want))
+}
+
+// Mails are the rule's mails of the month: from its domains, the subject containing its text —
+// at most count in each folder, in folders' order, in every mailbox.
+func Mails(mail email.MailConfig, r Rule, count int, folders []string, month time.Time) ([]email.Message, error) {
+	return email.FetchEmails(mail, email.IMAPFilter{
+		Count:           count,
+		FromDomain:      r.From,
+		SubjectContains: strings.TrimSpace(r.Subject),
+		Folders:         folders,
+		Month:           month,
+	})
+}
+
 // Config is the rules, and where and how far to look for their mails.
 type Config struct {
 	Mail    email.MailConfig
@@ -58,16 +83,10 @@ func Run(cfg Config) error {
 func Collect(cfg Config, month time.Time) ([]Receipts, error) {
 	var out []Receipts
 	for _, rule := range cfg.Rules {
-		if rule.Off || strings.TrimSpace(rule.Name) == "" || strings.TrimSpace(rule.From) == "" {
+		if !rule.On() {
 			continue
 		}
-		messages, err := email.FetchEmails(cfg.Mail, email.IMAPFilter{
-			Count:           cfg.Count,
-			FromDomain:      rule.From,
-			SubjectContains: strings.TrimSpace(rule.Subject),
-			Folders:         cfg.Folders,
-			Month:           month,
-		})
+		messages, err := Mails(cfg.Mail, rule, cfg.Count, cfg.Folders, month)
 		if err != nil {
 			return out, fmt.Errorf("%s: fetching mails: %w", rule.Name, err)
 		}
@@ -95,12 +114,10 @@ func PDFs(rule Rule, messages []email.Message) []email.Attachment {
 	var out []email.Attachment
 	seen := map[string]bool{}
 	named := map[string]int{}
-	want := strings.ToLower(strings.TrimSpace(rule.Attachment))
 	for _, msg := range messages {
 		found := false
 		for _, a := range msg.Attachments {
-			name := strings.ToLower(a.Filename)
-			if !strings.HasSuffix(name, ".pdf") || (want != "" && !strings.Contains(name, want)) {
+			if !rule.Takes(a.Filename) {
 				continue
 			}
 			found = true

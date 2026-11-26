@@ -64,6 +64,8 @@ func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 // Config
 // ---------------------------------------------------------------------------
 
+// Client is a client travelled to: the route, the reason, the distance, its country's holidays
+// and its rates.
 type Client struct {
 	ID       string
 	Name     string
@@ -122,6 +124,8 @@ func (c Client) dayRate() float64 {
 	return c.MealDay
 }
 
+// travelDayRate is the client's rate for an arrival or departure day; abroad without one, its
+// day trip rate.
 func (c Client) travelDayRate() float64 {
 	if c.MealTravelDay == 0 && c.Abroad() {
 		return c.MealDay
@@ -129,10 +133,16 @@ func (c Client) travelDayRate() float64 {
 	return c.MealTravelDay
 }
 
+// mealDay is the client's rate for a day trip; the inland one without its own.
 func (c Client) mealDay(inland MealRates) float64 { return orDefault(c.dayRate(), inland.Day) }
+
+// mealFullDay is the client's rate for a full day away; the inland one without its own.
 func (c Client) mealFullDay(inland MealRates) float64 {
 	return orDefault(c.MealFullDay, inland.FullDay)
 }
+
+// mealTravelDay is the client's rate for an arrival or departure day; the inland one without its
+// own.
 func (c Client) mealTravelDay(inland MealRates) float64 {
 	return orDefault(c.travelDayRate(), inland.TravelDay)
 }
@@ -156,6 +166,7 @@ func (c Client) missingRates(days []Day) string {
 	return strings.Join(missing, ", ")
 }
 
+// orDefault is v if set, else def.
 func orDefault(v, def float64) float64 {
 	if v > 0 {
 		return v
@@ -181,6 +192,7 @@ type Assignment struct {
 	Note        string
 }
 
+// contains says whether date is in the assignment's range.
 func (a Assignment) contains(date time.Time) bool {
 	return BlockedRange{From: a.From, To: a.To}.Contains(date)
 }
@@ -202,6 +214,8 @@ func (b BlockedRange) Contains(date time.Time) bool {
 	return !date.Before(b.From) && !date.After(to)
 }
 
+// Config is what the travel expenses are made of: the clients, their days, the rates, and where
+// they are mailed.
 type Config struct {
 	Mail             email.MailConfig
 	Employee         string
@@ -220,6 +234,7 @@ type Config struct {
 // inlandLodging is the configured inland rate for a night, the legal one where left out.
 func (cfg *Config) inlandLodging() float64 { return orDefault(cfg.InlandLodging, GermanLodging) }
 
+// christmasWeekOffEnabled says whether the Christmas week is off: unless switched off.
 func (c *Config) christmasWeekOffEnabled() bool {
 	return c.ChristmasWeekOff == nil || *c.ChristmasWeekOff
 }
@@ -301,6 +316,8 @@ var europe = map[string]bool{
 // an overnight trip — never the equally distributed ones.
 func (c Client) Overseas() bool { return !europe[normalCountry(c.Country)] }
 
+// getClientCalendars are the clients' business calendars, each with its country's and state's
+// holidays.
 func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
 	calendars := make([]*cal.BusinessCalendar, len(clients))
 	for i, c := range clients {
@@ -309,6 +326,7 @@ func getClientCalendars(clients []Client) []*cal.BusinessCalendar {
 	return calendars
 }
 
+// isWorkday says whether date is a workday of the calendar, and not in the Christmas week off.
 func isWorkday(c *cal.BusinessCalendar, date time.Time, christmasWeekOff bool) bool {
 	return c.IsWorkday(date) && !(christmasWeekOff && christmasWeek(date))
 }
@@ -337,6 +355,7 @@ func christmasWeek(date time.Time) bool {
 	return date.Month() == 12 && (day == 24 || (day >= 27 && day <= 31))
 }
 
+// daysInMonth is the number of days of the month.
 func daysInMonth(year int, month time.Month) int {
 	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
@@ -550,6 +569,7 @@ func assignmentOn(assignments []Assignment, date time.Time) *Assignment {
 	return nil
 }
 
+// validClient says whether i is the index of a client.
 func (c *Config) validClient(i int) bool { return i >= 0 && i < len(c.Clients) }
 
 // blockedNote is the note of the blocked range containing date, if any.

@@ -35,6 +35,7 @@ type FilterConfig struct {
 	Folders []string `yaml:"folders"` // where they are, in this order: the inbox first
 }
 
+// Config is where the Apple invoices are mailed from and to, and how they are found.
 type Config struct {
 	Mail   email.MailConfig
 	Filter FilterConfig
@@ -172,8 +173,13 @@ func textsOf(n *html.Node, texts []string) []string {
 	return texts
 }
 
+// unsafeChars are the characters a file name does without.
+var unsafeChars = regexp.MustCompile(`[^a-zA-Z0-9äöüÄÖÜß\-_ ]+`)
+
+// sanitizeFilename makes s safe as a file name: letters, digits, umlauts, dash, underscore
+// and space only; "invoice" if nothing is left.
 func sanitizeFilename(s string) string {
-	s = regexp.MustCompile(`[^a-zA-Z0-9äöüÄÖÜß\-_ ]+`).ReplaceAllString(s, "_")
+	s = unsafeChars.ReplaceAllString(s, "_")
 	if s = strings.TrimSpace(s); s == "" {
 		s = "invoice"
 	}

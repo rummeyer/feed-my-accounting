@@ -46,11 +46,14 @@ type sessions struct {
 	m    map[string]session
 }
 
+// session is a login: whose, and until when.
 type session struct {
 	Name    string    `json:"name"`
 	Expires time.Time `json:"expires"`
 }
 
+// newSessions are the logins kept in path, read back as they were saved: a restart logs no
+// one out.
 func newSessions(path string) *sessions {
 	s := &sessions{path: path, m: map[string]session{}}
 	if data, err := os.ReadFile(path); err == nil {
@@ -66,6 +69,7 @@ func newSessions(path string) *sessions {
 	return s
 }
 
+// tokenHash is the SHA-256 a session is kept under: the cookie's token itself is never saved.
 func tokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
@@ -108,6 +112,7 @@ func (s *sessions) who(token string, touch bool) (name string, renewed bool) {
 	return got.Name, false
 }
 
+// end ends the session of a token: a logout.
 func (s *sessions) end(token string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -152,12 +157,14 @@ type failures struct {
 	allUntil time.Time
 }
 
+// failure is an address's failed logins: how many, the last, and until when it is locked out.
 type failure struct {
 	n     int
 	last  time.Time
 	until time.Time
 }
 
+// locked says whether an address is locked out for its failed logins now.
 func (f *failures) locked(ip string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -165,6 +172,7 @@ func (f *failures) locked(ip string) bool {
 	return now.Before(f.allUntil) || now.Before(f.m[ip].until)
 }
 
+// failed counts a failed login of an address, locking it out once there are too many.
 func (f *failures) failed(ip string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -192,6 +200,7 @@ func (f *failures) failed(ip string) {
 	}
 }
 
+// succeeded forgets an address's failed logins: it got in.
 func (f *failures) succeeded(ip string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -249,6 +258,7 @@ func withProxy(r *http.Request, token string) *http.Request {
 	return r
 }
 
+// remoteHost is the host of a request's remote address, without its port.
 func remoteHost(addr string) string {
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -338,6 +348,8 @@ func (s *server) session(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// login checks an employee's name and password and starts a session, its token in a cookie;
+// failed logins lock the address out for a while.
 func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name     string `json:"name"`
@@ -390,6 +402,7 @@ func (s *server) startSession(w http.ResponseWriter, r *http.Request, name strin
 	reply(w, map[string]string{"user": name})
 }
 
+// logout ends the session and removes its cookie.
 func (s *server) logout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(sessionCookie); err == nil {
 		s.sessions.end(cookie.Value)

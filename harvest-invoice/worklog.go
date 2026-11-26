@@ -239,12 +239,14 @@ func budgetLines(budgets []Budget) []budgetLine {
 	return lines
 }
 
+// label writes a field's label, small and grey.
 func label(pdf *fpdf.Fpdf, text string, width float64) {
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(90, 90, 90)
 	pdf.CellFormat(width, 5, text, "", 0, "L", false, 0, "")
 }
 
+// bold writes a field's value, bold and dark, wrapped to width.
 func bold(pdf *fpdf.Fpdf, text string, width, size float64) {
 	pdf.SetFont("Helvetica", "B", size)
 	pdf.SetTextColor(20, 20, 20)

@@ -31,6 +31,7 @@ func SetLogOutput(w io.Writer) { logger.SetOutput(w) }
 // Config
 // ---------------------------------------------------------------------------
 
+// Config is the MeinVodafone login and where the invoices are mailed.
 type Config struct {
 	Mail                email.MailConfig
 	Username            string // Vodafone portal username
@@ -63,6 +64,7 @@ var months = map[string]string{
 var monthNames = []string{"", "Januar", "Februar", "März", "April", "Mai", "Juni",
 	"Juli", "August", "September", "Oktober", "November", "Dezember"}
 
+// invoice is an invoice found on the page: its file name, month and year.
 type invoice struct {
 	Filename  string
 	Month     string
@@ -145,6 +147,7 @@ func Collect(cfg Config) ([]email.Attachment, error) {
 // Browser
 // ---------------------------------------------------------------------------
 
+// login logs in to MeinVodafone, as a person would, the live view asked if a captcha comes.
 func login(ctx context.Context, cfg Config) error {
 	if err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		_, err := page.AddScriptToEvaluateOnNewDocument(`
@@ -384,6 +387,8 @@ const clickFirstArchiveEntry = `(() => {
 	if (links.length > 0) links[0].click();
 })()`
 
+// downloadInvoice is a contract's current invoice with its PDF — last month's, with the fallback,
+// while this month's is not there yet; nil if there is none.
 func downloadInvoice(ctx context.Context, contractType, typeName string, fallbackToLastMonth bool) *invoice {
 	if err := navigateToInvoicePage(ctx, typeName); err != nil {
 		logger.Printf("%s: failed to navigate to invoice page: %v", typeName, err)
@@ -443,6 +448,7 @@ func downloadInvoice(ctx context.Context, contractType, typeName string, fallbac
 	return archiveInfo
 }
 
+// navigateToInvoicePage opens the invoices of a contract: Mobilfunk or Kabel.
 func navigateToInvoicePage(ctx context.Context, typeName string) error {
 	if err := chromedp.Run(ctx, chromedp.Navigate("https://www.vodafone.de/meinvodafone/services/")); err != nil {
 		return err
@@ -495,6 +501,7 @@ func navigateToInvoicePage(ctx context.Context, typeName string) error {
 	return fmt.Errorf("invoice page not loaded after 30 s (%s)", url)
 }
 
+// capturePDF clicks the download and catches the PDF the page makes, from its blob.
 func capturePDF(ctx context.Context, clickJS string) ([]byte, error) {
 	// Intercept PDF blob URLs so we can capture the raw data.
 	if err := chromedp.Run(ctx, chromedp.Evaluate(`
@@ -558,6 +565,7 @@ func parseArchiveFirstEntry(text, skipMonth, skipYear string) *invoice {
 	return nil
 }
 
+// parseInvoiceInfo is the invoice's month and year as the page's text says; nil if it does not.
 func parseInvoiceInfo(text string) *invoice {
 	for _, re := range invoicePatterns {
 		if matches := re.FindStringSubmatch(text); len(matches) >= 3 {

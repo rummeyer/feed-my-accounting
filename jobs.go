@@ -54,6 +54,8 @@ const keepJobs = 50 // the oldest goes when a new one comes
 
 var errBusy = errors.New("another job is running: wait for it to finish")
 
+// NewJobs are the runs kept in path, read back as they were saved: a run still running when the
+// server stopped counts as interrupted, and its PDFs, kept in memory only, as gone.
 func NewJobs(path string) *Jobs {
 	j := &Jobs{path: path}
 	if data, err := os.ReadFile(path); err == nil {
@@ -185,6 +187,7 @@ func (j *Jobs) Running() *Job {
 	return &copied
 }
 
+// save writes the runs to their file; a failure is only logged.
 func (j *Jobs) save() {
 	j.mu.Lock()
 	data, err := json.MarshalIndent(j.jobs, "", "  ")
@@ -194,6 +197,7 @@ func (j *Jobs) save() {
 	}
 }
 
+// newJobID is a run's id: ten random hex digits.
 func newJobID() string {
 	b := make([]byte, 5)
 	_, _ = rand.Read(b)
@@ -207,6 +211,7 @@ type lineWriter struct {
 	add func(string)
 }
 
+// Write takes a run's output, adding it to the run line by line as it comes.
 func (w *lineWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

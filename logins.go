@@ -41,13 +41,16 @@ type gatedError struct {
 	last time.Time
 }
 
+// Error says when the gate opens again, and why it is shut.
 func (e gatedError) Error() string {
 	return fmt.Sprintf("%s: logged in already on %s — once a month only, the next from %s; another login this soon risks the account being blocked",
 		siteName(e.site), e.last.Format("02.01.2006 15:04"), allowedFrom(e.last).Format("02.01.2006"))
 }
 
+// Unwrap makes a gatedError an errGated for errors.Is.
 func (e gatedError) Unwrap() error { return errGated }
 
+// siteName is a site as the messages name it: vodafone, Vodafone.
 func siteName(site string) string {
 	switch site {
 	case "vodafone":
@@ -58,6 +61,7 @@ func siteName(site string) string {
 	return site
 }
 
+// loginsPath is the file beside the configuration where the logins are noted; empty without one.
 func loginsPath(cfg *Config) string {
 	if cfg.dir == "" {
 		return ""

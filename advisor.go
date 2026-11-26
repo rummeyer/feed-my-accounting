@@ -124,7 +124,7 @@ func informAdvisor(cfg *Config, month time.Time, withZip bool) ([]File, error) {
 		}
 		archiveLog.Printf("%s: %d receipt(s), %d KB", z.Filename, len(receipts), (len(z.Data)+1023)/1024)
 		m.Attachments = []email.Attachment{z}
-		files = append(files, File{Name: z.Filename, Size: len(z.Data), data: z.Data})
+		files = append(files, fileOf(z.Filename, z.Data))
 	}
 	mc := cfg.Mail
 	if from := strings.TrimSpace(cfg.Advisor.From); from != "" {

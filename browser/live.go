@@ -99,6 +99,7 @@ func (l *Live) Cancel() {
 
 var errNotAsking = errors.New("no live view open")
 
+// page is the browser tab shown in the live view; an error if none is shown now.
 func (l *Live) page() (context.Context, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()

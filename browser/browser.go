@@ -89,6 +89,7 @@ func NewContext(opts ...Option) (context.Context, context.CancelFunc) {
 	}
 }
 
+// options are how a browser is started: its language, its profile, its timeout.
 type options struct {
 	germanLocale  bool
 	profile       string

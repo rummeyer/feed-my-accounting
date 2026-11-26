@@ -474,6 +474,8 @@ func handedOn(url, field string) bool {
 // Orders
 // ---------------------------------------------------------------------------
 
+// order is an order on the list of the month's orders: its number, its day, and where its
+// invoice links are.
 type order struct {
 	ID   string
 	Date time.Time
@@ -498,6 +500,7 @@ const cardsJS = `(() => {
 	return {text: c.innerText, popover: pop};
 })`
 
+// card is an order's card as the page shows it: its text, and the popover of its invoice links.
 type card struct {
 	Text    string `json:"text"`
 	Popover string `json:"popover"`
@@ -664,6 +667,7 @@ func pdfLinks(html string) []string {
 	return links
 }
 
+// evaluateAsync evaluates a script that returns a promise, waiting for it to settle.
 func evaluateAsync(expr string, out any) chromedp.Action {
 	return chromedp.Evaluate(expr, out, func(p *runtime.EvaluateParams) *runtime.EvaluateParams { return p.WithAwaitPromise(true) })
 }

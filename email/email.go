@@ -148,25 +148,26 @@ func SendMail(cfg MailConfig, m Mail) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", cfg.From)
 	msg.SetHeader("To", m.To)
-	if cc := addresses(m.Cc); len(cc) > 0 {
-		msg.SetHeader("Cc", cc...)
-	}
-	if bcc := addresses(m.Bcc); len(bcc) > 0 {
-		msg.SetHeader("Bcc", bcc...)
-	}
-	if rt := addresses(m.ReplyTo); len(rt) > 0 {
-		msg.SetHeader("Reply-To", rt...)
+	for header, list := range map[string]string{"Cc": m.Cc, "Bcc": m.Bcc, "Reply-To": m.ReplyTo} {
+		if a := addresses(list); len(a) > 0 {
+			msg.SetHeader(header, a...)
+		}
 	}
 	msg.SetHeader("Subject", m.Subject)
 	msg.SetBody("text/plain", m.Text)
-	for _, a := range m.Attachments {
+	return deliver(cfg, msg, m.Subject, m.To, m.Attachments)
+}
+
+// deliver attaches the files to msg and sends it by the account's SMTP server, said in the log.
+func deliver(cfg MailConfig, msg *gomail.Message, subject, to string, attachments []Attachment) error {
+	for _, a := range attachments {
 		data := a.Data
 		msg.Attach(a.Filename, gomail.SetCopyFunc(func(w io.Writer) error {
 			_, err := w.Write(data)
 			return err
 		}))
 	}
-	logger.Printf("Sending %q to %s with %d attachment(s)", m.Subject, m.To, len(m.Attachments))
+	logger.Printf("Sending %q to %s with %d attachment(s)", subject, to, len(attachments))
 	if err := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.Username, cfg.Password).DialAndSend(msg); err != nil {
 		return err
 	}
@@ -205,7 +206,8 @@ func unsent(ledger Ledger, vendor string, attachments []Attachment) ([]Attachmen
 	return fresh, nil
 }
 
-// Send sends an email with the given attachments via SMTP.
+// Send mails the attachments to the recipient, with the copy — sevDesk's Autobox — beside: the
+// mail the receipts go to the books by.
 func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 	msg := gomail.NewMessage()
 	msg.SetHeader("From", cfg.From)
@@ -215,22 +217,7 @@ func Send(cfg MailConfig, subject string, attachments ...Attachment) error {
 	}
 	msg.SetHeader("Subject", subject)
 	msg.SetBody("text/html", "Dokumente anbei.<br>")
-
-	for _, a := range attachments {
-		data := a.Data
-		msg.Attach(a.Filename, gomail.SetCopyFunc(func(w io.Writer) error {
-			_, err := w.Write(data)
-			return err
-		}))
-	}
-
-	logger.Printf("Sending %q to %s with %d attachment(s)", subject, cfg.To, len(attachments))
-	dialer := gomail.NewDialer(cfg.SMTPHost, cfg.SMTPPort, cfg.Username, cfg.Password)
-	if err := dialer.DialAndSend(msg); err != nil {
-		return err
-	}
-	logger.Println("Email sent")
-	return nil
+	return deliver(cfg, msg, subject, cfg.To, attachments)
 }
 
 // ---------------------------------------------------------------------------
@@ -274,6 +261,8 @@ func FetchEmails(cfg MailConfig, filter IMAPFilter) ([]Message, error) {
 	return fetch(cfg, filter, true)
 }
 
+// fetch is the matching mails of every mailbox, this one first: with their attachments, or their
+// HTML. A further mailbox failing is said and skipped; this one failing fails it.
 func fetch(cfg MailConfig, filter IMAPFilter, attachments bool) ([]Message, error) {
 	var all []Message
 	for i, account := range cfg.accounts() {
@@ -401,6 +390,8 @@ func fromDomain(from []*imap.Address, domains string) bool {
 	return false
 }
 
+// fetchMatchingUIDs are the UIDs of the mails in seqSet whose sender and subject the filter takes,
+// by their envelopes only.
 func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter) []uint32 {
 	items := []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}
 	messages := make(chan *imap.Message, 10)
@@ -441,6 +432,7 @@ func fetchMatchingUIDs(c *client.Client, seqSet *imap.SeqSet, filter IMAPFilter)
 	return uids
 }
 
+// fetchBodies fetches the mails of the UIDs whole: their attachments, or their HTML body.
 func fetchBodies(c *client.Client, uids []uint32, attachments bool) ([]Message, error) {
 	uidSet := new(imap.SeqSet)
 	for _, uid := range uids {
@@ -541,6 +533,7 @@ func readParts(r io.Reader) (Message, error) {
 	}
 }
 
+// extractHTMLBody is the HTML part of a mail.
 func extractHTMLBody(r io.Reader) (string, error) {
 	mr, err := mail.CreateReader(r)
 	if err != nil {

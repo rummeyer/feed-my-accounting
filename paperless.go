@@ -132,6 +132,7 @@ func flushPaperless(cfg *Config) {
 	paperlessLog.Printf("%d receipt(s) uploaded", done)
 }
 
+// modTime is when a file was last written; zero if it cannot be read.
 func modTime(path string) time.Time {
 	info, err := os.Stat(path)
 	if err != nil {

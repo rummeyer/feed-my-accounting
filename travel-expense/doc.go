@@ -26,6 +26,7 @@ const (
 // Helpers
 // ---------------------------------------------------------------------------
 
+// documentID is a document's number: RK-2026-11- and four random characters.
 func documentID(year int, month time.Month) string {
 	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, 4)
@@ -36,14 +37,17 @@ func documentID(year int, month time.Month) string {
 	return fmt.Sprintf("RK-%d-%02d-%s", year, month, string(b))
 }
 
+// formatDate is a day as German write it: 30.11.2026.
 func formatDate(year int, month time.Month, day int) string {
 	return fmt.Sprintf("%02d.%02d.%d", day, month, year)
 }
 
+// formatAmount is an amount with a decimal comma: 14,00.
 func formatAmount(amount float64) string {
 	return strings.Replace(fmt.Sprintf("%.2f", amount), ".", ",", 1)
 }
 
+// rightAlign pads s on the left to width.
 func rightAlign(s string, width int) string {
 	if len(s) >= width {
 		return s
@@ -55,6 +59,8 @@ func rightAlign(s string, width int) string {
 // Document Content Builders
 // ---------------------------------------------------------------------------
 
+// buildDocumentHeader is a document's head: its title and month, its number, the employee, the
+// period and the day it was made.
 func buildDocumentHeader(year int, month time.Month, dateString, periodStart, periodEnd, title string) string {
 	var b strings.Builder
 
@@ -73,6 +79,7 @@ func buildDocumentHeader(year int, month time.Month, dateString, periodStart, pe
 	return b.String()
 }
 
+// buildClientHeader is the head of a client's days: name, route and reason.
 func buildClientHeader(c Client) string {
 	var b strings.Builder
 
@@ -87,6 +94,7 @@ func buildClientHeader(c Client) string {
 	return b.String()
 }
 
+// buildKilometerEntry is a day's mileage: the distance at the rate per kilometre.
 func buildKilometerEntry(dateString string, distanceKm int) string {
 	var b strings.Builder
 
@@ -105,6 +113,7 @@ func amountLine(indent int, label string, amount float64) string {
 	return strings.Repeat(" ", indent) + label + strings.Repeat(" ", pad) + amountStr
 }
 
+// buildMealAllowanceEntry is a day trip's meal allowance at the inland rate.
 func buildMealAllowanceEntry(dateString string) string {
 	return buildMealEntry(dateString, "07:00 - 17:00", "8h - 24h", GermanRates.Day)
 }
@@ -141,6 +150,7 @@ func buildLodgingEntry(from, to, where string, amount float64) string {
 	return b.String()
 }
 
+// buildDocumentFooter is a document's foot: its total.
 func buildDocumentFooter(totalAmount float64) string {
 	var b strings.Builder
 

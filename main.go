@@ -86,6 +86,8 @@ func setModuleLogs(w io.Writer) {
 	log.SetOutput(w)
 }
 
+// main runs the command given — a module, all of them, or the web interface — with the
+// configuration found.
 func main() {
 	args := os.Args[1:]
 
@@ -226,6 +228,7 @@ func main() {
 	}
 }
 
+// runTravelExpense makes the month's travel expense PDFs and sends them.
 func runTravelExpense(cfg *Config, year int, month time.Month) error {
 	tc, err := travelConfig(cfg)
 	if err != nil {
@@ -350,6 +353,7 @@ func checked(cfg *Config, job string, month time.Time, err error) error {
 	return err
 }
 
+// appleConfig is the apple-invoice module's configuration, from the whole.
 func appleConfig(cfg *Config) apple.Config {
 	return apple.Config{
 		Mail: belegeMail(cfg),
@@ -362,10 +366,12 @@ func appleConfig(cfg *Config) apple.Config {
 	}
 }
 
+// runAppleInvoice sends the current month's Apple invoices, the month noted as looked at.
 func runAppleInvoice(cfg *Config) error {
 	return checked(cfg, "apple-invoice", time.Now(), apple.Run(appleConfig(cfg)))
 }
 
+// mailReceiptsConfig is the mail-receipts module's configuration, from the whole.
 func mailReceiptsConfig(cfg *Config) mailreceipts.Config {
 	mr := cfg.MailReceipts
 	return mailreceipts.Config{Mail: belegeMail(cfg), Rules: mr.Rules, Count: mr.Count, Folders: mr.Folders}
@@ -401,6 +407,7 @@ func mailReceipts(cfg *Config, month time.Time, send bool, found *[]email.Attach
 // say: the web interface's, set as it starts; nil on the command line, where nobody is asked.
 var liveView *browser.Live
 
+// vodafoneConfig is the vodafone-invoice module's configuration, from the whole.
 func vodafoneConfig(cfg *Config) vodafone.Config {
 	return vodafone.Config{
 		Mail:                belegeMail(cfg),
@@ -424,6 +431,8 @@ func runVodafoneInvoice(cfg *Config) error {
 // device its one-time code was given on.
 const amazonBrowser = "feed-my-accounting-amazon-browser"
 
+// amazonConfig is the amazon-invoice module's configuration, from the whole: its browser profile
+// kept beside the configuration, to stay logged in.
 func amazonConfig(cfg *Config) amazon.Config {
 	profile := ""
 	if cfg.dir != "" {
@@ -466,6 +475,7 @@ func runAmazonInvoice(cfg *Config) error {
 	return checked(cfg, "amazon-invoice", amazon.FetchedMonth(time.Now()), withLogin(cfg, "amazon", func() error { return amazon.Run(amazonConfig(cfg)) }))
 }
 
+// harvestConfig is the harvest-invoice module's configuration, from the whole.
 func harvestConfig(cfg *Config) harvest.Config {
 	return harvest.Config{
 		SkipExisting: *cfg.HarvestInvoice.SkipExisting,
@@ -543,6 +553,7 @@ func slashMonth(s string) (int, time.Month, error) {
 	return year, time.Month(m), nil
 }
 
+// parseMonthArg is the month among the arguments, "11/2026"; the current one if none is.
 func parseMonthArg(args []string) (int, time.Month) {
 	for _, arg := range args {
 		if monthArgRegex.MatchString(arg) {
@@ -556,6 +567,7 @@ func parseMonthArg(args []string) (int, time.Month) {
 	return year, month
 }
 
+// printUsage prints the commands and flags.
 func printUsage() {
 	fmt.Print(`feed-my-accounting - accounting orchestrator
 

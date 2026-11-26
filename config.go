@@ -62,6 +62,7 @@ type MealRates struct {
 	TravelDay float64 `yaml:"travelDay,omitempty"` // arrival or departure day: 14
 }
 
+// TravelExpenseConfig is the travel-expense module's: the clients, their days and rates.
 type TravelExpenseConfig struct {
 	Employee         string       `yaml:"employee,omitempty"`    // until 1.10: now staff.current, moved there on reading
 	MealRates        MealRates    `yaml:"mealRates,omitempty"`   // inland rates, for clients without their own
@@ -134,10 +135,13 @@ type AmazonInvoiceConfig struct {
 	Password string `yaml:"password"`
 }
 
+// AnthropicInvoiceConfig is the anthropic-invoice module's of before 1.25, read to become a
+// mail rule.
 type AnthropicInvoiceConfig struct {
 	Filter MailFilterConfig `yaml:"filter"`
 }
 
+// AppleInvoiceConfig finds Apple's invoice mails.
 type AppleInvoiceConfig struct {
 	Filter MailFilterConfig `yaml:"filter"`
 }
@@ -199,12 +203,16 @@ type InvoiceMailsConfig struct {
 	Rules   []mailreceipts.Rule `yaml:"rules,omitempty"`
 }
 
+// VodafoneInvoiceConfig is the MeinVodafone login, and whether last month's invoice will do
+// while this month's is not there yet.
 type VodafoneInvoiceConfig struct {
 	Username            string `yaml:"username"`
 	Password            string `yaml:"password"`
 	FallbackToLastMonth *bool  `yaml:"fallbackToLastMonth,omitempty"` // default: true
 }
 
+// HarvestInvoiceConfig is the Kundenrechnung's: the Harvest API, and the sevDesk login and what
+// the draft is made of.
 type HarvestInvoiceConfig struct {
 	SkipExisting *bool `yaml:"skipExisting,omitempty"` // default: true
 	Harvest      struct {
@@ -244,6 +252,7 @@ type StaffConfig struct {
 	NoLogin   []string          `yaml:"-"`
 }
 
+// Config is the whole configuration, config.yaml: a section per module, beside what they share.
 type Config struct {
 	Company CompanyConfig    `yaml:"company,omitempty"`
 	Staff   StaffConfig      `yaml:"staff"`
@@ -285,6 +294,7 @@ func (c *Config) logoPath() string {
 	return ""
 }
 
+// fileExists says whether path is a file.
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
@@ -412,6 +422,7 @@ func normalizeStaff(cfg *Config) {
 	}
 }
 
+// applyDefaults fills in what is left empty with its default.
 func applyDefaults(cfg *Config) {
 	if cfg.Mail.From == "" {
 		cfg.Mail.From = cfg.Mail.Username

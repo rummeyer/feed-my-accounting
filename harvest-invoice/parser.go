@@ -81,6 +81,7 @@ func pdfText(pdfData []byte) (string, error) {
 // abrechenbar, 34,00 Stunden nicht abrechenbar" — the billable ones are what is invoiced.
 var billablePattern = regexp.MustCompile(`([\d.,]+)\s+Stunden abrechenbar,\s*[\d.,]+\s+Stunden nicht abrechenbar`)
 
+// hoursIn is the hours a work log's text says: the billable ones, else the total.
 func hoursIn(pdfText string) (float64, error) {
 	if matches := billablePattern.FindStringSubmatch(pdfText); len(matches) >= 2 {
 		return parseFloat(matches[1])
@@ -91,6 +92,7 @@ func hoursIn(pdfText string) (float64, error) {
 	return 0, fmt.Errorf("could not find total hours in PDF text")
 }
 
+// parseDate is the date of a match of day, month and year.
 func parseDate(match []string) (time.Time, error) {
 	if len(match) < 4 {
 		return time.Time{}, fmt.Errorf("invalid date match")

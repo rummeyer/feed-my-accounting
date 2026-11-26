@@ -38,6 +38,8 @@ type SentDoc struct {
 	Filed string `json:"filed,omitempty"` // its name there
 }
 
+// ledgerData is the ledger's file: what was sent, when each source last looked at a month, and
+// when the tax adviser was told of one.
 type ledgerData struct {
 	Docs []SentDoc `json:"docs"`
 	// Checked is when each source last looked at a month, by source and month: 2026-11.
@@ -64,6 +66,7 @@ func ledgerOf(cfg *Config) *Ledger {
 	return l.(*Ledger)
 }
 
+// read is the ledger as saved; empty if there is none yet.
 func (l *Ledger) read() (ledgerData, error) {
 	var d ledgerData
 	raw, err := os.ReadFile(l.path)
@@ -76,6 +79,7 @@ func (l *Ledger) read() (ledgerData, error) {
 	return d, json.Unmarshal(raw, &d)
 }
 
+// write saves the ledger, by a file beside it renamed over it: never half written.
 func (l *Ledger) write(d ledgerData) error {
 	raw, err := json.MarshalIndent(d, "", "  ")
 	if err != nil {
@@ -198,6 +202,7 @@ func (l *Ledger) Checked(source string, month time.Time) error {
 	return l.change(func(d *ledgerData) { markChecked(d, source, month.Format("2006-01"), time.Now()) })
 }
 
+// markChecked notes that source looked at month at at.
 func markChecked(d *ledgerData, source, month string, at time.Time) {
 	if d.Checked == nil {
 		d.Checked = map[string]map[string]time.Time{}

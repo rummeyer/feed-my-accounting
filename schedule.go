@@ -152,6 +152,8 @@ func cronValue(s string, min, max int, names []string) (int, error) {
 	return strconv.Atoi(s)
 }
 
+// parseCronField marks in set the values a cron field takes — lists, ranges, steps and names —
+// between min and max.
 func parseCronField(field string, min, max int, names []string, set *[64]bool) error {
 	for _, part := range strings.Split(field, ",") {
 		rng, step := part, 1
@@ -425,11 +427,13 @@ type scheduledError struct {
 	next time.Time
 }
 
+// Error says when the schedule logs in, and why a login now is held back.
 func (e scheduledError) Error() string {
 	return fmt.Sprintf("%s: the schedule logs in on %s — a login now would make it skip, once a month only; switch its schedule off to run by hand",
 		siteName(e.site), e.next.Format("02.01.2006 15:04"))
 }
 
+// Unwrap makes a scheduledError an errGated for errors.Is.
 func (e scheduledError) Unwrap() error { return errGated }
 
 // nextRun is the schedule's next run after now: its job and when; nil if nothing is scheduled.

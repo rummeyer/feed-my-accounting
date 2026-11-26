@@ -5,6 +5,7 @@ const $ = (id) => document.getElementById(id);
 // The language lang.js chose, German or English: T(de, en) is the text in it. The page's own
 // texts are there in both, the other hidden; what is made here goes through T.
 const LANG = document.documentElement.dataset.lang === 'en' ? 'en' : 'de';
+/** The text in the page's language: German, or English. */
 const T = (de, en) => (LANG === 'en' ? en : de);
 const LOCALE = T('de-DE', 'en-GB');
 
@@ -25,6 +26,7 @@ function el(tag, className, ...children) {
   return node;
 }
 
+/** A button of type button, calling onClick with itself. */
 function button(text, className, onClick) {
   const b = el('button', className, text);
   b.type = 'button';
@@ -32,6 +34,7 @@ function button(text, className, onClick) {
   return b;
 }
 
+/** Calls the API: JSON in and out, a form as it is; its error as the thrown message. */
 async function api(method, path, body) {
   const isForm = body instanceof FormData;
   const res = await fetch(path, {
@@ -87,6 +90,7 @@ const tell = (text) => ask(text, { no: null });
   });
 })();
 
+/** An amount in euros as German write it: 14,00 €. */
 const euro = (v) => `${(v ?? 0).toFixed(2).replace('.', ',')} €`;
 /** Hours as the page writes them: 41,25 in German, 41.25 in English. */
 const hoursText = (h) => T(String(h).replace('.', ','), String(h));
@@ -101,11 +105,14 @@ function dropZone(target, take) {
     if (e.dataTransfer.files[0]) take(e.dataTransfer.files[0]);
   });
 }
+/** A day 2026-11-30 as 30.11.2026. */
 const dmy = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
 const MONTHS = T(['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
   ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']);
+/** Whether a time is none: empty, or Go's zero time. */
 const never = (iso) => !iso || iso.startsWith('0001');
 
+/** How long ago a time was: "vor 2 h", or the day if longer. */
 function ago(iso) {
   if (never(iso)) return '';
   const s = Math.round((Date.now() - new Date(iso)) / 1000);
@@ -127,6 +134,7 @@ function nextTheme(pref) {
   return 'auto';
 }
 
+/** Names the theme switch by the theme chosen: light, dark or the system's. */
 function labelTheme() {
   const pref = document.documentElement.dataset.themePref || 'auto';
   const name = T({ light: 'Hell-Modus', dark: 'Dunkel-Modus', auto: 'System-Modus' }, { light: 'light mode', dark: 'dark mode', auto: 'system mode' })[pref];
@@ -165,6 +173,7 @@ for (const link of document.querySelectorAll('[data-lang-link]')) {
 const TABS = ['closing', 'cron', 'travel', 'receipts', 'invoice', 'log', 'settings'];
 const loaders = {};
 
+/** Shows the tab the address names — the closing first — and loads what it shows. */
 function showTab() {
   // The closing first: the overview.
   const name = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'closing';
@@ -230,6 +239,7 @@ function mailTo() {
 /** A run's state in words. */
 const STATUS = () => T({ running: 'läuft', ok: 'erledigt', failed: 'fehlgeschlagen' }, { running: 'running', ok: 'done', failed: 'failed' });
 
+/** A job's last run in a line: what, how it ended, when, and its error. */
 function lastText(job) {
   if (!job) return '';
   const how = STATUS()[job.status] || job.status;
@@ -265,6 +275,7 @@ const TITLES = [
   [/^Rechnungsentwurf /, 'Invoice draft '],
   [/ · Zeitplan$/, ' · schedule'],
 ];
+/** A run's title in the page's language: the server's are German. */
 function title(t) {
   if (LANG !== 'en' || !t) return t;
   for (const [de, en] of TITLES) t = t.replace(de, en);
@@ -275,8 +286,10 @@ function title(t) {
 
 let schedule = null;
 
+/** The schedule's entries as saved: to tell whether they changed. */
 const scheduleJSON = () => JSON.stringify(schedule.entries.map(({ job, cron, enabled }) => ({ job, cron, enabled })));
 
+/** Loads the schedule and shows it. */
 async function loadCron() {
   if (schedule && scheduleJSON() !== schedule.saved) return; // changes not saved yet: kept
   try {
@@ -294,8 +307,10 @@ async function loadCron() {
 }
 loaders.cron = loadCron;
 
+/** A time with its weekday: Mo., 30.11.2026, 07:00. */
 const when = (iso) => new Date(iso).toLocaleString(LOCALE, { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+/** Shows the schedule's entries, each with its job, cron expression, last and next runs. */
 function renderSchedule() {
   const rows = schedule.entries.map((e, i) => {
     const job = el('select');
@@ -377,6 +392,7 @@ const LIVE_REASONS = () => ({
   'amazon-asks': T('Amazon fragt nach – bitte im Bild beantworten.', 'Amazon is asking something – please answer it in the picture.'),
   captcha: T('Vodafone will einen Sicherheitscode – bitte den Code aus dem Bild ins Feld eintippen und „Weiter“ klicken.', 'Vodafone wants a security code – please type the code from the picture into the field and click “Weiter”.'),
 });
+/** Opens the live view while a run asks someone to take over a page, and closes it after. */
 async function checkLive() {
   const state = await api('GET', '/api/live').catch(() => null);
   const dialog = $('live');
@@ -397,6 +413,7 @@ async function checkLive() {
 setInterval(checkLive, 2000);
 checkLive();
 
+/** Shows the live view's page anew, the new picture swapped in once loaded. */
 function refreshShot() {
   const next = new Image();
   next.onload = () => { $('live-shot').src = next.src; };
@@ -536,6 +553,7 @@ function linked(text) {
   });
 }
 
+/** Shows a run in box: its output, its web addresses as links, and its PDFs to download. */
 function renderJob(box, job) {
   const pre = el('pre', '', ...linked((job.output ?? []).join('\n') || '…'));
   const files = (job.files ?? []).map((f) => {
@@ -563,6 +581,7 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
+/** Starts a run and follows its output in the console of name; onDone after it ended. */
 async function start(name, method, path, body, onDone) {
   try {
     const job = await api(method, path, body);
@@ -581,6 +600,7 @@ async function start(name, method, path, body, onDone) {
 // the command line, the current one at first.
 const NAMES = T({ amazon: 'Amazon-Rechnungen', apple: 'Apple-Rechnungen', vodafone: 'Vodafone-Rechnungen', mail: 'Belege weiterer Absender' },
   { amazon: 'Amazon invoices', apple: 'Apple invoices', vodafone: 'Vodafone invoices', mail: "further senders' receipts" });
+/** The month chosen for a kind of receipts: 11/2026. */
 const monthOf = (kind) => document.querySelector(`.receipt-month[data-for="${kind}"]`).value;
 {
   const now = new Date();
@@ -627,11 +647,13 @@ let month = new Date();
 month = new Date(month.getFullYear(), month.getMonth(), 1);
 let plan = null;
 
+/** The travel month shown as the API has it: 2026-11. */
 const monthKey = () => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
 
 $('prev-month').addEventListener('click', () => { month.setMonth(month.getMonth() - 1); loadTravel(); });
 $('next-month').addEventListener('click', () => { month.setMonth(month.getMonth() + 1); loadTravel(); });
 
+/** Loads the travel month shown, with the assignments and blocked days, and shows it. */
 async function loadTravel() {
   $('month-title').textContent = `${MONTHS[month.getMonth()]} ${month.getFullYear()}`;
   try {
@@ -777,6 +799,7 @@ for (const s of document.querySelectorAll('[data-icon]')) s.replaceWith(icon(s.d
 /** An amount after its icon: "🍴 44,00 €". */
 const amount = (name, title, eur) => el('span', 'amount', icon(name, title), euro(eur));
 
+/** Shows the travel month as a calendar: each day's client, kind and amounts. */
 function renderCalendar() {
   const cells = T(['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'], ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']).map((d) => el('div', 'wd', d));
   const first = (new Date(`${plan.month}-01T00:00:00`).getDay() + 6) % 7;
@@ -824,6 +847,7 @@ const RATE_NAMES = T({ mealDay: 'Tagesreise > 8 h', mealFullDay: 'Ganzer Tag', m
 /** What the month's expenses come to: meals, mileage and nights. */
 const totalOf = (t) => (t.meals ?? 0) + (t.mileage ?? 0) + (t.lodging ?? 0);
 
+/** Shows the travel month's totals, and the days per client. */
 function renderTotals() {
   const t = plan.totals;
   // Clients abroad falling back to the inland rate: named once each, under the totals.
@@ -846,6 +870,7 @@ function renderTotals() {
   ].filter(Boolean));
 }
 
+/** Fills the assignment form's client list, keeping the one chosen. */
 function renderRanges() {
   const clients = overview?.clients ?? [];
   const select = $('a-client');
@@ -877,6 +902,7 @@ function takeLists() {
   }
 }
 
+/** Shows the assignments and blocked days, each to edit or remove. */
 function renderLists() {
   const clients = overview?.clients ?? [];
   const nameOf = (key) => clients.find((c) => c.id === key || c.name === key)?.name ?? key;
@@ -939,6 +965,7 @@ function editEntry(name, i) {
   $(list.form).scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
+/** Ends editing an entry of a list: its form empty again. */
 function stopEditing(name) {
   lists[name].editing = -1;
   $(lists[name].form).reset();
@@ -1037,6 +1064,7 @@ function draftClient() {
   return (saved.HarvestInvoice?.SevDesk?.ClientName ?? '').trim();
 }
 
+/** Reads a work log PDF into the manual draft's fields. */
 async function sendReport(file) {
   $('drop-text').textContent = T(`${file.name} wird gelesen…`, `Reading ${file.name}…`);
   const form = new FormData();
@@ -1081,6 +1109,7 @@ const logConsole = el('div', 'console');
 logConsole.dataset.console = 'log';
 let openJob = null;
 
+/** Loads the runs and shows them, newest first. */
 async function loadLog() {
   const jobs = await api('GET', '/api/jobs').catch(() => []);
   $('no-jobs').hidden = jobs.length > 0;
@@ -1266,12 +1295,14 @@ const CLIENT_FIELDS = [
 let settings = null;
 
 const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
+/** Sets a dotted path of obj — Mail.From — making the objects on the way. */
 function setPath(obj, path, value) {
   const keys = path.split('.');
   const last = keys.pop();
   keys.reduce((o, k) => (o[k] ??= {}), obj)[last] = value;
 }
 
+/** A settings field for a dotted path of obj: its label, its input of type, bound to it. */
 function field(obj, [path, label, type, extra]) {
   if (type === 'break') return el('div', 'break');
   const value = getPath(obj, path);
@@ -1360,12 +1391,14 @@ document.addEventListener('input', (e) => {
   for (const shadow of document.querySelectorAll(`[data-shadow-of="${path}"]`)) shadow.placeholder = e.target.value ? `${DEFAULT}: ${e.target.value}` : '';
 });
 
+/** Calls update on every change of input, typed or chosen; input itself. */
 function bind(input, update) {
   input.addEventListener('input', update);
   input.addEventListener('change', update);
   return input;
 }
 
+/** Loads the settings and fills every settings part on the page. */
 async function loadSettings() {
   if (settings && JSON.stringify(settings.config) !== settings.saved) return; // changes not saved yet: kept
   try {
@@ -1381,6 +1414,20 @@ async function loadSettings() {
   renderSettings();
 }
 for (const tab of ['settings', 'invoice', 'receipts']) loaders[tab] = loadSettings;
+
+/** The notes beneath a settings part: what it does, in German and English. */
+const NOTES = {
+  archive: ['Belege und Kundenrechnungen zusätzlich per rclone ablegen – iCloud Drive, Google Drive oder jeder andere Speicher mit rclone-Remote auf dem Pi (rclone config). {YYYY} und {MM} stehen für Jahr und Monat. Belege: Vorhandenes bleibt, die neue Datei heißt dann „… (1).pdf“. Rechnungen: Rechnung und Zeitnachweis unter ihrer Nummer, 11_2026_Rechnung_0203.pdf, nur einmal.',
+    'Receipts and invoices also stored with rclone – iCloud Drive, Google Drive or any other storage with an rclone remote on the Pi (rclone config). {YYYY} and {MM} stand for year and month. Receipts: what is there stays, the new file is then called “… (1).pdf”. Invoices: invoice and work log under its number, 11_2026_Rechnung_0203.pdf, once only.'],
+  paperless: ['Für Belege und Kundenrechnungen. Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags für Belege – etwa Firma, nach dem ein Workflow in Paperless ablegt. Die versendeten Kundenrechnungen (Kundenrechnung › Aus dem Postfach) bekommen den Kunden als Korrespondent und die Tags für Rechnungen. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
+    'For receipts and invoices. Receipts sent also go to Paperless-ngx, with the sender as correspondent, the date from the file name and the tags for receipts – Firma, say, for a workflow in Paperless to file them by. The invoices sent (Invoice › From the mailbox) get the customer as correspondent and the tags for invoices. While Paperless cannot be reached (NAS off), the receipts wait on the Pi and go up once it is back; it is tried every ten minutes. The API token is in Paperless under My Profile.'],
+  web: ['Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',
+    'Home network only: only devices with a private address (192.168.…, 10.…, localhost), even with the port open by mistake. Off: from outside too, through Caddy say — but only once an employee has a password, and only after logging in. Behind Caddy the visitor\'s address counts; Caddy in Docker (172.…) needs the proxy token, the same as in the Caddyfile.'],
+  advisor: ['„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail; Antworten gehen an „Antwort an“, wenn eingetragen. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage an – nur mit rclone.',
+    '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email; answers go to “Reply to”, if set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage comes with it – with rclone only.'],
+  notify: ['Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
+    'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.'],
+};
 
 /** Fills every settings part on the page from the one configuration they all edit. */
 function renderSettings() {
@@ -1400,28 +1447,11 @@ function renderSettings() {
       if (fields.length) children.push(el('fieldset', 'grid', ...fields.map((f) => field(cfg, f))));
       if (part === 'company') children.push(renderLogo());
     }
-    if (part === 'archive') {
-      children.push(el('p', 'muted', T('Belege und Kundenrechnungen zusätzlich per rclone ablegen – iCloud Drive, Google Drive oder jeder andere Speicher mit rclone-Remote auf dem Pi (rclone config). {YYYY} und {MM} stehen für Jahr und Monat. Belege: Vorhandenes bleibt, die neue Datei heißt dann „… (1).pdf“. Rechnungen: Rechnung und Zeitnachweis unter ihrer Nummer, 11_2026_Rechnung_0203.pdf, nur einmal.',
-        'Receipts and invoices also stored with rclone – iCloud Drive, Google Drive or any other storage with an rclone remote on the Pi (rclone config). {YYYY} and {MM} stand for year and month. Receipts: what is there stays, the new file is then called “… (1).pdf”. Invoices: invoice and work log under its number, 11_2026_Rechnung_0203.pdf, once only.')));
-    }
-    if (part === 'paperless') {
-      children.push(el('p', 'muted', T('Für Belege und Kundenrechnungen. Gesendete Belege gehen zusätzlich an Paperless-ngx, mit dem Absender als Korrespondent, dem Datum aus dem Dateinamen und den Tags für Belege – etwa Firma, nach dem ein Workflow in Paperless ablegt. Die versendeten Kundenrechnungen (Kundenrechnung › Aus dem Postfach) bekommen den Kunden als Korrespondent und die Tags für Rechnungen. Ist Paperless nicht erreichbar (NAS aus), warten die Belege auf dem Pi und gehen hoch, sobald es wieder da ist; alle zehn Minuten wird es versucht. Das API-Token steht in Paperless unter Mein Profil.',
-        'For receipts and invoices. Receipts sent also go to Paperless-ngx, with the sender as correspondent, the date from the file name and the tags for receipts – Firma, say, for a workflow in Paperless to file them by. The invoices sent (Invoice › From the mailbox) get the customer as correspondent and the tags for invoices. While Paperless cannot be reached (NAS off), the receipts wait on the Pi and go up once it is back; it is tried every ten minutes. The API token is in Paperless under My Profile.')));
-    }
-    if (part === 'web') {
-      children.push(el('p', 'muted', T('Nur im Heimnetz: nur Geräte mit privater Adresse (192.168.…, 10.…, localhost), auch bei versehentlich offenem Port. Aus: auch von außen, etwa über Caddy — aber nur, wenn ein Mitarbeiter ein Passwort hat, und nur mit Anmeldung. Hinter Caddy zählt die Adresse des Besuchers; Caddy in Docker (172.…) braucht das Proxy-Token, dasselbe wie im Caddyfile.',
-        'Home network only: only devices with a private address (192.168.…, 10.…, localhost), even with the port open by mistake. Off: from outside too, through Caddy say — but only once an employee has a password, and only after logging in. Behind Caddy the visitor\'s address counts; Caddy in Docker (172.…) needs the proxy token, the same as in the Caddyfile.')));
-    }
+    if (NOTES[part]) children.push(el('p', 'muted', T(...NOTES[part])));
     if (part === 'mail') children.push(renderMailboxes(cfg));
     if (part === 'mailrules') children.unshift(renderRules(cfg));
     if (part === 'invoicerules') children.unshift(renderInvoiceRules(cfg));
-    if (part === 'advisor') {
-      children.push(el('p', 'muted', T('„Steuerberater informieren“ auf Abschluss schickt diese Mail – an ihn, nicht an die Autobox; in Kopie (CC) und Blindkopie (BCC) an die Adressen darunter, wenn welche eingetragen sind, mehrere mit Komma. Absender leer: der aus E-Mail; Antworten gehen an „Antwort an“, wenn eingetragen. {MM}, {YYYY} und {MONAT} stehen für den Monat. Auf Wunsch hängt ein ZIP mit allen Belegen des Monats aus der Ablage an – nur mit rclone.',
-        '“Inform tax adviser” on Closing sends this mail – to him, not to the Autobox; a copy (CC) and a blind copy (BCC) to the addresses beneath, if set, several with commas. Sender empty: the one of Email; answers go to “Reply to”, if set. {MM}, {YYYY} and {MONAT} stand for the month. If asked, a zip of all of the month\'s receipts from the storage comes with it – with rclone only.')));
-    }
     if (part === 'notify') {
-      children.push(el('p', 'muted', T('Aufs Handy kommt: ein Lauf aus dem Zeitplan, der fehlschlägt, und am Abschlusstag, welche Belege im Vormonat noch fehlen – nur von Quellen mit Zeitplan, die weder etwas gesendet noch nachgesehen haben. Die Anwendung legst du unter pushover.net/apps an; der User-Key steht auf pushover.net nach der Anmeldung.',
-        'To the phone: a scheduled run that fails, and on the closing day which receipts last month is still missing – only of sources with a schedule that neither sent nor looked. Create the application at pushover.net/apps; the user key is on pushover.net once logged in.')));
       const test = button(T('Test senden', 'Send test'), 'strong', async (b) => {
         b.disabled = true;
         try {
@@ -1491,10 +1521,12 @@ function unsaved() {
 /** The unsaved parts by their names on the page. */
 const PART_NAMES = T({ settings: 'Einstellungen', schedule: 'Zeitplan', assignments: 'Zuordnungen', blocked: 'Gesperrte Tage', logo: 'Logo' },
   { settings: 'settings', schedule: 'schedule', assignments: 'assignments', blocked: 'blocked days', logo: 'logo' });
+/** The unsaved parts' names in a line. */
 const partNames = (parts) => parts.map((p) => PART_NAMES[p]).join(', ');
 
 let armed = null; // the timer while the button asks "sicher?"
 
+/** Shows whether anything is unsaved, and what: the save buttons on or off. */
 function refreshSave() {
   renderNeeds();
   const parts = unsaved();
@@ -1505,6 +1537,7 @@ function refreshSave() {
   $('save-note').textContent = parts.length ? `${T('Nicht gespeichert', 'Not saved')}: ${partNames(parts)}` : '';
 }
 
+/** Takes back the save button's "Sure?". */
 function disarm() {
   clearTimeout(armed);
   armed = null;
@@ -1829,6 +1862,7 @@ function renderStaff(cfg) {
     el('div', 'actions', add));
 }
 
+/** The clients' list: each a box of fields, to add and remove. */
 function renderClients(cfg) {
   cfg.TravelExpense.Clients ??= [];
   const box = el('div', '', el('p', 'muted',
@@ -1855,6 +1889,7 @@ function renderClients(cfg) {
 // The month shown: until the closing day the one before, being closed; after it the current one.
 let closingMonth = null;
 
+/** Loads the closing month shown and shows it. */
 async function loadClosing() {
   let data;
   const key = closingMonth && `${closingMonth.getFullYear()}-${String(closingMonth.getMonth() + 1).padStart(2, '0')}`;
@@ -1897,13 +1932,16 @@ function unsendButton(row, doc, id) {
   return b;
 }
 
+/** A time short: 30.11.2026, 07:00. */
 const shortWhen = (iso) => new Date(iso).toLocaleString(LOCALE, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 let closingData = null;
 
+/** A month's state in words: closed, under way, or nothing yet. */
 const STATE = () => T({ done: 'Abgeschlossen: alle Belege da, Rechnung in sevDesk', progress: 'In Arbeit', none: 'Noch nichts passiert' },
   { done: 'Closed: all receipts in, invoice in sevDesk', progress: 'Under way', none: 'Nothing has happened yet' });
 
+/** Shows a month's closing: its state, and source by source what was sent and what is open. */
 function renderClosing(data) {
   closingData = data;
   const name = `${MONTHS[closingMonth.getMonth()]} ${closingMonth.getFullYear()}`;

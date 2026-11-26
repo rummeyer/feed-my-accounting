@@ -77,6 +77,7 @@ func runServe(configPath string) error {
 	return httpServer.ListenAndServe()
 }
 
+// handler is the web interface: the page, and its API — behind the login where one is set.
 func (s *server) handler() http.Handler {
 	mux := http.NewServeMux()
 	web, _ := fs.Sub(webFiles, "web")
@@ -163,6 +164,7 @@ func homeAddress(ip net.IP) bool {
 	return ip != nil && (ip.IsLoopback() || ip.IsLinkLocalUnicast() || (ip.IsPrivate() && !docker.Contains(ip)))
 }
 
+// config is the configuration as saved now: read anew for each request.
 func (s *server) config() (*Config, error) { return loadConfig("", s.configPath) }
 
 // say is the message in the page's language: German, or English when the page asks so in X-Lang.
@@ -187,6 +189,8 @@ func fresh(next http.Handler) http.Handler {
 // Overview
 // ---------------------------------------------------------------------------
 
+// overview is what every page shows: the version, the employee, the run going or the next one,
+// each job's last run, the login gates, where the mails go.
 func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.config()
 	if err != nil {
@@ -233,6 +237,7 @@ func (s *server) overview(w http.ResponseWriter, r *http.Request) {
 // Schedule
 // ---------------------------------------------------------------------------
 
+// getSchedule is the schedule's entries, each with its next runs and its last.
 func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.config()
 	if err != nil {
@@ -275,6 +280,7 @@ func (s *server) getSchedule(w http.ResponseWriter, r *http.Request) {
 	reply(w, map[string]any{"entries": entries, "jobs": jobs})
 }
 
+// putSchedule saves the schedule's entries, each cron expression checked first.
 func (s *server) putSchedule(w http.ResponseWriter, r *http.Request) {
 	var in []ScheduleEntry
 	if !read(w, r, &in) {
@@ -300,6 +306,7 @@ func (s *server) putSchedule(w http.ResponseWriter, r *http.Request) {
 // Travel expenses
 // ---------------------------------------------------------------------------
 
+// planDay is a day of the travel calendar as the page draws it.
 type planDay struct {
 	Date     string  `json:"date"`
 	Weekday  string  `json:"weekday"`
@@ -320,6 +327,7 @@ type planDay struct {
 
 var weekdays = [...]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
 
+// travelPlan is a month's travel calendar: each day's client, kind and amounts, with the totals.
 func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
 	cfg, err := s.config()
 	if err != nil {
@@ -379,6 +387,7 @@ func clientNames(clients []travelexpense.Client) []string {
 	return names
 }
 
+// travelRun makes the month's travel expense PDFs, to look at — or sent.
 func (s *server) travelRun(send bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
@@ -413,7 +422,7 @@ func (s *server) travelRun(send bool) http.HandlerFunc {
 			}
 			var files []File
 			for _, d := range result.Documents() {
-				files = append(files, File{Name: d.Filename, Size: len(d.Data), data: d.Data})
+				files = append(files, fileOf(d.Filename, d.Data))
 			}
 			if send {
 				return files, travelexpense.Send(tc, year, month, result)
@@ -423,6 +432,7 @@ func (s *server) travelRun(send bool) http.HandlerFunc {
 	}
 }
 
+// saveBlocked saves the blocked days.
 func (s *server) saveBlocked(w http.ResponseWriter, r *http.Request) {
 	var in []DateRange
 	if !read(w, r, &in) {
@@ -440,6 +450,7 @@ func (s *server) saveBlocked(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
+// saveAssignments saves the assignments, each client named checked first.
 func (s *server) saveAssignments(w http.ResponseWriter, r *http.Request) {
 	var in []Assignment
 	if !read(w, r, &in) {
@@ -482,14 +493,8 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 		if !read(w, req, &in) {
 			return
 		}
-		year, month, err := slashMonth(in.Month)
-		if err != nil {
-			fail(w, http.StatusBadRequest, err)
-			return
-		}
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
+		year, month, cfg, ok := s.monthConfig(w, in.Month)
+		if !ok {
 			return
 		}
 		// A login the gate holds back: said, for the page to ask whether to run anyway.
@@ -518,10 +523,7 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 			if err != nil {
 				return nil, err
 			}
-			var files []File
-			for _, p := range pdfs {
-				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
-			}
+			files := filesOf(pdfs)
 			if send {
 				err = r.send(cfg, pdfs)
 				// Amazon's month is not chosen: the one it fetched.
@@ -538,43 +540,26 @@ func (s *server) receiptsRun(r receipts, send bool) http.HandlerFunc {
 // mailReceiptsRun takes the further senders' receipts of a month, by their rules: to look at,
 // or sent — offered for download both.
 func (s *server) mailReceiptsRun(send bool) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		var in struct {
-			Month string `json:"month"`
-		}
-		if !read(w, req, &in) {
-			return
-		}
-		year, month, err := slashMonth(in.Month)
-		if err != nil {
-			fail(w, http.StatusBadRequest, err)
-			return
-		}
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
-			return
-		}
-		verb := "ansehen"
-		if send {
-			verb = "senden"
-		}
-		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-		s.start(w, "mail-receipts", fmt.Sprintf("Weitere Rechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
-			var pdfs []email.Attachment
-			err := mailReceipts(cfg, at, send, &pdfs)
-			var files []File
-			for _, p := range pdfs {
-				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
-			}
-			return files, err
-		})
+	verb := "ansehen"
+	if send {
+		verb = "senden"
 	}
+	return s.rulesRun("mail-receipts", "Weitere Rechnungen", verb, send, mailReceipts)
 }
 
 // invoiceMailsRun takes the customers' invoices of a month from the mailboxes, by their rules:
 // to look at, or stored — offered for download both.
 func (s *server) invoiceMailsRun(store bool) http.HandlerFunc {
+	verb := "ansehen"
+	if store {
+		verb = "ablegen"
+	}
+	return s.rulesRun("invoice-mails", "Kundenrechnungen", verb, store, invoiceMails)
+}
+
+// rulesRun runs a job of mail rules for the month asked — "Weitere Rechnungen 11/2026 senden" —
+// its PDFs offered for download, whether act, sending or storing them, is asked or not.
+func (s *server) rulesRun(kind, title, verb string, act bool, run func(*Config, time.Time, bool, *[]email.Attachment) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		var in struct {
 			Month string `json:"month"`
@@ -582,31 +567,44 @@ func (s *server) invoiceMailsRun(store bool) http.HandlerFunc {
 		if !read(w, req, &in) {
 			return
 		}
-		year, month, err := slashMonth(in.Month)
-		if err != nil {
-			fail(w, http.StatusBadRequest, err)
+		year, month, cfg, ok := s.monthConfig(w, in.Month)
+		if !ok {
 			return
-		}
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
-			return
-		}
-		verb := "ansehen"
-		if store {
-			verb = "ablegen"
 		}
 		at := time.Date(year, month, 1, 0, 0, 0, 0, time.Local)
-		s.start(w, "invoice-mails", fmt.Sprintf("Kundenrechnungen %d/%d %s", month, year, verb), func() ([]File, error) {
+		s.start(w, kind, fmt.Sprintf("%s %d/%d %s", title, month, year, verb), func() ([]File, error) {
 			var pdfs []email.Attachment
-			err := invoiceMails(cfg, at, store, &pdfs)
-			var files []File
-			for _, p := range pdfs {
-				files = append(files, File{Name: p.Filename, Size: len(p.Data), data: p.Data})
-			}
-			return files, err
+			err := run(cfg, at, act, &pdfs)
+			return filesOf(pdfs), err
 		})
 	}
+}
+
+// monthConfig is the month a run is asked for, "11/2026" — empty, the current one — and the
+// configuration as saved; ok false, the request answered with what is wrong.
+func (s *server) monthConfig(w http.ResponseWriter, slash string) (year int, month time.Month, cfg *Config, ok bool) {
+	year, month, err := slashMonth(slash)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return 0, 0, nil, false
+	}
+	if cfg, err = s.config(); err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return 0, 0, nil, false
+	}
+	return year, month, cfg, true
+}
+
+// fileOf is a PDF as a run offers it for download.
+func fileOf(name string, data []byte) File { return File{Name: name, Size: len(data), data: data} }
+
+// filesOf are PDFs as a run offers them for download.
+func filesOf(pdfs []email.Attachment) []File {
+	var files []File
+	for _, p := range pdfs {
+		files = append(files, fileOf(p.Filename, p.Data))
+	}
+	return files
 }
 
 // harvestRun makes the sevDesk draft for a month's hours in Harvest and their work log — with
@@ -620,14 +618,8 @@ func (s *server) harvestRun(logOnly bool) http.HandlerFunc {
 		if !read(w, r, &in) {
 			return
 		}
-		year, month, err := slashMonth(in.Month)
-		if err != nil {
-			fail(w, http.StatusBadRequest, err)
-			return
-		}
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
+		year, month, cfg, ok := s.monthConfig(w, in.Month)
+		if !ok {
 			return
 		}
 		if cfg.HarvestInvoice.Harvest.Token == "" {
@@ -881,6 +873,7 @@ func liveShot(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
+// liveClick clicks at a point of the live view.
 func liveClick(w http.ResponseWriter, r *http.Request) {
 	var in struct{ X, Y float64 }
 	if read(w, r, &in) && liveOn(w) {
@@ -888,6 +881,7 @@ func liveClick(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveType types text into the live view.
 func liveType(w http.ResponseWriter, r *http.Request) {
 	var in struct{ Text string }
 	if read(w, r, &in) && liveOn(w) {
@@ -895,6 +889,7 @@ func liveType(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveKey presses a key in the live view: Enter, Tab, Backspace.
 func liveKey(w http.ResponseWriter, r *http.Request) {
 	var in struct{ Key string }
 	if read(w, r, &in) && liveOn(w) {
@@ -902,6 +897,7 @@ func liveKey(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveScroll scrolls the live view at a point.
 func liveScroll(w http.ResponseWriter, r *http.Request) {
 	var in struct{ X, Y, DY float64 }
 	if read(w, r, &in) && liveOn(w) {
@@ -909,6 +905,7 @@ func liveScroll(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveFill fills the stored password into the live view's field — never sent to the page.
 func liveFill(w http.ResponseWriter, r *http.Request) {
 	if liveOn(w) {
 		log.Printf("Live view: stored password filled in")
@@ -916,6 +913,7 @@ func liveFill(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveClear empties the live view's focused field.
 func liveClear(w http.ResponseWriter, r *http.Request) {
 	if liveOn(w) {
 		log.Printf("Live view: field cleared")
@@ -923,6 +921,7 @@ func liveClear(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveCancel gives up the run waiting on the live view.
 func liveCancel(w http.ResponseWriter, r *http.Request) {
 	if liveOn(w) {
 		liveView.Cancel()
@@ -930,6 +929,7 @@ func liveCancel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// liveOn says whether there is a live view; if not, the request is answered so.
 func liveOn(w http.ResponseWriter) bool {
 	if liveView == nil {
 		fail(w, http.StatusNotFound, errors.New("no live view"))
@@ -942,6 +942,7 @@ func liveOn(w http.ResponseWriter) bool {
 // Jobs
 // ---------------------------------------------------------------------------
 
+// start starts a run in the background and answers with it: the page follows its output.
 func (s *server) start(w http.ResponseWriter, kind, title string, work work) {
 	job, err := s.jobs.Start(kind, title, work)
 	if err != nil {
@@ -951,13 +952,16 @@ func (s *server) start(w http.ResponseWriter, kind, title string, work work) {
 	reply(w, job)
 }
 
+// listJobs is the last runs, newest first.
 func (s *server) listJobs(w http.ResponseWriter, r *http.Request) { reply(w, s.jobs.List()) }
 
+// clearJobs empties the run history.
 func (s *server) clearJobs(w http.ResponseWriter, r *http.Request) {
 	s.jobs.Clear()
 	reply(w, map[string]bool{"ok": true})
 }
 
+// getJob is one run, with its output so far.
 func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
 	job, ok := s.jobs.Get(r.PathValue("id"))
 	if !ok {
@@ -967,6 +971,7 @@ func (s *server) getJob(w http.ResponseWriter, r *http.Request) {
 	reply(w, job)
 }
 
+// getFile is a PDF a run made, for download: kept until the server restarts.
 func (s *server) getFile(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.jobs.File(r.PathValue("id"), r.PathValue("name"))
 	if !ok {
@@ -998,6 +1003,8 @@ func secrets(cfg *Config) []*string {
 	}
 }
 
+// getSettings is the configuration for the settings page: secrets left out, only whether each is
+// set.
 func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 	cfg, err := readConfig(s.configPath)
 	if err != nil {
@@ -1024,6 +1031,8 @@ func (s *server) getSettings(w http.ResponseWriter, r *http.Request) {
 	reply(w, map[string]any{"config": cfg, "secretsSet": set, "logins": logins, "mailboxes": mailboxes, "path": s.configPath, "countries": travelexpense.Countries})
 }
 
+// putSettings saves the settings page's configuration: an empty secret keeps the one saved, new
+// passwords are hashed.
 func (s *server) putSettings(w http.ResponseWriter, r *http.Request) {
 	var in Config
 	if !read(w, r, &in) {
@@ -1140,6 +1149,7 @@ func monthParam(s string) (int, time.Month, error) {
 	return t.Year(), t.Month(), nil
 }
 
+// dateOrEmpty is a day as 2026-11-30; empty for none.
 func dateOrEmpty(t time.Time) string {
 	if t.IsZero() {
 		return ""
@@ -1147,6 +1157,7 @@ func dateOrEmpty(t time.Time) string {
 	return t.Format(time.DateOnly)
 }
 
+// orEmpty is list, or an empty one for nil: [] in JSON, not null.
 func orEmpty[T any](list []T) []T {
 	if list == nil {
 		return []T{}
@@ -1154,6 +1165,8 @@ func orEmpty[T any](list []T) []T {
 	return list
 }
 
+// read decodes a request's JSON body, a megabyte at most; false, the request answered with the
+// error.
 func read(w http.ResponseWriter, r *http.Request, into any) bool {
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(into); err != nil {
 		fail(w, http.StatusBadRequest, err)
@@ -1162,11 +1175,13 @@ func read(w http.ResponseWriter, r *http.Request, into any) bool {
 	return true
 }
 
+// reply answers with v as JSON.
 func reply(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
 }
 
+// done answers {"ok": true}, or the error.
 func done(w http.ResponseWriter, err error) {
 	if err != nil {
 		fail(w, http.StatusBadRequest, err)
@@ -1175,6 +1190,7 @@ func done(w http.ResponseWriter, err error) {
 	reply(w, map[string]bool{"ok": true})
 }
 
+// fail answers with status and the error as JSON: {"error": "…"}.
 func fail(w http.ResponseWriter, status int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

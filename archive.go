@@ -99,26 +99,16 @@ func archiveInvoice(ac ArchiveConfig, name string, data []byte) error {
 		archiveLog.Printf("%s is in \"%s\" already: left as it is", name, folder)
 		return nil
 	}
-	dir, err := os.MkdirTemp("", "feed-my-accounting-archive-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(dir)
-	if err := os.WriteFile(filepath.Join(dir, name), data, 0o600); err != nil {
-		return err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	if out, err := exec.CommandContext(ctx, "rclone", "copy", dir, ac.Remote+":"+folder).CombinedOutput(); err != nil {
-		return fmt.Errorf("rclone copy to %s:%s: %v: %s (if it wants a new login: rclone config reconnect %s:)", ac.Remote, folder, err, lastLine(string(out)), ac.Remote)
+	if err := rcloneCopy(ac, folder, []email.Attachment{{Filename: name, Data: data}}); err != nil {
+		return fmt.Errorf("%w (if it wants a new login: rclone config reconnect %s:)", err, ac.Remote)
 	}
 	archiveLog.Printf("%s copied to \"%s://%s\"", name, remoteType(ac.Remote), folder)
 	return nil
 }
 
 // copyToArchive copies files to the storage, each into its month's folder, never over one there:
-// a name taken gets " (1)", " (2)" before its extension, as the Finder does. Written to a
-// folder of their own first, under the names they get, then one rclone copy per folder there.
+// a name taken gets " (1)", " (2)" before its extension, as the Finder does. One rclone copy per
+// folder.
 func copyToArchive(ac ArchiveConfig, files []email.Attachment) error {
 	if ac.Remote == "" {
 		return errors.New("no rclone remote set")
@@ -135,29 +125,42 @@ func copyToArchive(ac ArchiveConfig, files []email.Attachment) error {
 	}
 	sort.Strings(folders)
 	for _, folder := range folders {
-		dir, err := os.MkdirTemp("", "feed-my-accounting-archive-")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(dir)
 		taken, err := remoteNames(ac.Remote + ":" + folder)
 		if err != nil {
 			return err
 		}
+		// Under the names they get there: none over one there, nor over each other.
+		var named []email.Attachment
 		for _, f := range byFolder[folder] {
 			name := freeName(filepath.Base(f.Filename), taken)
 			taken[name] = true
-			if err := os.WriteFile(filepath.Join(dir, name), f.Data, 0o600); err != nil {
-				return err
-			}
+			named = append(named, email.Attachment{Filename: name, Data: f.Data})
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-		out, err := exec.CommandContext(ctx, "rclone", "copy", dir, ac.Remote+":"+folder).CombinedOutput()
-		cancel()
-		if err != nil {
-			return fmt.Errorf("rclone copy to \"%s://%s\": %v: %s", kind, folder, err, lastLine(string(out)))
+		if err := rcloneCopy(ac, folder, named); err != nil {
+			return err
 		}
-		archiveLog.Printf("%d file(s) copied to \"%s://%s\"", len(byFolder[folder]), kind, folder)
+		archiveLog.Printf("%d file(s) copied to \"%s://%s\"", len(named), kind, folder)
+	}
+	return nil
+}
+
+// rcloneCopy copies files into a folder of the storage under their names: written to a folder of
+// their own first, then one rclone copy of it — which makes the folder there if need be.
+func rcloneCopy(ac ArchiveConfig, folder string, files []email.Attachment) error {
+	dir, err := os.MkdirTemp("", "feed-my-accounting-archive-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	for _, f := range files {
+		if err := os.WriteFile(filepath.Join(dir, f.Filename), f.Data, 0o600); err != nil {
+			return err
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	if out, err := exec.CommandContext(ctx, "rclone", "copy", dir, ac.Remote+":"+folder).CombinedOutput(); err != nil {
+		return fmt.Errorf("rclone copy to %s:%s: %v: %s", ac.Remote, folder, err, lastLine(string(out)))
 	}
 	return nil
 }
