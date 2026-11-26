@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.2] - 2026-11-26
+
 ### Changed
 
 - The remove × is larger and red.
