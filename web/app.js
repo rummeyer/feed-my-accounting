@@ -647,7 +647,9 @@ month = new Date(month.getFullYear(), month.getMonth(), 1);
 let plan = null;
 
 /** The travel month shown as the API has it: 2026-11. */
-const monthKey = () => `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+/** A month as every run and the command line take it: "11/2026". */
+const slashMonth = (d) => `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+const monthKey = () => slashMonth(month);
 
 $('prev-month').addEventListener('click', () => { month.setMonth(month.getMonth() - 1); loadTravel(); });
 $('next-month').addEventListener('click', () => { month.setMonth(month.getMonth() + 1); loadTravel(); });
@@ -656,7 +658,7 @@ $('next-month').addEventListener('click', () => { month.setMonth(month.getMonth(
 async function loadTravel() {
   $('month-title').textContent = `${MONTHS[month.getMonth()]} ${month.getFullYear()}`;
   try {
-    plan = await api('GET', `/api/travel/plan?month=${monthKey()}`);
+    plan = await api('GET', `/api/travel/plan?month=${encodeURIComponent(monthKey())}`);
   } catch (err) {
     $('calendar').replaceChildren(el('p', 'badge failed', err.message));
     return;
@@ -1977,9 +1979,9 @@ let closingMonth = null;
 /** Loads the closing month shown and shows it. */
 async function loadClosing() {
   let data;
-  const key = closingMonth && `${closingMonth.getFullYear()}-${String(closingMonth.getMonth() + 1).padStart(2, '0')}`;
+  const key = closingMonth && slashMonth(closingMonth);
   try {
-    data = await api('GET', `/api/closing${key ? `?month=${key}` : ''}`);
+    data = await api('GET', `/api/closing${key ? `?month=${encodeURIComponent(key)}` : ''}`);
   } catch (err) {
     $('closing').replaceChildren(el('li', 'badge failed', err.message));
     return;

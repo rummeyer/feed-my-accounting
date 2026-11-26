@@ -48,9 +48,6 @@ type Config struct {
 	Ask func(prompt string) (string, error)
 }
 
-// waitForHand is how long a run waits for someone in the live view.
-const waitForHand = 10 * time.Minute
-
 const site = "https://www.amazon.de"
 
 // Run downloads the invoices of the month's orders FetchedMonth names and sends them via email.
@@ -80,7 +77,7 @@ func Send(cfg Config, attachments []email.Attachment) error {
 
 // Collect downloads the invoices of the orders placed in month's month, without sending them.
 func Collect(cfg Config, month time.Time) ([]email.Attachment, error) {
-	opts := []browser.Option{browser.WithGermanLocale(), browser.WithWindowSize(1000, 720), browser.WithTimeout(10*time.Minute + waitForHand)}
+	opts := []browser.Option{browser.WithGermanLocale(), browser.WithWindowSize(1000, 720), browser.WithTimeout(10*time.Minute + browser.WaitForHand)}
 	if cfg.Profile != "" {
 		opts = append(opts, browser.WithProfile(cfg.Profile))
 	}
@@ -324,15 +321,8 @@ func typeInto(ctx context.Context, sel, value string) error {
 	if !ok {
 		return fmt.Errorf("field %s not found", sel)
 	}
-	if err := browser.TypeLikeAPerson(ctx, `[data-fma-field]`, value); err != nil {
+	if err := browser.TypeChecked(ctx, `[data-fma-field]`, value, ""); err != nil {
 		return err
-	}
-	var got int
-	if err := chromedp.Run(ctx, chromedp.Evaluate(`(document.querySelector('[data-fma-field]')?.value || '').length`, &got)); err != nil {
-		return err
-	}
-	if want := len([]rune(value)); got != want {
-		return fmt.Errorf("field holds %d of %d chars, not sent", got, want)
 	}
 	if err := browser.Pause(ctx, 700*time.Millisecond, 1800*time.Millisecond); err != nil {
 		return err
@@ -355,59 +345,38 @@ var handReasons = map[string]string{
 }
 
 // byHand asks someone to go on in the live view, and waits until Amazon has let them in, they
-// cancel, or waitForHand has passed. Without a live view, the reason is the error.
+// cancel, or browser.WaitForHand has passed. Without a live view, the reason is the error.
 func byHand(ctx context.Context, live *browser.Live, why string) error {
 	return byHandFill(ctx, live, why, "")
 }
 
 // byHandFill is byHand offering fill, the stored password, at a button in the live view.
 func byHandFill(ctx context.Context, live *browser.Live, why, fill string) error {
-	reason := handReasons[why]
-	if live == nil {
-		return fmt.Errorf("%s, log in via web interface (%w)", strings.ToLower(reason), browser.ErrNoLiveView)
-	}
-	logger.Printf("%s - waiting for live view", reason)
-	cancelled := live.OpenWith(ctx, why, fill)
-	defer live.Close()
-	deadline := time.After(waitForHand)
-	tick := time.NewTicker(2 * time.Second)
-	defer tick.Stop()
 	seen := ""
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-cancelled:
-			return browser.ErrGivenUp
-		case <-deadline:
-			return fmt.Errorf("%w after %d min", browser.ErrNoAnswer, int(waitForHand.Minutes()))
-		case <-tick.C:
+	return browser.ByHand(ctx, browser.Hand{
+		Live: live, Why: why, Reason: handReasons[why], Fill: fill, Log: logger,
+		In: func(ctx context.Context) bool {
 			// The login's cookie first, which a page loading does not hold up: after the code,
 			// Amazon's redirect hung for three minutes, and with it a look at the page
 			// (17.11.2026). Then — the look given a few seconds only — what the page says.
 			if signedIn(ctx) {
-				logger.Println("Logged in by hand")
 				stopLoading(ctx)
-				return nil
+				return true
 			}
 			var url, field string
 			look, done := context.WithTimeout(ctx, 3*time.Second)
-			err := chromedp.Run(look, chromedp.Location(&url), chromedp.Evaluate(fieldJS, &field))
-			done()
-			if err != nil {
-				continue
+			defer done()
+			if err := chromedp.Run(look, chromedp.Location(&url), chromedp.Evaluate(fieldJS, &field)); err != nil {
+				return false
 			}
 			// Each page it comes to, by its path: what Amazon asks after the code, say.
 			if path := pathOf(url); path != seen {
 				seen = path
 				logger.Printf("Live view on %s", path)
 			}
-			if handedOn(url, field) {
-				logger.Println("Logged in by hand")
-				return nil
-			}
-		}
-	}
+			return handedOn(url, field)
+		},
+	})
 }
 
 // signedIn says whether Amazon has given the browser its login, by its cookie: set the moment

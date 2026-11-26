@@ -5,7 +5,6 @@ package vodafone
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -41,9 +40,6 @@ type Config struct {
 	// interface's live view. Nil, as on the command line: such a login fails.
 	Live *browser.Live
 }
-
-// waitForHand is how long a run waits for someone to log in by hand in the live view.
-const waitForHand = 10 * time.Minute
 
 // ---------------------------------------------------------------------------
 // Internal types
@@ -108,7 +104,7 @@ func Send(cfg Config, attachments []email.Attachment) error {
 func Collect(cfg Config) ([]email.Attachment, error) {
 	// A fresh browser each run, nothing kept: a profile kept carried Vodafone's bot check's
 	// cookies from run to run, and logins it had taken for a robot with them (17.11.2026).
-	ctx, cancel := browser.NewContext(browser.WithGermanLocale(), browser.WithWindowSize(1000, 760), browser.WithTimeout(10*time.Minute+waitForHand))
+	ctx, cancel := browser.NewContext(browser.WithGermanLocale(), browser.WithWindowSize(1000, 760), browser.WithTimeout(10*time.Minute+browser.WaitForHand))
 	defer cancel()
 
 	logger.Println("Logging in to Vodafone...")
@@ -193,7 +189,7 @@ func login(ctx context.Context, cfg Config) error {
 		{"#username-text", cfg.Username, "username"},
 		{"#passwordField-input", cfg.Password, "password"},
 	} {
-		if err := typeInto(ctx, f.sel, f.value, f.name); err != nil {
+		if err := browser.TypeChecked(ctx, f.sel, f.value, f.name); err != nil {
 			// Not sent: what is in the field is not what is stored. Typed again or set by a
 			// script, a second try is what a bot check counts: for someone to look instead.
 			logger.Printf("%v", err)
@@ -241,29 +237,6 @@ func login(ctx context.Context, cfg Config) error {
 	return byHand(ctx, cfg.Live, "asks")
 }
 
-// typeInto types value into the field sel as a person would, emptied first, and checks it holds
-// just that: a field the page filled already would have it appended. Not set by a script when
-// it does not: an error, and nothing sent. The log says only lengths, never the value.
-func typeInto(ctx context.Context, sel, value, name string) error {
-	js, _ := json.Marshal(sel)
-	clear := fmt.Sprintf(`(() => { const e = document.querySelector(%s); if (e && e.value) { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); } })()`, js)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(clear, nil)); err != nil {
-		return err
-	}
-	if err := browser.TypeLikeAPerson(ctx, sel, value); err != nil {
-		return err
-	}
-	var got int
-	length := fmt.Sprintf(`(document.querySelector(%s)?.value || '').length`, js)
-	if err := chromedp.Run(ctx, chromedp.Evaluate(length, &got)); err != nil {
-		return err
-	}
-	if want := len([]rune(value)); got != want {
-		return fmt.Errorf("%s field holds %d of %d chars, not sent", name, got, want)
-	}
-	return nil
-}
-
 // loginPage looks at the login page every second, up to d, for what it shows: "form", the login
 // form; "captcha", its security code; "in", the page left for MeinVodafone itself, logged in
 // from before; "unknown", none of these by then. A plain look, which a page between two loads
@@ -300,39 +273,25 @@ var handReasons = map[string]string{
 
 // byHand asks someone to log in in the live view, and waits until MeinVodafone has let them in
 // — wrong tries along the way included, as they type — or until they cancel, or for
-// waitForHand. Without a live view, the reason is the error.
+// browser.WaitForHand. Without a live view, the reason is the error.
 func byHand(ctx context.Context, live *browser.Live, why string) error {
-	reason := handReasons[why]
-	if live == nil {
-		return fmt.Errorf("%s, log in via web interface (%w)", strings.ToLower(reason), browser.ErrNoLiveView)
+	if live != nil {
+		// The cookie banner out of the way first: it covers the login form.
+		chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))
 	}
-	// The cookie banner out of the way first: it covers the login form.
-	chromedp.Run(ctx, chromedp.Evaluate(`document.querySelector('#dip-consent-summary-reject-all')?.click()`, nil))
-	logger.Printf("%s - waiting for live view", reason)
-	cancelled := live.Open(ctx, why)
-	defer live.Close()
-	deadline := time.After(waitForHand)
-	tick := time.NewTicker(2 * time.Second)
-	defer tick.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-cancelled:
-			return browser.ErrGivenUp
-		case <-deadline:
-			return fmt.Errorf("%w after %d min", browser.ErrNoAnswer, int(waitForHand.Minutes()))
-		case <-tick.C:
+	return browser.ByHand(ctx, browser.Hand{
+		Live: live, Why: why, Reason: handReasons[why], Log: logger,
+		// In once the page is no longer the login, by what it says.
+		In: func(ctx context.Context) bool {
 			var url, text string
-			if err := chromedp.Run(ctx, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery)); err != nil {
-				continue // the page between two loads
+			look, done := context.WithTimeout(ctx, 3*time.Second)
+			defer done()
+			if err := chromedp.Run(look, chromedp.Location(&url), chromedp.Text(`body`, &text, chromedp.ByQuery)); err != nil {
+				return false // the page between two loads
 			}
-			if loginOutcome(url, text) == nil {
-				logger.Println("Logged in by hand")
-				return nil
-			}
-		}
-	}
+			return loginOutcome(url, text) == nil
+		},
+	})
 }
 
 var errStillOnLogin = errors.New("still on the login page")

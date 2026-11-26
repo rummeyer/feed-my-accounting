@@ -325,14 +325,8 @@ var weekdays = [...]string{"So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"}
 
 // travelPlan is a month's travel calendar: each day's client, kind and amounts, with the totals.
 func (s *server) travelPlan(w http.ResponseWriter, r *http.Request) {
-	cfg, err := s.config()
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err)
-		return
-	}
-	year, month, err := monthParam(r.URL.Query().Get("month"))
-	if err != nil {
-		fail(w, http.StatusBadRequest, err)
+	year, month, cfg, ok := s.monthConfig(w, r.URL.Query().Get("month"))
+	if !ok {
 		return
 	}
 	tc, err := travelConfig(cfg)
@@ -392,14 +386,8 @@ func (s *server) travelRun(send bool) http.HandlerFunc {
 		if !read(w, r, &in) {
 			return
 		}
-		year, month, err := monthParam(in.Month)
-		if err != nil {
-			fail(w, http.StatusBadRequest, err)
-			return
-		}
-		cfg, err := s.config()
-		if err != nil {
-			fail(w, http.StatusInternalServerError, err)
+		year, month, cfg, ok := s.monthConfig(w, in.Month)
+		if !ok {
 			return
 		}
 		tc, err := travelConfig(cfg)
@@ -1140,19 +1128,6 @@ func (s *server) change(edit func(*Config) error) error {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// monthParam reads "2026-12"; empty is this month.
-func monthParam(s string) (int, time.Month, error) {
-	if s == "" {
-		now := time.Now()
-		return now.Year(), now.Month(), nil
-	}
-	t, err := time.Parse("2006-01", s)
-	if err != nil {
-		return 0, 0, fmt.Errorf("month %q: want YYYY-MM", s)
-	}
-	return t.Year(), t.Month(), nil
-}
-
 // dateOrEmpty is a day as 2026-11-30; empty for none.
 func dateOrEmpty(t time.Time) string {
 	if t.IsZero() {
@@ -1234,10 +1209,12 @@ func (s *server) getClosing(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.Local)
 	if m := r.URL.Query().Get("month"); m != "" {
-		if month, err = time.ParseInLocation("2006-01", m, time.Local); err != nil {
-			fail(w, http.StatusBadRequest, fmt.Errorf("month %q: want YYYY-MM", m))
+		year, mon, err := slashMonth(m)
+		if err != nil {
+			fail(w, http.StatusBadRequest, err)
 			return
 		}
+		month = time.Date(year, mon, 1, 0, 0, 0, 0, time.Local)
 	}
 	d, err := ledgerOf(cfg).Data()
 	if err != nil {

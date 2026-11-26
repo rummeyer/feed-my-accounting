@@ -761,7 +761,10 @@ invoice-mails:
 ```
 feed-my-accounting/
 ├── browser/
-│   └── browser.go                # shared headless Chrome context
+│   ├── browser.go                # shared headless Chrome context
+│   ├── human.go                  # typing as a person does, checked before sending
+│   ├── live.go                   # the live view: a page handed over to a person
+│   └── handover.go               # logging in by hand, the same for Amazon and Vodafone
 ├── email/
 │   └── email.go                  # shared SMTP sending + IMAP fetching
 ├── travel-expense/
@@ -791,6 +794,7 @@ feed-my-accounting/
 ├── config.go                      # unified YAML config structs, loading and saving
 ├── server.go                      # web interface: pages and JSON API
 ├── auth.go                        # logins per employee, sessions, home network only
+├── totp.go                        # 2FA: Google Authenticator codes, browsers trusted 30 days
 ├── logins.go                      # the login gate: Amazon and Vodafone not too often
 ├── jobs.go                        # runs one job at a time, keeps its output
 ├── schedule.go                    # cron expressions and the built-in scheduler

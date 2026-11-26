@@ -2,7 +2,10 @@ package browser
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -44,6 +47,29 @@ func TypeLikeAPerson(ctx context.Context, sel, value string) error {
 		if err := Pause(ctx, gap, gap+150*time.Millisecond); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// TypeChecked types value into the field sel as TypeLikeAPerson does, emptied first, and checks
+// it holds just that: a field the page filled already would have it appended, a key lost would
+// be missing. An error then, for nothing to be sent; it says only lengths, never the value.
+// name is the field's, for the error.
+func TypeChecked(ctx context.Context, sel, value, name string) error {
+	js, _ := json.Marshal(sel)
+	clear := fmt.Sprintf(`(() => { const e = document.querySelector(%s); if (e && e.value) { e.value = ''; e.dispatchEvent(new Event('input', {bubbles: true})); } })()`, js)
+	if err := chromedp.Run(ctx, chromedp.Evaluate(clear, nil)); err != nil {
+		return err
+	}
+	if err := TypeLikeAPerson(ctx, sel, value); err != nil {
+		return err
+	}
+	var got int
+	if err := chromedp.Run(ctx, chromedp.Evaluate(fmt.Sprintf(`(document.querySelector(%s)?.value || '').length`, js), &got)); err != nil {
+		return err
+	}
+	if want := len([]rune(value)); got != want {
+		return fmt.Errorf("%s holds %d of %d chars, not sent", strings.TrimSpace(name+" field"), got, want)
 	}
 	return nil
 }

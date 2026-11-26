@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-11-26
+
+### Changed
+
+- **Logging in by hand, one code base**: Amazon and Vodafone hand a login over to the live view the same way — `browser.ByHand`, each site with its own look at whether it has let you in — the 10 minutes' wait, cancelling and the timeout shared. Typing a field as a person does and checking it before sending (`browser.TypeChecked`) is shared as well.
+- **One month format**: the travel expenses and *Abschluss* take a month as every run and the command line do, `11/2026`, no longer `2026-11`.
+
 ## [1.29.0] - 2026-11-26
 
 ### Added
